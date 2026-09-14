@@ -1,0 +1,9 @@
+{
+  "name": "Chip In HQ",
+  "short_name": "Chip In HQ",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f5f7fb",
+  "theme_color": "#0a2f57",
+  "description": "Business admin, invoices, expenses and tax tracking for Chip In."
+}
