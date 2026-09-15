@@ -23,10 +23,6 @@ setupGh=function(){
     btn.disabled=true;btn.textContent='Checking…';
     try{
       await checkToken(t);
-      // Detect whether this is the first device or an additional device.
-      // If encrypted cloud data already exists, verify the passphrase against it
-      // before storing anything locally. This prevents a second device accidentally
-      // creating a different encryption password.
       const old=ghToken;
       ghToken=t;
       let remote=null;
@@ -40,9 +36,33 @@ setupGh=function(){
       closeModal();
       await reconcileGh();
       render();
+      if(!state.settings.setupComplete&&!remote){
+        setTimeout(chipInAllowBusinessSetup,100);
+      }
       toast(remote?'This device is now linked to Chip In HQ':'Chip In HQ private storage created');
     }catch(err){
       btn.disabled=false;btn.textContent='Connect securely';toast(err.message);
+    }
+  };
+};
+
+// A device that already has its encrypted GitHub credential should only ask for
+// the shared Chip In HQ passphrase. Business setup is considered only after the
+// private store has been unlocked and reconciled.
+unlockBox=function(){
+  openModal(`<h2>Unlock Chip In HQ</h2><p class="sub">Enter your Chip In HQ passphrase to load the latest encrypted data from ChipIn-Data.</p><form id="ghUnlock"><div class="field"><label>Passphrase</label><input name="pass" type="password" autocomplete="current-password" required autofocus></div><div class="form-actions"><button class="btn secondary" type="button" data-close-modal>Use local copy only</button><button class="btn gold" type="submit">Unlock</button></div></form>`);
+  document.getElementById('ghUnlock').onsubmit=async e=>{
+    e.preventDefault();
+    const p=String(new FormData(e.target).get('pass')||''),b=e.target.querySelector('[type=submit]');
+    b.disabled=true;b.textContent='Unlocking…';
+    try{
+      await unlockGh(p);
+      closeModal();
+      render();
+      if(!state.settings.setupComplete)setTimeout(chipInAllowBusinessSetup,100);
+      toast('Private storage unlocked');
+    }catch(err){
+      b.disabled=false;b.textContent='Unlock';toast(err.message);
     }
   };
 };
