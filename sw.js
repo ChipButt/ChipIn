@@ -1,4 +1,4 @@
-const CACHE='chipin-hq-v6';
+const CACHE='chipin-hq-v7';
 const ASSETS=['./','./index.html','./styles.css','./app1.js','./app2_1.js','./app2_2.js','./app2_3.js','./app2_4.js','./app3.js','./app5_startup_gate.js','./app4.js','./app6.js','./app7.js','./app8_rates.js','./app9_jobs.js','./app10_settings_invoice.js','./manifest.webmanifest','./chip_in_logo_TRUE_TRANSPARENT.png'];
 self.addEventListener('install',e=>{self.skipWaiting();e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)))});
 self.addEventListener('activate',e=>e.waitUntil(Promise.all([caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))),self.clients.claim()])));
