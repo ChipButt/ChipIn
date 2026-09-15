@@ -4,47 +4,38 @@ A sole-trader admin website for Chip In, built around the workflow: find work �
 
 ## What it does
 
-- First-run business setup for legal name, address, bank details and invoice defaults.
+- Business setup for legal name, address, bank details and invoice defaults.
 - Client records.
 - Job workflow: Booked → In progress → Complete → Invoiced → Paid.
-- One-click invoice generation from a completed job.
 - Branded PDF invoices with unique invoice numbers and payment details.
 - Payment tracking, overdue status and outstanding totals.
-- Expense records with optional receipt attachments.
+- Expense records with receipt attachments.
 - UK tax-year dashboard and tax / Class 4 NI estimate.
 - PAYE income/tax fields so employed + self-employed work can be estimated together.
-- Full backup / restore.
-- CSV exports and a ZIP tax pack with receipts.
+- Full backup / restore, CSV exports and year-end tax packs.
 - Responsive mobile layout and installable PWA shell.
-- Google Drive / Google Sheets cross-device sync.
+- Encrypted cross-device sync through the private `ChipButt/ChipIn-Data` repository.
 
-## Google Drive data store
+## Private data architecture
 
-The private master data file is:
+The public `ChipButt/ChipIn` repository contains only the application code and public artwork.
 
-**Chip In HQ - Business Data**
+Private business data is written to `ChipButt/ChipIn-Data`, which must remain a **private** repository. Before anything sensitive is uploaded, Chip In HQ encrypts it in the browser with AES-GCM. The encryption key is derived from the user's Chip In HQ passphrase using PBKDF2-SHA256.
 
-It lives inside the private **Chip In HQ** folder in Google Drive. The app serialises the complete Chip In HQ backup into the `Sync` sheet in chunks, including client/job/invoice/expense records, settings and receipt attachments. This allows the same records to be restored and updated from a computer or phone.
+The private repository stores:
 
-The GitHub repository contains only the spreadsheet ID. It does **not** contain the spreadsheet contents, Google access tokens, bank details, client records or receipt files.
+- `data/chipin.enc` — encrypted business database.
+- `invoices/<tax-year>/<invoice>.pdf.enc` — encrypted issued invoice PDFs.
+- `receipts/<tax-year>/...enc` — encrypted receipt files.
+- `conflicts/...enc` — encrypted safety copies if two devices change the data at the same time.
 
-### One-time Google browser authorization
+The GitHub fine-grained token is encrypted locally in the browser with the same passphrase. The plaintext token and passphrase are never committed to either repository.
 
-Because the website is hosted on GitHub Pages, Google requires a browser OAuth Client ID before JavaScript is allowed to access a private Google Sheet.
+## Device setup
 
-Create a **Web application OAuth 2.0 Client ID** in Google Cloud, add this authorised JavaScript origin:
+Each device needs the fine-grained GitHub token once. The token should be restricted to **only `ChipIn-Data`** with **Contents: Read and write** permission. The user then enters the same Chip In HQ encryption passphrase to unlock the private records.
 
-`https://chipbutt.github.io`
-
-Then open **Chip In HQ → Settings → Google Drive sync**, paste the Client ID and press **Connect Google Drive**. Use the same Google account that owns the Chip In HQ data sheet.
-
-The Client ID is not a password or client secret. It may later be hard-coded into the app if desired so it does not need entering on each new device.
-
-## Local resilience
-
-Chip In HQ still keeps an IndexedDB copy on the current device, so the application remains local-first and can recover if the network is temporarily unavailable. When Google Drive is connected, changes are also synced to the private Google Sheet. The newest copy wins when another device connects.
-
-Use **Documents → Download backup** periodically as an additional independent backup.
+Chip In HQ still keeps a local IndexedDB copy so it can continue to work if the connection is temporarily unavailable. Once unlocked and online, changes sync to the encrypted private repository.
 
 ## GitHub Pages
 
