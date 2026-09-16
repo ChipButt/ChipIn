@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#0a2f57" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://api.github.com; worker-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'" />
+  <title>Chip In HQ</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha512-qZvrmS2ekKPF2mSznTQsxqPgnpkI4DNTlrdUmTzrDgektczlKNRRhy5X5AAOnx5S09ydFYWWNSfcEqDTTHgtNA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" integrity="sha512-XMVd28F1oH/O71fzwBnV7HucLxVwtxf26XV8P4wPk26EDxuGZ91N8bsOttmnomcCD3CS5ZMRL50H0GgOHvegtg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+</head>
+<body>
+  <div id="app">
+    <aside class="sidebar">
+      <div class="brand-wrap">
+        <img id="brandLogo" class="brand-logo" alt="Chip In" />
+        <div class="brand-sub">HQ</div>
+      </div>
+      <nav id="nav" class="nav"></nav>
+      <div class="sidebar-foot">
+        <button class="ghost-btn" id="backupQuickBtn">Backup data</button>
+        <div class="save-state" id="saveState">Saved on this device</div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <h1 id="pageTitle">Dashboard</h1>
+          <p id="pageSubtitle">Your business admin, in one place.</p>
+        </div>
+        <div class="top-actions" id="topActions"></div>
+      </header>
+      <section id="content" class="content"></section>
+    </main>
+  </div>
+
+  <div id="modal" class="modal hidden" aria-hidden="true">
+    <div class="modal-backdrop" data-close-modal></div>
+    <div class="modal-card">
+      <button class="modal-close" data-close-modal aria-label="Close">×</button>
+      <div id="modalBody"></div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <template id="emptyTemplate">
+    <div class="empty-state">
+      <div class="empty-icon">＋</div>
+      <h3>Nothing here yet</h3>
+      <p></p>
+    </div>
+  </template>
+
+  <script src="app1.js"></script>
+  <script src="app2_1.js"></script>
+  <script src="app2_2.js"></script>
+  <script src="app2_3.js"></script>
+  <script src="app2_4.js"></script>
+  <script src="app3.js"></script>
+  <script src="app5_startup_gate.js"></script>
+  <script src="app4.js"></script>
+  <script src="app6.js"></script>
+  <script src="app7.js"></script>
+  <script src="app8_rates.js"></script>
+  <script src="app9_jobs.js"></script>
+  <script src="app10_settings_invoice.js"></script>
+  <script src="app11_invoice_job_fixes.js"></script>
+  <script src="app12_receipts_refresh.js"></script>
+  <script src="app13_sync_tax_paid.js"></script>
+  <script src="app14_simple_tax_pot.js"></script>
+  <script src="app15_reports_calendar.js"></script>
+</body>
+</html>

@@ -1,50 +1,30 @@
-# Chip In HQ
+# Chip In
 
-A sole-trader admin website for Chip In, built around the workflow: find work → create job → do work → invoice → get paid → record expenses → track tax.
+The `ChipButt/ChipIn` repository now contains two separate public-path experiences:
 
-## What it does
+- **Public Chip In website:** `https://chipbutt.github.io/ChipIn/`
+- **Chip In HQ admin app:** `https://chipbutt.github.io/ChipIn/hq/`
 
-- Business setup for legal name, address, bank details and invoice defaults.
-- Client records.
-- Job workflow: Booked → In progress → Complete → Invoiced → Paid.
-- Branded PDF invoices with unique invoice numbers and payment details.
-- Payment tracking, overdue status and outstanding totals.
-- Expense records with receipt attachments.
-- UK tax-year dashboard and tax / Class 4 NI estimate.
-- PAYE income/tax fields so employed + self-employed work can be estimated together.
-- Full backup / restore, CSV exports and year-end tax packs.
-- Responsive mobile layout and installable PWA shell.
-- Encrypted cross-device sync through the private `ChipButt/ChipIn-Data` repository.
+The customer-facing website is the root of the GitHub Pages site. Chip In HQ remains the business admin application and is kept under `/hq/`.
+
+## Chip In HQ
+
+Chip In HQ covers the workflow: find work → create job → do work → invoice → get paid → record expenses → track tax.
+
+It includes clients, jobs, quotes, invoices, expenses, receipts, tax-pot reporting, calendar/prep planning, PDF invoices, backups and encrypted cross-device sync.
 
 ## Private data architecture
 
-The public `ChipButt/ChipIn` repository contains only the application code and public artwork.
+The public `ChipButt/ChipIn` repository contains application code and public website assets only.
 
-Private business data is written to `ChipButt/ChipIn-Data`, which must remain a **private** repository. Before anything sensitive is uploaded, Chip In HQ encrypts it in the browser with AES-GCM. The encryption key is derived from the user's Chip In HQ passphrase using PBKDF2-SHA256.
+Private business data is written to `ChipButt/ChipIn-Data`, which remains a **private** repository. Before sensitive information is uploaded, Chip In HQ encrypts it in the browser with AES-GCM. The encryption key is derived from the user's Chip In HQ passphrase using PBKDF2-SHA256.
 
-The private repository stores:
+The private repository stores encrypted state, invoice archives, receipts and conflict safety copies. The GitHub fine-grained token is encrypted locally in the browser; the plaintext token and passphrase are never committed to either repository.
 
-- `data/chipin.enc` — encrypted business database.
-- `invoices/<tax-year>/<invoice>.pdf.enc` — encrypted issued invoice PDFs.
-- `receipts/<tax-year>/...enc` — encrypted receipt files.
-- `conflicts/...enc` — encrypted safety copies if two devices change the data at the same time.
-
-The GitHub fine-grained token is encrypted locally in the browser with the same passphrase. The plaintext token and passphrase are never committed to either repository.
-
-## Device setup
-
-Each device needs the fine-grained GitHub token once. The token should be restricted to **only `ChipIn-Data`** with **Contents: Read and write** permission. The user then enters the same Chip In HQ encryption passphrase to unlock the private records.
-
-Chip In HQ still keeps a local IndexedDB copy so it can continue to work if the connection is temporarily unavailable. Once unlocked and online, changes sync to the encrypted private repository.
+Moving the admin app to `/hq/` does not change the `ChipIn-Data` repository, token permissions, passphrase or GitHub API connection. IndexedDB and localStorage remain on the same `chipbutt.github.io` origin.
 
 ## GitHub Pages
 
-Pushes to `main` deploy automatically through the included GitHub Pages workflow.
+Pushes to `main` deploy automatically using `.github/workflows/pages.yml`.
 
-Live app:
-
-`https://chipbutt.github.io/ChipIn/`
-
-## Tax estimate
-
-The tax screen is an administrative estimate, not tax advice or a submitted HMRC return. Always check the final position with HMRC / Self Assessment, especially if there are other income sources, benefits, student loans, capital gains, pensions or unusual reliefs.
+The root service worker is intentionally a one-time migration worker that clears the old root-scoped Chip In HQ cache and unregisters itself. Chip In HQ has its own service worker inside `/hq/`, scoped to that folder.
