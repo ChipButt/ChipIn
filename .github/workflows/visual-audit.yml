@@ -1,0 +1,71 @@
+name: Visual audit portfolio
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'finished-projects.html'
+      - 'portfolio.css'
+      - 'site.css'
+      - '.github/workflows/visual-audit.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Playwright
+        run: |
+          npm init -y >/dev/null 2>&1
+          npm install playwright@1.55.0 >/dev/null 2>&1
+          npx playwright install --with-deps chromium >/dev/null 2>&1
+      - name: Render and audit
+        run: |
+          python3 -m http.server 4173 >/tmp/chipin-server.log 2>&1 &
+          node <<'JS'
+          const { chromium } = require('playwright');
+          const fs = require('fs');
+          (async()=>{
+            const browser=await chromium.launch({headless:true});
+            const viewports=[
+              {name:'desktop',width:1440,height:1000},
+              {name:'tablet',width:900,height:1000},
+              {name:'mobile',width:390,height:844}
+            ];
+            const report=[];
+            fs.mkdirSync('visual-audit',{recursive:true});
+            for(const vp of viewports){
+              const page=await browser.newPage({viewport:{width:vp.width,height:vp.height}});
+              await page.goto('http://127.0.0.1:4173/finished-projects.html',{waitUntil:'domcontentloaded'});
+              await page.waitForTimeout(800);
+              const metrics=await page.evaluate(()=>({
+                viewport:{w:innerWidth,h:innerHeight},
+                body:{scrollWidth:document.body.scrollWidth,clientWidth:document.body.clientWidth},
+                heading:document.querySelector('.portfolio-heading')?.getBoundingClientRect().toJSON(),
+                projects:[...document.querySelectorAll('.project-showcase')].map((el,i)=>{
+                  const visual=el.querySelector('.project-visual');
+                  const frame=el.querySelector('.asset-frame');
+                  const content=el.querySelector('.frame-content');
+                  const copy=el.querySelector('.project-copy');
+                  const r=x=>x?x.getBoundingClientRect().toJSON():null;
+                  return {i,card:r(el),visual:r(visual),frame:r(frame),content:r(content),copy:r(copy)};
+                })
+              }));
+              report.push({name:vp.name,...metrics});
+              await page.screenshot({path:`visual-audit/${vp.name}.png`,fullPage:true});
+              await page.close();
+            }
+            fs.writeFileSync('visual-audit/report.json',JSON.stringify(report,null,2));
+            console.log(JSON.stringify(report,null,2));
+            await browser.close();
+          })().catch(e=>{console.error(e);process.exit(1)});
+          JS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: visual-audit
+          path: visual-audit/
+          retention-days: 1
