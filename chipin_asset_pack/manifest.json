@@ -1,0 +1,41 @@
+{
+  "logo": [
+    "logo/chip_in_logo.png"
+  ],
+  "hero": [
+    "hero/chip_in_hero.png"
+  ],
+  "buttons": [
+    "buttons/lets_get_started_button.png"
+  ],
+  "service_titles": [
+    "service_titles/video_creation.png",
+    "service_titles/website_design.png",
+    "service_titles/production.png",
+    "service_titles/admin_support.png",
+    "service_titles/pub_quizzes.png"
+  ],
+  "icons": [
+    "icons/arrow_left.png",
+    "icons/arrow_right.png",
+    "icons/calendar.png",
+    "icons/chat_bubble.png",
+    "icons/chat_bubbles.png",
+    "icons/check.png",
+    "icons/close.png",
+    "icons/envelope.png",
+    "icons/external_link.png",
+    "icons/gallery.png",
+    "icons/home.png",
+    "icons/lightning.png",
+    "icons/location_pin.png",
+    "icons/phone.png",
+    "icons/play.png",
+    "icons/pound.png",
+    "icons/tools.png"
+  ],
+  "reference_sheets": [
+    "reference_sheets/approved_icons_set_1.png",
+    "reference_sheets/approved_icons_set_2.png"
+  ]
+}
