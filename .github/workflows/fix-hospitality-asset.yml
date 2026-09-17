@@ -26,7 +26,7 @@ jobs:
       - name: Install Pillow
         run: python -m pip install --disable-pip-version-check pillow
 
-      - name: Chroma-key green and verify true alpha PNG
+      - name: Chroma-key green, trim visible artwork and verify true alpha PNG
         run: |
           python - <<'PY'
           from PIL import Image
@@ -55,14 +55,16 @@ jobs:
 
           image.putdata(keyed)
 
+          # Determine the crop from pixels that are genuinely visible. Very faint
+          # alpha remnants from the keyed background must not define the canvas.
           alpha = image.getchannel('A')
-          bbox = alpha.getbbox()
+          visible_mask = alpha.point(lambda value: 255 if value >= 32 else 0)
+          bbox = visible_mask.getbbox()
           if not bbox:
               raise RuntimeError('Chroma key removed the entire image.')
 
-          # Keep a small transparent breathing-space around the artwork.
           left, top, right, bottom = bbox
-          pad = 12
+          pad = 18
           left = max(0, left - pad)
           top = max(0, top - pad)
           right = min(image.width, right + pad)
@@ -88,7 +90,14 @@ jobs:
           if remaining_green > 25:
               raise RuntimeError(f'Green spill verification failed: {remaining_green} pixels remain.')
 
-          print(f'Created {output}: {check.size[0]}x{check.size[1]}, mode={check.mode}, transparent_pixels={transparent_pixels}, remaining_green={remaining_green}')
+          # Report the meaningful visible bounds too, so the service-title scale
+          # can be checked against the other artwork rather than the PNG canvas.
+          meaningful = alpha.point(lambda value: 255 if value >= 32 else 0).getbbox()
+          print(
+              f'Created {output}: {check.size[0]}x{check.size[1]}, mode={check.mode}, '
+              f'meaningful_bbox={meaningful}, transparent_pixels={transparent_pixels}, '
+              f'remaining_green={remaining_green}'
+          )
           PY
 
       - name: Commit repaired asset
@@ -99,6 +108,6 @@ jobs:
           if git diff --cached --quiet; then
             echo "No asset change required."
           else
-            git commit -m "Repair Hospitality transparent artwork"
+            git commit -m "Normalize Hospitality title artwork size"
             git push
           fi
