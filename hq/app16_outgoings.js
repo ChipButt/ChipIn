@@ -3,6 +3,8 @@
 (function(){
   DEFAULT_STATE.outgoings=DEFAULT_STATE.outgoings||[];
   if(!state.outgoings)state.outgoings=[];
+  const OUTGOINGS_SEED_VERSION='april-2024-v1';
+  let outgoingsSeedLoading16=false;
 
   if(!NAV.some(x=>x[0]==='outgoings')){
     const taxIndex=NAV.findIndex(x=>x[0]==='tax');
@@ -52,6 +54,33 @@
     return{...income,target,gap,surplus,profitNeeded,pct};
   }
 
+  async function ensurePrivateOutgoings16(){
+    if(outgoings16().length){
+      if(!state.settings.outgoingsSeedVersion)state.settings.outgoingsSeedVersion='existing-data';
+      return false;
+    }
+    if(state.settings.outgoingsSeedVersion||outgoingsSeedLoading16||!ghUnlocked)return false;
+    outgoingsSeedLoading16=true;
+    try{
+      const f=await getFile('data/outgoings_seed.json');
+      if(!f)return false;
+      const seed=JSON.parse(f.text);
+      if(seed.format!=='ChipInOutgoingsSeed'||!Array.isArray(seed.items))throw Error('Private outgoings baseline is not recognised.');
+      state.outgoings=seed.items.map((x,i)=>({
+        id:x.id||uid('out'),name:String(x.name||'').trim(),amount:Math.max(0,Number(x.amount||0)),group:String(x.group||'Other').trim()||'Other',
+        notes:String(x.notes||''),dueDay:x.dueDay==null?null:Math.max(1,Math.min(31,Number(x.dueDay)||1)),active:x.active!==false,
+        createdAt:x.createdAt||new Date().toISOString()
+      })).filter(x=>x.name);
+      state.settings.outgoingsSeedVersion=seed.version||OUTGOINGS_SEED_VERSION;
+      state.settings.outgoingsLoadedAt=new Date().toISOString();
+      await saveState();
+      render();
+      toast('Outgoings loaded from private ChipIn-Data');
+      return true;
+    }catch(err){console.error(err);toast('Could not load private outgoings baseline');return false}
+    finally{outgoingsSeedLoading16=false}
+  }
+
   function outgoingForm16(o={}){
     const known=groups16(),group=o.group||known[0]||'Essential Fixed';
     return `<h2>${o.id?'Edit':'Add'} outgoing</h2><p class="sub">This is a personal monthly outgoing. It does not alter business expenses or the Tax-pot calculation.</p><form id="outgoingForm16"><div class="form-grid">
@@ -68,44 +97,17 @@
     $('#outgoingForm16').onsubmit=async e=>{e.preventDefault();const v=Object.fromEntries(new FormData(e.target).entries());v.amount=Math.max(0,Number(v.amount||0));v.dueDay=v.dueDay===''?null:Math.max(1,Math.min(31,Number(v.dueDay||1)));v.active=v.active==='true';v.group=String(v.group||'Other').trim()||'Other';v.name=String(v.name||'').trim();const target=o.id?o:{id:uid('out'),createdAt:new Date().toISOString()};Object.assign(target,v);if(!o.id)state.outgoings.push(target);await saveState();closeModal();render();toast('Outgoing saved')};
   }
 
-  function parseOutgoingsWorkbook16(file){
-    return file.arrayBuffer().then(buf=>{
-      if(!window.XLSX)throw Error('Spreadsheet reader did not load. Refresh while online and try again.');
-      const book=XLSX.read(buf,{type:'array'}),sheetName=book.SheetNames.includes('April 2024')?'April 2024':book.SheetNames[0];
-      if(!sheetName)throw Error('No worksheet was found in that file.');
-      const rows=XLSX.utils.sheet_to_json(book.Sheets[sheetName],{header:1,raw:false,defval:''});let group='',started=false;const items=[];
-      for(const row of rows){
-        const label=String(row[0]??'').trim(),rawAmount=row[1],note=String(row[3]??'').trim();
-        if(/^Income$/i.test(label))break;
-        if(/^Monthly expenses$/i.test(label)){started=true;continue}
-        if(!started||!label)continue;
-        const a=amount16(rawAmount),hasNumber=String(rawAmount??'').trim()!==''&&!Number.isNaN(Number(String(rawAmount).replace(/[£,\s]/g,'')));
-        if(!hasNumber){
-          if(!/total|estimate/i.test(label))group=label.replace(/\s+covers\s+…?$/i,'').trim()||label;
-          continue;
-        }
-        if(/total expenses|estimate$/i.test(label))continue;
-        if(!group)group='Other';
-        items.push({id:uid('out'),name:label,amount:a,group,notes:note,dueDay:null,active:true,createdAt:new Date().toISOString()});
-      }
-      if(!items.length)throw Error(`No monthly outgoing rows were found in ${sheetName}.`);
-      return{items,sheetName};
-    });
-  }
-  function startImport16(){
-    const input=document.createElement('input');input.type='file';input.accept='.xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv';
-    input.onchange=async()=>{const file=input.files?.[0];if(!file)return;try{const result=await parseOutgoingsWorkbook16(file);if(outgoings16().length&&!window.confirm(`Replace your ${outgoings16().length} current outgoing entries with ${result.items.length} entries from ${result.sheetName}?`))return;state.outgoings=result.items;state.settings.outgoingsImportedAt=new Date().toISOString();state.settings.outgoingsImportSheet=result.sheetName;await saveState();render();toast(`${result.items.length} outgoings imported from ${result.sheetName}`)}catch(err){console.error(err);toast(err.message)}};input.click();
-  }
-
   function outgoingRows16(items){
     return items.map(o=>`<tr class="${o.active===false?'outgoing-paused16':''}"><td><strong>${esc(o.name)}</strong>${o.notes?`<div class="muted">${esc(o.notes)}</div>`:''}</td><td>${o.dueDay?`Day ${o.dueDay}`:'—'}</td><td>${o.active===false?'<span class="badge">Paused</span>':'<span class="badge ok">Included</span>'}</td><td><strong>${money(o.amount)}</strong></td><td class="right"><div class="row-actions"><button class="btn small secondary" data-action="edit-outgoing" data-id="${o.id}">Edit</button><button class="icon-btn" data-action="delete-outgoing" data-id="${o.id}">×</button></div></td></tr>`).join('');
   }
   function renderOutgoings16(){
+    if(!outgoings16().length&&!state.settings.outgoingsSeedVersion&&ghUnlocked&&!outgoingsSeedLoading16){ensurePrivateOutgoings16();}
+    if(outgoings16().length&&!state.settings.outgoingsSeedVersion)state.settings.outgoingsSeedVersion='existing-data';
     const month=TODAY().slice(0,7),cover=coverage16(month),groupRows=groups16(),active=activeOutgoings16(),groupTotals=groupTotals16(),todayDay=new Date().getDate();
-    const dueKnown=active.filter(o=>Number(o.dueDay)>0),dueLater=dueKnown.filter(o=>Number(o.dueDay)>todayDay).reduce((s,o)=>s+Number(o.amount||0),0),dueByNow=dueKnown.filter(o=>Number(o.dueDay)<=todayDay).reduce((s,o)=>s+Number(o.amount||0),0);
+    const dueKnown=active.filter(o=>Number(o.dueDay)>0),dueLater=dueKnown.filter(o=>Number(o.dueDay)>todayDay).reduce((sum,o)=>sum+Number(o.amount||0),0),dueByNow=dueKnown.filter(o=>Number(o.dueDay)<=todayDay).reduce((sum,o)=>sum+Number(o.amount||0),0);
     const groupCards=groupTotals.map(g=>`<div class="card stat"><div class="label">${esc(g.group)}</div><div class="value">${money(g.total)}</div><div class="hint">Monthly total</div></div>`).join('');
-    const sections=groupRows.map(g=>{const rows=outgoings16().filter(o=>(o.group||'Other')===g);return `<div class="section-title outgoing-group-title16"><div><h2>${esc(g)}</h2><p>${rows.filter(x=>x.active!==false).length} included · ${money(rows.filter(x=>x.active!==false).reduce((s,x)=>s+Number(x.amount||0),0))}/month</p></div></div><div class="table-wrap"><table><thead><tr><th>Outgoing</th><th>Due</th><th>Status</th><th>Monthly amount</th><th></th></tr></thead><tbody>${outgoingRows16(rows)}</tbody></table></div>`}).join('');
-    const importHint=outgoings16().length?'Importing again will replace the current list after confirmation.':'Your current spreadsheet can be imported without putting any personal figures in the public GitHub code.';
+    const sections=groupRows.map(g=>{const rows=outgoings16().filter(o=>(o.group||'Other')===g);return `<div class="section-title outgoing-group-title16"><div><h2>${esc(g)}</h2><p>${rows.filter(x=>x.active!==false).length} included · ${money(rows.filter(x=>x.active!==false).reduce((sum,x)=>sum+Number(x.amount||0),0))}/month</p></div></div><div class="table-wrap"><table><thead><tr><th>Outgoing</th><th>Due</th><th>Status</th><th>Monthly amount</th><th></th></tr></thead><tbody>${outgoingRows16(rows)}</tbody></table></div>`}).join('');
+    const emptyMessage=outgoingsSeedLoading16?'Loading your saved outgoings from private storage…':(!ghUnlocked&&!state.settings.outgoingsSeedVersion?'Unlock private storage to load your saved outgoings.':'No outgoings currently listed. Add one with the button above.');
     $('#content').innerHTML=`
       <div class="grid cards outgoing-summary16" style="grid-template-columns:repeat(3,minmax(0,1fr))">
         <div class="card stat"><div class="accent-bar"></div><div class="label">Monthly outgoings</div><div class="value">${money(cover.target)}</div><div class="hint">${active.length} active commitments</div></div>
@@ -114,11 +116,10 @@
       </div>
       <div class="outgoing-cover16"><div><strong>${money(cover.usable)}</strong> usable income against <strong>${money(cover.target)}</strong> monthly outgoings</div><div class="progress"><div style="width:${cover.pct}%"></div></div></div>
       ${dueKnown.length?`<div class="grid cards" style="grid-template-columns:repeat(2,minmax(0,1fr));margin-top:14px"><div class="card stat"><div class="label">Known due dates up to today</div><div class="value">${money(dueByNow)}</div><div class="hint">Based on the due days you have entered</div></div><div class="card stat"><div class="label">Known due later this month</div><div class="value">${money(dueLater)}</div><div class="hint">Does not include entries with no due day yet</div></div></div>`:''}
-      <div class="section-title"><div><h2>Monthly commitments</h2><p>These are personal outgoings. They are separate from the business Expenses page and do not reduce the Tax-pot calculation.</p></div><div class="row-actions"><button class="btn secondary" id="importOutgoings16">Import spreadsheet</button><button class="btn" data-action="new-outgoing">+ Outgoing</button></div></div>
-      <div class="hint-box" style="margin-bottom:14px"><strong>Private by design.</strong> ${esc(importHint)} The import reads the spreadsheet in your browser, then saves the resulting list into Chip In HQ's private/local state.</div>
+      <div class="section-title"><div><h2>Monthly commitments</h2><p>These are personal outgoings. They are separate from the business Expenses page and do not reduce the Tax-pot calculation.</p></div><div class="row-actions"><button class="btn" data-action="new-outgoing">+ Outgoing</button></div></div>
       ${groupCards?`<div class="grid cards outgoing-groups16" style="grid-template-columns:repeat(auto-fit,minmax(190px,1fr));margin-bottom:18px">${groupCards}</div>`:''}
-      ${sections||empty('No outgoings yet. Import your spreadsheet or add the first one manually.')}`;
-    $('#importOutgoings16').onclick=startImport16;wirePageActions();
+      ${sections||empty(emptyMessage)}`;
+    wirePageActions();
   }
 
   const baseHandleAction16=handleAction;
@@ -144,7 +145,8 @@
     baseRenderDashboard16();
     const month=TODAY().slice(0,7),c=coverage16(month),panel=document.createElement('div');panel.id='dashboardOutgoings16';panel.className='card dashboard-outgoings16';
     if(!outgoings16().length){
-      panel.innerHTML=`<div class="section-title" style="margin:0"><div><h2>Monthly outgoings</h2><p>Import your private outgoings spreadsheet to see how much usable income you need each month.</p></div><button class="btn" data-action="go-outgoings">Set up outgoings</button></div>`;
+      if(ghUnlocked&&!state.settings.outgoingsSeedVersion&&!outgoingsSeedLoading16)ensurePrivateOutgoings16();
+      panel.innerHTML=`<div class="section-title" style="margin:0"><div><h2>Monthly outgoings</h2><p>${outgoingsSeedLoading16?'Loading your saved outgoings from private storage…':(!ghUnlocked?'Unlock private storage to load your saved outgoings.':'Your private outgoings are ready to be loaded.')}</p></div><button class="btn" data-action="go-outgoings">Open outgoings</button></div>`;
     }else{
       const headline=c.gap>0?`${money(c.gap)} usable income still to cover`:`Covered · ${money(c.surplus)} spare`,needed=c.gap>0&&Number.isFinite(c.profitNeeded)?`${money(c.profitNeeded)} additional job profit would create the remaining usable income at a ${c.rate}% reserve.`:'Your monthly outgoings are covered by usable income received so far.';
       panel.innerHTML=`<div class="outgoing-dashboard-grid16"><div><div class="label muted">${monthLabel16(month).toUpperCase()} OUTGOINGS</div><div class="outgoing-dashboard-big16">${money(c.target)}</div><div class="muted">Usable income received: <strong>${money(c.usable)}</strong></div></div><div><div class="label muted">MONTHLY POSITION</div><div class="outgoing-dashboard-big16 ${c.gap>0?'need16':'covered16'}">${headline}</div><div class="muted">${needed}</div></div></div><div class="progress" style="margin-top:14px"><div style="width:${c.pct}%"></div></div><div class="row-actions" style="justify-content:flex-end;margin-top:10px"><button class="btn small secondary" data-action="go-outgoings">Open outgoings</button></div>`;
