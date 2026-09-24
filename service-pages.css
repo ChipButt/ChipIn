@@ -19,3 +19,4 @@
 
 .hospitality-price-form .builder-grid{grid-template-columns:repeat(3,minmax(0,1fr));align-items:start}.hospitality-price-form .builder-field{grid-template-rows:1.5em 48px auto;align-content:start}.hospitality-price-form .builder-field>label{margin:0;display:flex;align-items:flex-end}.hospitality-price-form .builder-field>select{height:48px;min-height:48px;padding-top:0;padding-bottom:0}
 @media(max-width:820px){.hospitality-price-form .builder-grid{grid-template-columns:1fr}.hospitality-price-form .builder-field{grid-template-rows:auto 48px auto}.hospitality-price-form .builder-field>label{min-height:0}}
+.website-builder-disclaimer{margin:14px 0 0!important;padding:0!important;border:0!important;border-radius:0!important;background:transparent!important;text-align:center}
