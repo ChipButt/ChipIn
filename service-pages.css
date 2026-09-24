@@ -15,3 +15,6 @@
 @media(max-width:820px){.website-package-visual{grid-template-columns:minmax(0,1fr) 190px;gap:20px}.package-phone-mockup{width:168px}}
 @media(max-width:700px){.website-package-heading{grid-template-columns:1fr}.package-price-badge{width:150px}.website-package-visual{grid-template-columns:1fr;gap:28px;padding:18px}.package-phone-mockup{width:170px}.website-price-form .builder-field{grid-template-rows:auto 48px auto}.website-price-form .builder-field>label{min-height:0}}
 @media(max-width:460px){.website-package-showcase{padding:17px}.website-package-visual{padding:15px}.package-phone-mockup{width:156px}.package-inclusion-grid span{font-size:.76rem}}
+
+.hospitality-price-form .builder-grid{grid-template-columns:repeat(3,minmax(0,1fr));align-items:start}.hospitality-price-form .builder-field{grid-template-rows:1.5em 48px auto;align-content:start}.hospitality-price-form .builder-field>label{margin:0;display:flex;align-items:flex-end}.hospitality-price-form .builder-field>select{height:48px;min-height:48px;padding-top:0;padding-bottom:0}
+@media(max-width:820px){.hospitality-price-form .builder-grid{grid-template-columns:1fr}.hospitality-price-form .builder-field{grid-template-rows:auto 48px auto}.hospitality-price-form .builder-field>label{min-height:0}}
