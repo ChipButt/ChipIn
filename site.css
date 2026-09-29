@@ -55,3 +55,40 @@ body.video-modal-open{overflow:hidden}
 }
 
 .why-chip-signoff{margin-top:20px!important;text-align:center;font-family:Fredoka,Inter,sans-serif;font-size:clamp(1.35rem,2.4vw,1.8rem)!important;color:var(--navy)!important}
+
+/* CLEAN EDGE-TO-EDGE VIDEO VIEWER */
+.video-viewer-panel .modal-top{display:none!important}
+.modal-panel.video-viewer-panel{position:relative;background:#000}
+.video-viewer-panel .modal-video{position:absolute;inset:0;width:100%;height:100%;background:#000}
+.video-viewer-panel .modal-video iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#000}
+.modal-close-floating{
+  position:fixed;
+  top:max(12px,env(safe-area-inset-top));
+  right:12px;
+  z-index:10;
+  width:48px;
+  height:48px;
+  padding:0!important;
+  border:0;
+  border-radius:50%!important;
+  display:grid;
+  place-items:center;
+  background:rgba(8,47,104,.94)!important;
+  color:#fff!important;
+  font-family:Inter,sans-serif!important;
+  font-size:2rem!important;
+  font-weight:400!important;
+  line-height:1!important;
+  box-shadow:0 8px 24px rgba(0,0,0,.28);
+  backdrop-filter:blur(8px)
+}
+.modal-close-floating:active{transform:scale(.96)}
+@media(max-width:620px){
+  .modal-close-floating{
+    width:44px;
+    height:44px;
+    right:10px;
+    top:max(10px,env(safe-area-inset-top));
+    font-size:1.8rem!important
+  }
+}
