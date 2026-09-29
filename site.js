@@ -15,7 +15,12 @@
     else if(watch)id=watch[1];
     else if(embed)id=embed[1];
     else if(shorts)id=shorts[1];
-    return id ? `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&playsinline=1&controls=1&rel=0&modestbranding=1` : '';
+    const isShorts=/youtube(?:-nocookie)?\.com\/shorts\//i.test(value);
+    if(!id)return '';
+    const params=isShorts
+      ? 'autoplay=1&mute=1&playsinline=1&controls=1&rel=0&enablejsapi=1'
+      : 'autoplay=1&playsinline=1&controls=1&rel=0';
+    return `https://www.youtube-nocookie.com/embed/${id}?${params}`;
   }
 
   function openVideo(trigger){
@@ -25,12 +30,22 @@
     const src=trigger.dataset.video||'';
     const title=trigger.dataset.title||'Video';
     const youtubeSrc=youtubeEmbedUrl(src);
+    const isYoutubeShort=/youtube(?:-nocookie)?\.com\/shorts\//i.test(src);
 
     videoHost.className=`modal-video ${ratio}`;
     panel.className='modal-panel video-viewer-panel';
 
     if(youtubeSrc){
       videoHost.innerHTML=`<iframe class="ci-youtube-frame" src="${youtubeSrc}" title="${title.replace(/"/g,'&quot;')}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen webkitallowfullscreen></iframe>`;
+      if(isYoutubeShort){
+        const frame=videoHost.querySelector('.ci-youtube-frame');
+        frame?.addEventListener('load',()=>{
+          const send=(func)=>frame.contentWindow?.postMessage(JSON.stringify({event:'command',func,args:[]}), '*');
+          setTimeout(()=>send('playVideo'),120);
+          setTimeout(()=>send('unMute'),450);
+          setTimeout(()=>send('playVideo'),650);
+        },{once:true});
+      }
     }else if(/\.mp4(?:$|\?)/i.test(src) && !/^https?:\/\/drive\.google\.com/i.test(src)){
       videoHost.innerHTML=`<video class="ci-native-video" src="${src}" title="${title.replace(/"/g,'&quot;')}" controls playsinline autoplay preload="metadata"></video>`;
     }else{
