@@ -3,59 +3,31 @@
   const panel=document.getElementById('modalPanel');
   const videoHost=document.getElementById('modalVideo');
   const closeButton=document.getElementById('closeModal');
-  let hideTimer=null;
-
-  function formatTime(seconds){
-    if(!Number.isFinite(seconds))return '0:00';
-    const total=Math.max(0,Math.floor(seconds));
-    const mins=Math.floor(total/60);
-    const secs=String(total%60).padStart(2,'0');
-    return `${mins}:${secs}`;
-  }
-
-  function driveFileId(url){
-    const match=String(url||'').match(/\/d\/([^/]+)/);
-    return match?match[1]:'';
-  }
-
-    function clearHideTimer(){
-    if(hideTimer){
-      clearTimeout(hideTimer);
-      hideTimer=null;
-    }
-  }
-
-  function scheduleControlsHide(shell,video){
-    clearHideTimer();
-    if(video.paused||video.ended)return;
-    hideTimer=setTimeout(()=>shell.classList.remove('controls-visible'),1800);
-  }
 
   function openVideo(trigger){
-    if(!modal||!videoHost)return;
+    if(!modal||!panel||!videoHost)return;
 
     const ratio=trigger.dataset.ratio||'landscape';
-    const originalUrl=trigger.dataset.video;
-    const src=originalUrl;
+    const src=trigger.dataset.video||'';
+    const title=trigger.dataset.title||'Video';
 
     videoHost.className=`modal-video ${ratio}`;
     panel.className='modal-panel video-viewer-panel';
 
-    videoHost.innerHTML=`
-      <div class="ci-video-shell controls-visible">
-        <iframe class="ci-drive-frame" src="${src}" title="${(trigger.dataset.title||'Video').replace(/"/g,'&quot;')}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen webkitallowfullscreen></iframe>
-      </div>`;
+    if(/\.mp4(?:$|\?)/i.test(src) && !/^https?:\/\/drive\.google\.com/i.test(src)){
+      videoHost.innerHTML=`<video class="ci-native-video" src="${src}" title="${title.replace(/"/g,'&quot;')}" controls playsinline autoplay preload="metadata"></video>`;
+    }else{
+      videoHost.innerHTML=`<iframe class="ci-drive-frame" src="${src}" title="${title.replace(/"/g,'&quot;')}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen webkitallowfullscreen></iframe>`;
+    }
 
     modal.classList.add('show');
     modal.setAttribute('aria-hidden','false');
     document.body.classList.add('video-modal-open');
 
-    const promise=video.play();
-    if(promise&&typeof promise.catch==='function'){
-      promise.catch(()=>{
-        shell.classList.add('controls-visible');
-        updateButtons();
-      });
+    const localVideo=videoHost.querySelector('video');
+    if(localVideo){
+      const playPromise=localVideo.play();
+      if(playPromise&&typeof playPromise.catch==='function')playPromise.catch(()=>{});
     }
   }
 
@@ -65,8 +37,9 @@
 
   function close(){
     if(!modal)return;
-    clearHideTimer();
-        modal.classList.remove('show');
+    const localVideo=videoHost?.querySelector('video');
+    if(localVideo)localVideo.pause();
+    modal.classList.remove('show');
     modal.setAttribute('aria-hidden','true');
     document.body.classList.remove('video-modal-open');
     if(videoHost)videoHost.innerHTML='';
