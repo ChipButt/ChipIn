@@ -5,7 +5,7 @@
 .why-chip{padding:68px 0 82px;position:relative;overflow:hidden}
 .why-chip:before{content:"";position:absolute;width:390px;height:390px;border-radius:50%;background:rgba(247,189,24,.10);right:-175px;top:120px;pointer-events:none}
 .why-chip-wrap{position:relative}
-.why-chip-heading{max-width:920px;margin:0 auto 34px;text-align:center}
+.why-chip-heading{max-width:920px;margin:0 auto 34px;text-align:center;}
 .why-chip-kicker{display:inline-block;margin-bottom:10px;color:var(--gold);font-family:Fredoka,Inter,sans-serif;font-size:.9rem;font-weight:800;letter-spacing:.12em}
 .why-chip-heading h2{margin:0;color:var(--navy);font-size:clamp(2.3rem,5vw,4.25rem);line-height:1.03;font-weight:700}
 .why-chip-story{background:rgba(255,255,255,.94);border:1px solid var(--line);border-radius:30px;padding:34px 38px 30px;box-shadow:var(--shadow)}
@@ -27,7 +27,7 @@
 }
 @media(max-width:620px){
   .why-chip{padding-top:46px}
-  .why-chip-heading{text-align:left;margin-bottom:25px}
+  .why-chip-heading{text-align:center;margin-bottom:25px}
   .why-chip-story{padding:22px}
   .why-chip-top{grid-template-columns:1fr}
   .why-chip-photo-wrap{width:min(78%,290px);margin:0 auto}
@@ -53,3 +53,5 @@ body.video-modal-open{overflow:hidden}
   .video-viewer-panel .modal-title{font-size:.95rem}
   .modal-fullscreen,.video-viewer-panel .modal-close{padding:9px 11px;font-size:.84rem}
 }
+
+.why-chip-signoff{margin-top:20px!important;text-align:center;font-family:Fredoka,Inter,sans-serif;font-size:clamp(1.35rem,2.4vw,1.8rem)!important;color:var(--navy)!important}
