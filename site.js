@@ -2,11 +2,9 @@
   const modal=document.getElementById('videoModal');
   const panel=document.getElementById('modalPanel');
   const video=document.getElementById('modalVideo');
-  const title=document.getElementById('modalTitle');
   const closeButton=document.getElementById('closeModal');
   function openVideo(trigger){
     if(!modal||!video)return;
-    title.textContent=trigger.dataset.title||'Video';
     const ratio=trigger.dataset.ratio||'landscape';
     video.className=`modal-video ${ratio}`;
     panel.className='modal-panel video-viewer-panel';
