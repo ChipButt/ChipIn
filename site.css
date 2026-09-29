@@ -279,12 +279,12 @@ body.video-modal-open{overflow:hidden}
 /* VIDEO VIEWER CLOSE CONTROL */
 .modal-close-floating{
   opacity:1;
-  transition:opacity .28s ease,transform .28s ease!important;
+  transition:opacity .65s ease-in-out!important;
+  will-change:opacity;
 }
 .modal-close-floating.modal-close-hidden{
   opacity:0;
   pointer-events:none;
-  transform:scale(.9);
 }
 .ci-video-wake-layer{
   position:absolute;
