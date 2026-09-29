@@ -4,19 +4,6 @@
   const video=document.getElementById('modalVideo');
   const title=document.getElementById('modalTitle');
   const closeButton=document.getElementById('closeModal');
-  const fullscreenButton=document.getElementById('fullscreenVideo');
-
-  function requestFullScreen(){
-    if(!panel)return;
-    const fn=panel.requestFullscreen||panel.webkitRequestFullscreen;
-    if(fn){
-      try{
-        const result=fn.call(panel);
-        if(result&&typeof result.catch==='function')result.catch(()=>{});
-      }catch(_){}
-    }
-  }
-
   function openVideo(trigger){
     if(!modal||!video)return;
     title.textContent=trigger.dataset.title||'Video';
@@ -28,7 +15,6 @@
     modal.classList.add('show');
     modal.setAttribute('aria-hidden','false');
     document.body.classList.add('video-modal-open');
-    if(trigger.classList.contains('project-title-button'))requestFullScreen();
   }
 
   document.querySelectorAll('.open-video').forEach(trigger=>{
@@ -51,7 +37,6 @@
   }
 
   closeButton?.addEventListener('click',close);
-  fullscreenButton?.addEventListener('click',requestFullScreen);
   modal?.addEventListener('click',e=>{if(e.target===modal)close()});
   document.addEventListener('keydown',e=>{if(e.key==='Escape')close()});
 
