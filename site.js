@@ -4,17 +4,32 @@
   const videoHost=document.getElementById('modalVideo');
   const closeButton=document.getElementById('closeModal');
 
+  function youtubeEmbedUrl(src){
+    const value=String(src||'');
+    let id='';
+    const short=value.match(/youtu\.be\/([^?&#/]+)/i);
+    const watch=value.match(/[?&]v=([^?&#/]+)/i);
+    const embed=value.match(/youtube(?:-nocookie)?\.com\/embed\/([^?&#/]+)/i);
+    if(short)id=short[1];
+    else if(watch)id=watch[1];
+    else if(embed)id=embed[1];
+    return id ? `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&playsinline=1&rel=0&modestbranding=1` : '';
+  }
+
   function openVideo(trigger){
     if(!modal||!panel||!videoHost)return;
 
     const ratio=trigger.dataset.ratio||'landscape';
     const src=trigger.dataset.video||'';
     const title=trigger.dataset.title||'Video';
+    const youtubeSrc=youtubeEmbedUrl(src);
 
     videoHost.className=`modal-video ${ratio}`;
     panel.className='modal-panel video-viewer-panel';
 
-    if(/\.mp4(?:$|\?)/i.test(src) && !/^https?:\/\/drive\.google\.com/i.test(src)){
+    if(youtubeSrc){
+      videoHost.innerHTML=`<iframe class="ci-youtube-frame" src="${youtubeSrc}" title="${title.replace(/"/g,'&quot;')}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen webkitallowfullscreen></iframe>`;
+    }else if(/\.mp4(?:$|\?)/i.test(src) && !/^https?:\/\/drive\.google\.com/i.test(src)){
       videoHost.innerHTML=`<video class="ci-native-video" src="${src}" title="${title.replace(/"/g,'&quot;')}" controls playsinline autoplay preload="metadata"></video>`;
     }else{
       videoHost.innerHTML=`<iframe class="ci-drive-frame" src="${src}" title="${title.replace(/"/g,'&quot;')}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen webkitallowfullscreen></iframe>`;
