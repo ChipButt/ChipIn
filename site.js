@@ -10,9 +10,11 @@
     const short=value.match(/youtu\.be\/([^?&#/]+)/i);
     const watch=value.match(/[?&]v=([^?&#/]+)/i);
     const embed=value.match(/youtube(?:-nocookie)?\.com\/embed\/([^?&#/]+)/i);
+    const shorts=value.match(/youtube(?:-nocookie)?\.com\/shorts\/([^?&#/]+)/i);
     if(short)id=short[1];
     else if(watch)id=watch[1];
     else if(embed)id=embed[1];
+    else if(shorts)id=shorts[1];
     return id ? `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&playsinline=1&controls=1&rel=0&modestbranding=1` : '';
   }
 
