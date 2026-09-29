@@ -18,11 +18,7 @@
     return match?match[1]:'';
   }
 
-  function directDriveUrl(fileId){
-    return `https://drive.usercontent.google.com/download?id=${encodeURIComponent(fileId)}&export=download&confirm=t`;
-  }
-
-  function clearHideTimer(){
+    function clearHideTimer(){
     if(hideTimer){
       clearTimeout(hideTimer);
       hideTimer=null;
@@ -39,121 +35,16 @@
     if(!modal||!videoHost)return;
 
     const ratio=trigger.dataset.ratio||'landscape';
-    const fileId=driveFileId(trigger.dataset.video);
     const originalUrl=trigger.dataset.video;
-    const src=fileId?directDriveUrl(fileId):originalUrl;
+    const src=originalUrl;
 
     videoHost.className=`modal-video ${ratio}`;
     panel.className='modal-panel video-viewer-panel';
 
     videoHost.innerHTML=`
       <div class="ci-video-shell controls-visible">
-        <video class="ci-video" playsinline preload="metadata" src="${src}"></video>
-        <button class="ci-video-center-play" type="button" aria-label="Play video">▶</button>
-        <div class="ci-video-controls" aria-label="Video controls">
-          <button class="ci-video-play" type="button" aria-label="Play or pause">▶</button>
-          <input class="ci-video-seek" type="range" min="0" max="1000" value="0" step="1" aria-label="Video progress">
-          <span class="ci-video-time">0:00 / 0:00</span>
-        </div>
-        <div class="ci-video-error" hidden>
-          <p>This video could not be streamed directly.</p>
-          <a href="${originalUrl.replace('/preview','/view')}" target="_blank" rel="noopener">Open video</a>
-        </div>
+        <iframe class="ci-drive-frame" src="${src}" title="${(trigger.dataset.title||'Video').replace(/"/g,'&quot;')}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen webkitallowfullscreen></iframe>
       </div>`;
-
-    const shell=videoHost.querySelector('.ci-video-shell');
-    const video=videoHost.querySelector('.ci-video');
-    const centerPlay=videoHost.querySelector('.ci-video-center-play');
-    const playButton=videoHost.querySelector('.ci-video-play');
-    const seek=videoHost.querySelector('.ci-video-seek');
-    const time=videoHost.querySelector('.ci-video-time');
-    const error=videoHost.querySelector('.ci-video-error');
-
-    function updateButtons(){
-      const paused=video.paused||video.ended;
-      centerPlay.hidden=!paused;
-      playButton.textContent=paused?'▶':'❚❚';
-      playButton.setAttribute('aria-label',paused?'Play':'Pause');
-    }
-
-    function showControls(){
-      shell.classList.add('controls-visible');
-      scheduleControlsHide(shell,video);
-    }
-
-    function togglePlay(){
-      if(video.paused||video.ended){
-        const promise=video.play();
-        if(promise&&typeof promise.catch==='function')promise.catch(()=>showControls());
-      }else{
-        video.pause();
-      }
-    }
-
-    video.addEventListener('loadedmetadata',()=>{
-      time.textContent=`0:00 / ${formatTime(video.duration)}`;
-      updateButtons();
-    });
-
-    video.addEventListener('timeupdate',()=>{
-      if(Number.isFinite(video.duration)&&video.duration>0){
-        seek.value=String(Math.round((video.currentTime/video.duration)*1000));
-        time.textContent=`${formatTime(video.currentTime)} / ${formatTime(video.duration)}`;
-      }
-    });
-
-    video.addEventListener('play',()=>{
-      updateButtons();
-      scheduleControlsHide(shell,video);
-    });
-
-    video.addEventListener('pause',()=>{
-      updateButtons();
-      clearHideTimer();
-      shell.classList.add('controls-visible');
-    });
-
-    video.addEventListener('ended',()=>{
-      updateButtons();
-      clearHideTimer();
-      shell.classList.add('controls-visible');
-    });
-
-    video.addEventListener('error',()=>{
-      clearHideTimer();
-      shell.classList.add('controls-visible');
-      error.hidden=false;
-      centerPlay.hidden=true;
-      video.hidden=true;
-    });
-
-    centerPlay.addEventListener('click',e=>{
-      e.stopPropagation();
-      togglePlay();
-    });
-
-    playButton.addEventListener('click',e=>{
-      e.stopPropagation();
-      togglePlay();
-      showControls();
-    });
-
-    seek.addEventListener('input',e=>{
-      e.stopPropagation();
-      if(Number.isFinite(video.duration)&&video.duration>0){
-        video.currentTime=(Number(seek.value)/1000)*video.duration;
-      }
-      showControls();
-    });
-
-    shell.addEventListener('click',e=>{
-      if(e.target.closest('.ci-video-controls,.ci-video-center-play,.ci-video-error'))return;
-      if(shell.classList.contains('controls-visible')){
-        if(!video.paused)shell.classList.remove('controls-visible');
-      }else{
-        showControls();
-      }
-    });
 
     modal.classList.add('show');
     modal.setAttribute('aria-hidden','false');
@@ -175,9 +66,7 @@
   function close(){
     if(!modal)return;
     clearHideTimer();
-    const activeVideo=videoHost?.querySelector('video');
-    if(activeVideo)activeVideo.pause();
-    modal.classList.remove('show');
+        modal.classList.remove('show');
     modal.setAttribute('aria-hidden','true');
     document.body.classList.remove('video-modal-open');
     if(videoHost)videoHost.innerHTML='';
