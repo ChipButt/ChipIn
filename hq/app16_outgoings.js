@@ -49,6 +49,30 @@
     records[month]={month,target,reserveRate:rate,createdAt:old?.createdAt||now,updatedAt:now};
     return true;
   }
+  function backfillRecentMonthlyRecords16(){
+    const records=monthlyRecords16(),current=TODAY().slice(0,7),currentRec=records[current];
+    if(!currentRec)return false;
+    let changed=false;
+    const paidMonths=new Set();
+    for(const j of state.jobs||[]){
+      if(j.status!=='Paid')continue;
+      const d=paidDate16(j);
+      if(/^\d{4}-\d{2}-\d{2}$/.test(d))paidMonths.add(d.slice(0,7));
+    }
+    for(const month of paidMonths){
+      if(month>=current||records[month])continue;
+      records[month]={
+        month,
+        target:Number(currentRec.target||0),
+        reserveRate:Number(currentRec.reserveRate??reserveRate16()),
+        createdAt:new Date().toISOString(),
+        updatedAt:new Date().toISOString(),
+        backfilledFrom:current
+      };
+      changed=true;
+    }
+    return changed;
+  }
   function usableIncomeMonthAtRate16(month,rate){
     const [start,end]=monthBounds16(month);let fee=0,jobCosts=0,profit=0,taxPot=0,usable=0,count=0;
     for(const j of state.jobs||[]){
@@ -117,17 +141,17 @@
     const records=monthlyRecords16(),months=Object.keys(records).sort().reverse();
     return months.map(month=>{
       const rec=records[month]||{},rate=Number.isFinite(Number(rec.reserveRate))?Number(rec.reserveRate):reserveRate16(),income=usableIncomeMonthAtRate16(month,rate),target=Math.max(0,Number(rec.target||0)),difference=income.usable-target;
-      return{month,target,rate,...income,difference};
+      return{month,target,rate,backfilledFrom:rec.backfilledFrom||'',...income,difference};
     });
   }
   function monthlyHistoryTable16(){
     const rows=monthlyHistory16();
     if(!rows.length)return empty('Your first monthly record will be created automatically.');
-    return `<div class="table-wrap"><table class="monthly-history16"><thead><tr><th>Month</th><th>Paid job fees</th><th>Usable earned</th><th>Needed to earn</th><th>Difference</th><th>Position</th></tr></thead><tbody>${rows.map(r=>`<tr><td><strong>${monthLabel16(r.month)}</strong><div class="muted">${r.rate}% reserve recorded</div></td><td>${money(r.fee)}</td><td><strong>${money(r.usable)}</strong></td><td>${money(r.target)}</td><td class="${r.difference>=0?'history-positive16':'history-negative16'}"><strong>${r.difference>=0?'+':''}${money(r.difference)}</strong></td><td>${r.difference>=0?'<span class="badge ok">Target met</span>':'<span class="badge warn">Below target</span>'}</td></tr>`).join('')}</tbody></table></div>`;
+    return `<div class="table-wrap"><table class="monthly-history16"><thead><tr><th>Month</th><th>Paid job fees</th><th>Usable earned</th><th>Needed to earn</th><th>Difference</th><th>Position</th></tr></thead><tbody>${rows.map(r=>`<tr><td><strong>${monthLabel16(r.month)}</strong><div class="muted">${r.rate}% reserve recorded${r.backfilledFrom?' · target carried back from '+monthLabel16(r.backfilledFrom):''}</div></td><td>${money(r.fee)}</td><td><strong>${money(r.usable)}</strong></td><td>${money(r.target)}</td><td class="${r.difference>=0?'history-positive16':'history-negative16'}"><strong>${r.difference>=0?'+':''}${money(r.difference)}</strong></td><td>${r.difference>=0?'<span class="badge ok">Target met</span>':'<span class="badge warn">Below target</span>'}</td></tr>`).join('')}</tbody></table></div>`;
   }
 
   function renderOutgoings16(){
-    if(syncCurrentMonthlyRecord16())saveState().catch(console.error);
+    const changedCurrent16=syncCurrentMonthlyRecord16(),changedBackfill16=backfillRecentMonthlyRecords16();if(changedCurrent16||changedBackfill16)saveState().catch(console.error);
     if(!outgoings16().length&&!state.settings.outgoingsSeedVersion&&ghUnlocked&&!outgoingsSeedLoading16){ensurePrivateOutgoings16();}
     if(outgoings16().length&&!state.settings.outgoingsSeedVersion)state.settings.outgoingsSeedVersion='existing-data';
     const month=TODAY().slice(0,7),cover=coverage16(month),groupRows=groups16(),active=activeOutgoings16(),groupTotals=groupTotals16(),todayDay=new Date().getDate();
@@ -171,7 +195,7 @@
 
   const baseRenderDashboard16=renderDashboard;
   renderDashboard=function(){
-    if(syncCurrentMonthlyRecord16())saveState().catch(console.error);
+    const changedCurrent16=syncCurrentMonthlyRecord16(),changedBackfill16=backfillRecentMonthlyRecords16();if(changedCurrent16||changedBackfill16)saveState().catch(console.error);
     baseRenderDashboard16();
     const month=TODAY().slice(0,7),c=coverage16(month),panel=document.createElement('div');panel.id='dashboardOutgoings16';panel.className='card dashboard-outgoings16';
     if(!outgoings16().length){
