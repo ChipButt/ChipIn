@@ -95,9 +95,11 @@
       ${l.aiReply?'<div class="sales-ai-flag">AI research/wording saved for this action</div>':''}
       <div class="row-actions sales-card-actions">
         ${isResearch
-          ? `<button class="btn small secondary" data-sales-action="copy-research" data-id="${l.id}">Copy research brief</button>
-             <button class="btn small secondary" data-sales-action="edit-lead" data-id="${l.id}">Edit</button>
-             <button class="btn small" data-sales-action="done" data-id="${l.id}">Mark researched</button>`
+          ? (l.researchStatus==='queued'
+              ? `<span class="badge warn">Queued for automatic research</span><button class="btn small secondary" data-sales-action="edit-lead" data-id="${l.id}">Edit</button>`
+              : `<button class="btn small secondary" data-sales-action="copy-research" data-id="${l.id}">Copy research brief</button>
+                 <button class="btn small secondary" data-sales-action="edit-lead" data-id="${l.id}">Edit</button>
+                 <button class="btn small" data-sales-action="done" data-id="${l.id}">Mark researched</button>`)
           : `<button class="btn small secondary" data-sales-action="copy-script" data-id="${l.id}">Copy wording</button>
              <button class="btn small secondary" data-sales-action="edit-lead" data-id="${l.id}">Edit</button>
              <button class="btn small" data-sales-action="done" data-id="${l.id}">Mark done</button>`
@@ -250,16 +252,39 @@
     const x=(sourcedInboxCache?.candidates||[]).find(y=>y.id===id);if(!x)return;
     const duplicate=sales().leads.some(l=>(l.businessName||'').toLowerCase()===(x.businessName||'').toLowerCase());
     if(duplicate){x.status='duplicate';x.reviewedAt=new Date().toISOString();await updateSourcedInbox();await loadProspectInbox();return toast('Already in pipeline');}
-    sales().leads.push({
+    const lead={
       id:uid('lead'),createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),
       businessName:x.businessName||'',contactName:x.contactName||'',email:x.email||'',phone:x.phone||'',
       website:x.website||'',address:x.address||'',service:x.suggestedService||'',problem:'',
       estimatedValue:'',stage:'Research',nextActionMethod:'research',nextActionDate:TODAY(),
       nextActionReason:x.discoveryReason||'Research this prospect and confirm a genuine opportunity.',
-      notes:x.notes||'',source:{type:'chatgpt-sourced',sourceLabel:x.sourceLabel||'',sourceUrl:x.sourceUrl||'',verifiedAt:x.verifiedAt||''}
-    });
+      notes:x.notes||'',source:{type:'chatgpt-sourced',sourceLabel:x.sourceLabel||'',sourceUrl:x.sourceUrl||'',verifiedAt:x.verifiedAt||''},
+      researchStatus:'queued'
+    };
+    sales().leads.push(lead);
     x.status='accepted';x.reviewedAt=new Date().toISOString();
-    await saveState();await updateSourcedInbox();render();toast('Prospect added to Research');
+    await saveState();await updateSourcedInbox();
+    try{
+      const path='sales-assistant/research-queue.json';
+      const qf=await getFile(path);
+      const q=qf?JSON.parse(qf.text):{version:1,requests:[]};
+      q.requests=Array.isArray(q.requests)?q.requests:[];
+      q.requests.push({
+        id:lead.id,
+        businessName:lead.businessName,
+        website:lead.website,
+        address:lead.address,
+        phone:lead.phone,
+        email:lead.email,
+        suggestedService:lead.service,
+        discoveryReason:lead.nextActionReason,
+        source:lead.source,
+        status:'queued',
+        queuedAt:new Date().toISOString()
+      });
+      await putFile(path,JSON.stringify(q,null,2),'Queue prospect research',qf?.sha||'');
+    }catch(e){console.warn('Could not queue research request',e);}
+    render();toast('Prospect queued for automatic research');
   }
   async function rejectSourcedProspect(id){
     const x=(sourcedInboxCache?.candidates||[]).find(y=>y.id===id);if(!x)return;
