@@ -81,18 +81,27 @@
   }
   function actionCard(l){
     const overdue=l.nextActionDate<TODAY();
+    const isResearch=l.nextActionMethod==='research';
     const script=l.aiReply||deterministicScript(l);
     return `<article class="sales-action-card ${overdue?'overdue':''}">
       <div class="sales-action-head"><span class="sales-method">${methodIcon[l.nextActionMethod]||'•'} ${methodLabels[l.nextActionMethod]||'CONTACT'}</span><span class="badge ${overdue?'bad':'warn'}">${overdue?'Overdue':fmtDate(l.nextActionDate)}</span></div>
-      <h3>Chip, you need to ${methodLabels[l.nextActionMethod]||'CONTACT'} <strong>${esc(l.businessName)}</strong></h3>
+      <h3>Chip, you need to ${isResearch?'RESEARCH':' '+(methodLabels[l.nextActionMethod]||'CONTACT')} <strong>${esc(l.businessName)}</strong></h3>
       <div class="sales-contact">${esc(contactFor(l))}</div>
       <p><strong>Why:</strong> ${esc(reasonFor(l))}</p>
-      <div class="sales-script"><div class="sales-script-label">You should say</div><p>“${esc(script)}”</p></div>
-      ${l.aiReply?'<div class="sales-ai-flag">AI wording saved for this action</div>':''}
+      ${isResearch
+        ? `<div class="sales-script"><div class="sales-script-label">Research required</div><p>${esc(script)}</p></div>`
+        : `<div class="sales-script"><div class="sales-script-label">You should say</div><p>“${esc(script)}”</p></div>`
+      }
+      ${l.aiReply?'<div class="sales-ai-flag">AI research/wording saved for this action</div>':''}
       <div class="row-actions sales-card-actions">
-        <button class="btn small secondary" data-sales-action="copy-script" data-id="${l.id}">Copy wording</button>
-        <button class="btn small secondary" data-sales-action="edit-lead" data-id="${l.id}">Edit</button>
-        <button class="btn small" data-sales-action="done" data-id="${l.id}">Mark done</button>
+        ${isResearch
+          ? `<button class="btn small secondary" data-sales-action="copy-research" data-id="${l.id}">Copy research brief</button>
+             <button class="btn small secondary" data-sales-action="edit-lead" data-id="${l.id}">Edit</button>
+             <button class="btn small" data-sales-action="done" data-id="${l.id}">Mark researched</button>`
+          : `<button class="btn small secondary" data-sales-action="copy-script" data-id="${l.id}">Copy wording</button>
+             <button class="btn small secondary" data-sales-action="edit-lead" data-id="${l.id}">Edit</button>
+             <button class="btn small" data-sales-action="done" data-id="${l.id}">Mark done</button>`
+        }
       </div>
     </article>`;
   }
@@ -169,6 +178,21 @@
       const l=leadById(id); if(!l)return;
       await navigator.clipboard.writeText(l.aiReply||deterministicScript(l));
       return toast('Wording copied');
+    }
+    if(action==='copy-research'){
+      const l=leadById(id); if(!l)return;
+      const brief=[
+        'RESEARCH THIS CHIP IN PROSPECT',
+        '',
+        'Business: '+(l.businessName||''),
+        'Website/source: '+(l.website||l.address||'Not recorded'),
+        'Why sourced: '+reasonFor(l),
+        'Suggested service: '+(l.service||'Not set'),
+        '',
+        'Please verify current website/online presence, public contact details, decision-maker if publicly available, what they already offer, one genuine opportunity Chip In could help with, the best contact method, and a concise factual opening reason. Do not invent facts.'
+      ].join('\n');
+      await navigator.clipboard.writeText(brief);
+      return toast('Research brief copied');
     }
     if(action==='targets')return openTargets();
     if(action==='chatgpt-pack')return copyChatGPTPack();
@@ -282,10 +306,10 @@
 
   async function completeSalesAction(id){
     const l=leadById(id); if(!l)return;
-    openModal(`<h2>What happened?</h2><p class="sub">This keeps the assistant accurate and decides when the prospect should come back to you.</p>
+    openModal(`<h2>${l.nextActionMethod==='research'?'Research result':'What happened?'}</h2><p class="sub">${l.nextActionMethod==='research'?'Record the verified research so this lead can move into Contact with the right method and wording.':'This keeps the assistant accurate and decides when the prospect should come back to you.'}</p>
     <form id="salesDoneForm"><div class="form-grid">
       <div class="field"><label>Outcome</label><select name="outcome">
-        <option value="researched">Research completed</option>
+        ${l.nextActionMethod==='research'?'<option value="researched">Research completed</option>':''}
         <option value="conversation">Spoke / exchanged messages</option>
         <option value="no_reply">No reply</option>
         <option value="quote">Quote sent</option>
@@ -293,7 +317,7 @@
         <option value="lost">Not interested / lost</option>
       </select></div>
       <div class="field"><label>Next follow-up</label><input type="date" name="nextDate" value="${addDays(TODAY(),sales().settings.defaultFollowUpDays)}"></div>
-      <div class="field full"><label>What happened?</label><textarea name="summary" required placeholder="Record the facts so the next instruction is based on what really happened."></textarea></div>
+      <div class="field full"><label>${l.nextActionMethod==='research'?'Verified research':'What happened?'}</label><textarea name="summary" required placeholder="${l.nextActionMethod==='research'?'Record verified facts only: current website/presence, useful contact, opportunity and best next approach.':'Record the facts so the next instruction is based on what really happened.'}"></textarea></div>
     </div><div class="form-actions"><button class="btn secondary" type="button" data-close-modal>Cancel</button><button class="btn" type="submit">Save outcome</button></div></form>`);
     $('#salesDoneForm').onsubmit=async e=>{
       e.preventDefault(); const v=Object.fromEntries(new FormData(e.target).entries());
@@ -302,7 +326,7 @@
       if(v.outcome==='won'){l.stage='Won';l.nextActionDate='';}
       else if(v.outcome==='lost'){l.stage='Lost';l.nextActionDate='';}
       else {
-        if(v.outcome==='researched'){l.stage='Contact';l.nextActionMethod=l.email?'email':l.phone?'call':l.address?'visit':'research';}
+        if(v.outcome==='researched'){l.stage='Contact';l.researchSummary=v.summary;l.nextActionMethod=l.email?'email':l.phone?'call':l.address?'visit':'research';}
         else if(v.outcome==='quote'){l.stage='Quote';}
         else if(v.outcome==='conversation')l.stage='Follow-up';
         else if(v.outcome==='no_reply')l.stage='Follow-up';
