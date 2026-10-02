@@ -91,6 +91,22 @@
     if(!cfg.projectId)throw Error('Firebase Project ID is missing.');
     return `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(cfg.projectId)}/databases/(default)/documents/chipinSalesAssistant/current`;
   }
+  async function writePrivateChatGPTFeed(payload){
+    if(typeof ghUnlocked==='undefined'||!ghUnlocked||typeof getFile!=='function'||typeof putFile!=='function')return false;
+    const path='sales-assistant/current.json';
+    const existing=await getFile(path);
+    const feed={
+      format:'ChipInSalesAssistantFeed',
+      version:1,
+      syncedAt:payload.syncedAt,
+      source:'Firebase Spark + Chip In HQ',
+      instruction:'Use only these verified records. Never invent contact details, previous conversations, promises, dates, problems or outcomes.',
+      today:payload.today,
+      pipeline:payload.pipeline
+    };
+    await putFile(path,JSON.stringify(feed,null,2),'Sync private ChatGPT sales feed',existing?.sha||'');
+    return true;
+  }
   async function writeSalesFeed(showToast=false){
     const cfg=getCfg();
     if(!cfg.projectId||!cfg.apiKey||!localStorage.getItem(TOKEN_KEY))return false;
@@ -117,6 +133,7 @@
         throw Error(j?.error?.message||('Firestore sync failed '+r.status));
       }
       cfg.lastSync=new Date().toISOString();putCfg(cfg);
+      try{await writePrivateChatGPTFeed(payload)}catch(e){console.warn('Private ChatGPT sales feed mirror failed',e)}
       const e=document.getElementById('firebaseSalesStatus');if(e)e.textContent='Synced '+new Date(cfg.lastSync).toLocaleString('en-GB');
       if(showToast)toast('Firebase Sales Assistant synced');
       return true;
