@@ -166,7 +166,7 @@
       try{
         if(!connected||pass)await signInFirebase(n.email,pass);
         await writeSalesFeed(true);render();
-      }catch(e){toast(e.message)}
+      }catch(e){render();toast(e.message)}
     };
     document.getElementById('fbReconnectBtn')?.addEventListener('click',async()=>{
       const n=saveFields(),pass=document.getElementById('fbPassword').value;
