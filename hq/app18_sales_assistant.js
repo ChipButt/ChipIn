@@ -337,6 +337,12 @@
     sales().leads.push(lead);
     x.status='accepted';x.reviewedAt=new Date().toISOString();
     await saveState();await updateSourcedInbox();
+    const inboxHost=document.getElementById('salesProspectInbox');
+    if(inboxHost){
+      const card=[...inboxHost.querySelectorAll('[data-sales-action="accept-sourced"]')].find(b=>b.dataset.id===id)?.closest('.sourced-prospect-card');
+      if(card)card.remove();
+      if(!inboxHost.querySelector('.sourced-prospect-card'))inboxHost.innerHTML='<p class="muted">No sourced prospects waiting.</p>';
+    }
     try{
       const path='sales-assistant/research-queue.json';
       const qf=await getFile(path);
@@ -357,7 +363,7 @@
       });
       await putFile(path,JSON.stringify(q,null,2),'Queue prospect research',qf?.sha||'');
     }catch(e){console.warn('Could not queue research request',e);}
-    render();toast('Prospect queued for automatic research');
+    render();toast('Moved to Research and removed from Sourced Prospects');
   }
   async function rejectSourcedProspect(id){
     const x=(sourcedInboxCache?.candidates||[]).find(y=>y.id===id);if(!x)return;
