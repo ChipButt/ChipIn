@@ -1,0 +1,7 @@
+name = "chipin-sales-assistant"
+main = "worker.js"
+compatibility_date = "2026-10-01"
+
+[[kv_namespaces]]
+binding = "SALES_DATA"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
