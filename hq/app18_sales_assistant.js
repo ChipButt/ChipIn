@@ -121,6 +121,9 @@
       </div>
       <div class="sales-action-list">${due.length?renderTodayGroups(due):`<div class="card"><div class="empty-state"><div class="empty-icon">✓</div><h3>You’re clear for now</h3><p>Add prospects or set follow-up dates and they will appear here automatically.</p></div></div>`}</div>
 
+      <div class="section-title"><div><h2>Sourced prospects</h2><p>Prospects researched by ChatGPT appear here before they enter your live pipeline.</p></div><button class="btn secondary small" data-sales-action="refresh-inbox">Refresh</button></div>
+      <div id="salesProspectInbox" class="card"><p class="muted">Loading sourced prospects…</p></div>
+
       <div class="section-title"><div><h2>Pipeline</h2><p>Move every prospect forward or deliberately close it.</p></div><button class="btn secondary small" data-sales-action="targets">Targets</button></div>
       <div class="sales-pipeline">${stageOrder.map(stage=>pipelineColumn(stage)).join('')}</div>
 
@@ -134,6 +137,7 @@
         <div class="hint-box"><strong>End result:</strong> ask “What do I need to do today?” and ChatGPT reads the verified Firestore feed, then returns EMAIL / CALL / VISIT, the exact contact detail, the factual reason and suggested wording.</div>
       </div>`;
     wireSalesActions();
+    loadProspectInbox().catch(e=>{const el=document.getElementById('salesProspectInbox');if(el)el.innerHTML=`<p class="muted">${esc(e.message)}</p>`;});
   };
 
   function renderTodayGroups(due){
@@ -168,6 +172,75 @@
     }
     if(action==='targets')return openTargets();
     if(action==='chatgpt-pack')return copyChatGPTPack();
+    if(action==='refresh-inbox')return loadProspectInbox(true);
+    if(action==='accept-sourced')return acceptSourcedProspect(id);
+    if(action==='reject-sourced')return rejectSourcedProspect(id);
+  }
+
+  let sourcedInboxCache=null, sourcedInboxSha='';
+  async function loadProspectInbox(showToast=false){
+    const host=document.getElementById('salesProspectInbox');if(!host)return;
+    if(typeof ghUnlocked==='undefined'||!ghUnlocked||typeof getFile!=='function'){
+      host.innerHTML='<p class="muted">Unlock private storage to load ChatGPT-sourced prospects.</p>';
+      return;
+    }
+    const f=await getFile('sales-assistant/prospect-inbox.json');
+    if(!f){
+      sourcedInboxCache={version:1,candidates:[]};sourcedInboxSha='';
+      host.innerHTML='<p class="muted">No sourced prospects waiting.</p>';
+      return;
+    }
+    sourcedInboxSha=f.sha;
+    sourcedInboxCache=JSON.parse(f.text);
+    const candidates=(sourcedInboxCache.candidates||[]).filter(x=>(x.status||'new')==='new');
+    if(!candidates.length){
+      host.innerHTML='<p class="muted">No sourced prospects waiting.</p>';
+      if(showToast)toast('Prospect inbox is up to date');
+      return;
+    }
+    host.innerHTML=`<div class="stack">${candidates.map(x=>`
+      <div class="action-item sourced-prospect-card">
+        <div style="min-width:0;flex:1">
+          <div class="title">${esc(x.businessName||'Unnamed business')}</div>
+          <div class="meta">${esc(x.category||'Local business')}${x.address?' · '+esc(x.address):''}</div>
+          ${x.website?`<div class="meta" style="overflow-wrap:anywhere">${esc(x.website)}</div>`:''}
+          ${x.phone?`<div class="meta">${esc(x.phone)}</div>`:''}
+          ${x.email?`<div class="meta">${esc(x.email)}</div>`:''}
+          <div style="margin-top:8px;font-size:12px;line-height:1.5"><strong>Why it was sourced:</strong> ${esc(x.discoveryReason||'Local prospect worth researching.')}</div>
+          ${x.sourceLabel?`<div class="meta" style="margin-top:5px">Source: ${esc(x.sourceLabel)} · verified ${esc(x.verifiedAt||'')}</div>`:''}
+        </div>
+        <div class="row-actions" style="align-self:flex-start;flex-wrap:wrap">
+          <button class="btn small" data-sales-action="accept-sourced" data-id="${esc(x.id)}">Add to Research</button>
+          <button class="btn small secondary" data-sales-action="reject-sourced" data-id="${esc(x.id)}">Reject</button>
+        </div>
+      </div>`).join('')}</div>`;
+    wireSalesActions();
+    if(showToast)toast('Prospect inbox refreshed');
+  }
+  async function updateSourcedInbox(){
+    if(!sourcedInboxCache||typeof putFile!=='function')return;
+    const r=await putFile('sales-assistant/prospect-inbox.json',JSON.stringify(sourcedInboxCache,null,2),'Update sourced prospect inbox',sourcedInboxSha||'');
+    sourcedInboxSha=r?.content?.sha||sourcedInboxSha;
+  }
+  async function acceptSourcedProspect(id){
+    const x=(sourcedInboxCache?.candidates||[]).find(y=>y.id===id);if(!x)return;
+    const duplicate=sales().leads.some(l=>(l.businessName||'').toLowerCase()===(x.businessName||'').toLowerCase());
+    if(duplicate){x.status='duplicate';x.reviewedAt=new Date().toISOString();await updateSourcedInbox();await loadProspectInbox();return toast('Already in pipeline');}
+    sales().leads.push({
+      id:uid('lead'),createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),
+      businessName:x.businessName||'',contactName:x.contactName||'',email:x.email||'',phone:x.phone||'',
+      website:x.website||'',address:x.address||'',service:x.suggestedService||'',problem:'',
+      estimatedValue:'',stage:'Research',nextActionMethod:'research',nextActionDate:TODAY(),
+      nextActionReason:x.discoveryReason||'Research this prospect and confirm a genuine opportunity.',
+      notes:x.notes||'',source:{type:'chatgpt-sourced',sourceLabel:x.sourceLabel||'',sourceUrl:x.sourceUrl||'',verifiedAt:x.verifiedAt||''}
+    });
+    x.status='accepted';x.reviewedAt=new Date().toISOString();
+    await saveState();await updateSourcedInbox();render();toast('Prospect added to Research');
+  }
+  async function rejectSourcedProspect(id){
+    const x=(sourcedInboxCache?.candidates||[]).find(y=>y.id===id);if(!x)return;
+    x.status='rejected';x.reviewedAt=new Date().toISOString();
+    await updateSourcedInbox();await loadProspectInbox();toast('Prospect rejected');
   }
 
   function openLeadForm(id){
