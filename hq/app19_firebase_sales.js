@@ -8,8 +8,15 @@
   const baseSaveState=saveState;
   let fbIdToken='', fbRefreshToken='', fbUid='', fbTokenExpiry=0, fbSyncTimer=null, fbBusy=false;
 
+  const FIREBASE_DEFAULTS={
+    projectId:'chip-in-sales-assistant',
+    apiKey:'AIzaSyDOeXy5TVppDu8ktTgjg7eVLnMvo_EDDRc',
+    authDomain:'chip-in-sales-assistant.firebaseapp.com',
+    appId:'1:392793232584:web:4f68c328eabb84eb3301fd',
+    messagingSenderId:'392793232584'
+  };
   function getCfg(){
-    try{return JSON.parse(localStorage.getItem(CFG_KEY)||'{}')}catch{return{}}
+    try{return {...FIREBASE_DEFAULTS,...JSON.parse(localStorage.getItem(CFG_KEY)||'{}')}}catch{return {...FIREBASE_DEFAULTS}}
   }
   function putCfg(v){localStorage.setItem(CFG_KEY,JSON.stringify(v||{}))}
   function clearSession(){fbIdToken='';fbRefreshToken='';fbUid='';fbTokenExpiry=0}
@@ -130,7 +137,7 @@
     const host=document.getElementById('content');
     const old=host?.querySelector('.sales-api-card');
     if(!old||document.getElementById('firebaseSalesPanel'))return;
-    const cfg=getCfg(), connected=!!localStorage.getItem(TOKEN_KEY);
+    const cfg=getCfg(), connected=!!localStorage.getItem(TOKEN_KEY), defaultEmail=cfg.email||state.settings?.email||'jamesbutt.chipin@gmail.com';
     old.querySelector('div')?.replaceChildren(document.createTextNode('Firebase Spark connection'));
     const p=old.querySelector('p.muted');if(p)p.textContent='HQ writes only the Sales Assistant feed directly to Firestore using Firebase Authentication. No Cloud Function, Worker or Blaze plan is required.';
     const hint=old.querySelector('.hint-box');if(hint)hint.innerHTML='<strong>ChatGPT side:</strong> read the same Firestore document through Google OAuth with a read-only identity. HQ remains the only writer.';
@@ -140,9 +147,9 @@
       <strong>Firebase Spark · direct Firestore</strong>
       <div id="firebaseSalesStatus" class="muted" style="margin:4px 0 10px">${connected?(cfg.lastSync?'Synced '+new Date(cfg.lastSync).toLocaleString('en-GB'):'Connected — sync pending'):'Not connected'}</div>
       <div class="form-grid">
-        <div class="field"><label>Firebase Project ID</label><input id="fbProjectId" value="${esc(cfg.projectId||'')}" placeholder="chip-in-sales-assistant"></div>
-        <div class="field"><label>Firebase Web API key</label><input id="fbApiKey" value="${esc(cfg.apiKey||'')}" placeholder="AIza…"></div>
-        <div class="field"><label>Firebase user email</label><input id="fbEmail" type="email" value="${esc(cfg.email||'')}" placeholder="Your Firebase Authentication user"></div>
+        <div class="field"><label>Firebase project</label><input value="chip-in-sales-assistant" disabled></div>
+        <div class="field"><label>Connection</label><input value="Spark · Firestore REST" disabled></div>
+        <div class="field full"><label>Firebase user email</label><input id="fbEmail" type="email" value="${esc(defaultEmail)}" placeholder="Your Firebase Authentication user"></div>
         <div class="field"><label>${connected?'Password (only needed to reconnect)':'Firebase user password'}</label><input id="fbPassword" type="password" autocomplete="current-password" placeholder="${connected?'Leave blank unless reconnecting':'Password is not stored'}"></div>
       </div>
       <div class="row-actions" style="justify-content:flex-start;margin-top:10px;flex-wrap:wrap">
@@ -155,14 +162,14 @@
 
     const saveFields=()=>{
       const n={...getCfg(),
-        projectId:document.getElementById('fbProjectId').value.trim(),
-        apiKey:document.getElementById('fbApiKey').value.trim(),
+        projectId:FIREBASE_DEFAULTS.projectId,
+        apiKey:FIREBASE_DEFAULTS.apiKey,
         email:document.getElementById('fbEmail').value.trim()
       };putCfg(n);return n;
     };
     document.getElementById('fbConnectBtn').onclick=async()=>{
       const n=saveFields(),pass=document.getElementById('fbPassword').value;
-      if(!n.projectId||!n.apiKey||!n.email)return toast('Add the Firebase Project ID, Web API key and user email');
+      if(!n.email)return toast('Add the Firebase user email');
       try{
         if(!connected||pass)await signInFirebase(n.email,pass);
         await writeSalesFeed(true);render();
