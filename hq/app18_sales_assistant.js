@@ -488,6 +488,25 @@
     toast('ChatGPT briefing copied');
   }
 
+  let salesLiveRefreshBusy=false;
+  async function liveRefreshSales(){
+    if(salesLiveRefreshBusy||document.hidden||typeof page==='undefined'||page!=='sales')return;
+    salesLiveRefreshBusy=true;
+    try{
+      const changed=await reconcileAutomaticResearch();
+      if(changed){render();return;}
+      await loadProspectInbox(false);
+    }catch(e){
+      console.warn('Sales Assistant live refresh failed',e);
+    }finally{
+      salesLiveRefreshBusy=false;
+    }
+  }
+
+  setInterval(liveRefreshSales,60000);
+  window.addEventListener('focus',liveRefreshSales);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)liveRefreshSales();});
+
   window.ChipInSalesAssistant = {
     getToday:()=>assistantPayload(),
     getLead:id=>{const l=leadById(id);return l?structuredClone(l):null},
