@@ -5,6 +5,7 @@
     const email=form.querySelector('[data-guide-email]');
     const summary=form.querySelector('[data-guide-summary]');
     if(!result||!email)return;
+    const recipient=(email.getAttribute('href')||'').match(/^mailto:([^?]+)/i)?.[1]||'jamesbutt.chipin@gmail.com';
 
     function fieldLine(el){
       const wrap=el.closest('.builder-field');
@@ -46,7 +47,7 @@
         '\n\nBallpark guide shown: around £'+total+
         '\n\nI understand this is only a rough guide and not a fixed quote. Please could we discuss the exact requirements and a bespoke price?'
       );
-      email.href='mailto:jamesbutt.chipin@gmail.com?subject='+subject+'&body='+body;
+      email.href='mailto:'+recipient+'?subject='+subject+'&body='+body;
     }
 
     form.addEventListener('change',calculate);
