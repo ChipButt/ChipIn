@@ -12,9 +12,9 @@
     return s;
   }
   const sales = ()=>ensureSales();
-  const stageOrder=['Found','Contact','Follow-up','Interested','Quote','Won','Lost'];
-  const methodLabels={email:'EMAIL',call:'CALL',visit:'VISIT'};
-  const methodIcon={email:'✉',call:'☎',visit:'⌖'};
+  const stageOrder=['Found','Research','Contact','Follow-up','Interested','Quote','Won','Lost'];
+  const methodLabels={research:'RESEARCH',email:'EMAIL',call:'CALL',visit:'VISIT'};
+  const methodIcon={research:'⌕',email:'✉',call:'☎',visit:'⌖'};
   const leadById=id=>sales().leads.find(x=>x.id===id);
 
   function monthKey(d=new Date()){return d.toISOString().slice(0,7)}
@@ -48,13 +48,15 @@
       .slice(0,8);
   }
   function contactFor(l){
+    if(l.nextActionMethod==='research')return l.website||l.address||'Research source not recorded';
     if(l.nextActionMethod==='email')return l.email||'Email not recorded';
     if(l.nextActionMethod==='call')return l.phone||'Phone not recorded';
     return l.address||'Address not recorded';
   }
   function reasonFor(l){
     if(l.nextActionReason)return l.nextActionReason;
-    if(l.stage==='Found')return 'New prospect ready for first contact.';
+    if(l.stage==='Found')return 'New prospect ready to research or contact.';
+    if(l.stage==='Research')return 'Research the business and identify a genuine opportunity before contacting them.';
     if(l.stage==='Contact')return 'Initial contact is due.';
     if(l.stage==='Follow-up')return 'Follow up the previous contact.';
     if(l.stage==='Interested')return 'Keep the conversation moving.';
@@ -65,6 +67,7 @@
     const name=l.contactName?l.contactName:l.businessName;
     const service=l.service||'help with the business';
     const previous=(l.lastContactSummary||'').trim();
+    if(l.nextActionMethod==='research')return `Check ${l.businessName}${l.website?' at '+l.website:''}. Confirm the decision-maker/contact details, what they currently have, and one genuine problem or opportunity Chip In could help with. Record only verified facts before moving this lead to Contact.`;
     if(l.nextActionMethod==='email'){
       if(previous)return `Hi ${name}, it’s Chip from Chip In. I’m following up on ${previous.replace(/[.!?]+$/,'')}. I just wanted to see whether ${service.toLowerCase()} is still something you’d like to discuss. No pressure at all — happy to help if the timing is right.`;
       return `Hi ${name}, I’m Chip from Chip In. I came across ${l.businessName} and thought I might be able to help with ${service.toLowerCase()}. I’m local and happy to have a quick chat if it would be useful.`;
@@ -166,12 +169,14 @@
       <div class="field"><label>Contact name</label><input name="contactName" value="${esc(l.contactName||'')}"></div>
       <div class="field"><label>Email</label><input name="email" type="email" value="${esc(l.email||'')}"></div>
       <div class="field"><label>Phone</label><input name="phone" value="${esc(l.phone||'')}"></div>
-      <div class="field full"><label>Address</label><input name="address" value="${esc(l.address||'')}"></div>
+      <div class="field"><label>Website</label><input name="website" value="${esc(l.website||'')}" placeholder="https://…"></div>
+      <div class="field"><label>Estimated value (£)</label><input name="estimatedValue" type="number" min="0" step="0.01" value="${esc(l.estimatedValue||'')}"></div>
+      <div class="field full"><label>Address / location</label><input name="address" value="${esc(l.address||'')}"></div>
       <div class="field"><label>Service to pitch</label><input name="service" value="${esc(l.service||'')}" placeholder="Website Design, Pub Quiz, Hospitality…"></div>
       <div class="field"><label>Pipeline stage</label><select name="stage">${stageOrder.map(x=>`<option ${(l.stage||'Found')===x?'selected':''}>${x}</option>`).join('')}</select></div>
       <div class="field full"><label>Problem / opportunity noticed</label><textarea name="problem" placeholder="What have you actually noticed that Chip In could solve?">${esc(l.problem||'')}</textarea></div>
       <div class="field full"><label>Last contact summary</label><textarea name="lastContactSummary" placeholder="Only factual notes. What actually happened last time?">${esc(l.lastContactSummary||'')}</textarea></div>
-      <div class="field"><label>Next action</label><select name="nextActionMethod">${['email','call','visit'].map(x=>`<option value="${x}" ${(l.nextActionMethod||'email')===x?'selected':''}>${methodLabels[x]}</option>`).join('')}</select></div>
+      <div class="field"><label>Next action</label><select name="nextActionMethod">${['research','email','call','visit'].map(x=>`<option value="${x}" ${(l.nextActionMethod||'research')===x?'selected':''}>${methodLabels[x]}</option>`).join('')}</select></div>
       <div class="field"><label>Next action date</label><input type="date" name="nextActionDate" value="${l.nextActionDate||TODAY()}"></div>
       <div class="field full"><label>Why are you contacting them?</label><input name="nextActionReason" value="${esc(l.nextActionReason||'')}"></div>
       <div class="field full"><label>AI-approved wording (optional)</label><textarea name="aiReply" placeholder="Paste wording supplied by ChatGPT here if you want this exact wording shown on the action card.">${esc(l.aiReply||'')}</textarea></div>
@@ -180,6 +185,7 @@
     $('#salesLeadForm').onsubmit=async e=>{
       e.preventDefault();
       const v=Object.fromEntries(new FormData(e.target).entries());
+      v.estimatedValue=v.estimatedValue===''?'':Number(v.estimatedValue);
       const target=l.id?l:{id:uid('lead'),createdAt:new Date().toISOString()};
       Object.assign(target,v,{updatedAt:new Date().toISOString()});
       if(!l.id)sales().leads.push(target);
@@ -197,6 +203,7 @@
     openModal(`<h2>What happened?</h2><p class="sub">This keeps the assistant accurate and decides when the prospect should come back to you.</p>
     <form id="salesDoneForm"><div class="form-grid">
       <div class="field"><label>Outcome</label><select name="outcome">
+        <option value="researched">Research completed</option>
         <option value="conversation">Spoke / exchanged messages</option>
         <option value="no_reply">No reply</option>
         <option value="quote">Quote sent</option>
@@ -213,11 +220,12 @@
       if(v.outcome==='won'){l.stage='Won';l.nextActionDate='';}
       else if(v.outcome==='lost'){l.stage='Lost';l.nextActionDate='';}
       else {
-        if(v.outcome==='quote'){l.stage='Quote';}
+        if(v.outcome==='researched'){l.stage='Contact';l.nextActionMethod=l.email?'email':l.phone?'call':l.address?'visit':'research';}
+        else if(v.outcome==='quote'){l.stage='Quote';}
         else if(v.outcome==='conversation')l.stage='Follow-up';
         else if(v.outcome==='no_reply')l.stage='Follow-up';
         l.nextActionDate=v.nextDate||addDays(TODAY(),sales().settings.defaultFollowUpDays);
-        l.nextActionReason=v.outcome==='quote'?'Follow up the quote.':v.outcome==='no_reply'?'No reply last time; try again.':'Continue the conversation.';
+        l.nextActionReason=v.outcome==='researched'?'Research complete; make first contact.':v.outcome==='quote'?'Follow up the quote.':v.outcome==='no_reply'?'No reply last time; try again.':'Continue the conversation.';
       }
       await saveState(); closeModal(); render(); toast('Sales action recorded');
     };
@@ -253,6 +261,8 @@
         contactName:l.contactName||'',
         contact:contactFor(l),
         service:l.service||'',
+        website:l.website||'',
+        estimatedValue:l.estimatedValue||'',
         problem:l.problem||'',
         lastContactDate:l.lastContactDate||'',
         lastContactSummary:l.lastContactSummary||'',
