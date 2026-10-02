@@ -1,0 +1,27 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Chip In Sales Assistant Firestore Reader",
+    "version": "1.0.0",
+    "description": "Read-only access to the verified Chip In Sales Assistant feed stored in Firestore. Parse fields.todayJson and fields.pipelineJson as JSON. Never invent sales facts that are not present in the document."
+  },
+  "servers": [
+    {
+      "url": "https://firestore.googleapis.com/v1/projects/REPLACE_PROJECT_ID/databases/(default)/documents"
+    }
+  ],
+  "paths": {
+    "/chipinSalesAssistant/current": {
+      "get": {
+        "operationId": "getChipInSalesAssistantFeed",
+        "summary": "Get Chip's current verified sales actions and pipeline",
+        "description": "Returns one Firestore document. fields.todayJson.stringValue contains the current due-action payload as JSON. fields.pipelineJson.stringValue contains the prospect pipeline as JSON.",
+        "responses": {
+          "200": {
+            "description": "Current Chip In sales feed"
+          }
+        }
+      }
+    }
+  }
+}
