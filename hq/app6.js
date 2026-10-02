@@ -30,7 +30,26 @@ async function readCloudState(){const f=await getFile('data/chipin.enc');if(!f)r
 async function writeCloudState(){const cur=await getFile('data/chipin.enc');if(cur&&ghStateSha&&cur.sha!==ghStateSha){const other=JSON.parse(await openText(cur.text,ghPass)).state;if(Date.parse(other.updatedAt||0)>=Date.parse(state.updatedAt||0)){const c=await sealText(JSON.stringify({format:'ChipInConflict',savedAt:new Date().toISOString(),state}),ghPass);await putFile(`conflicts/${new Date().toISOString().replace(/[:.]/g,'-')}.enc`,c,'Preserve sync conflict');state=mergeDefaults(other,DEFAULT_STATE);await dbPut('app','state',state);ghStateSha=cur.sha;render();throw Error('A newer change from another device was loaded. Your local version was preserved in the encrypted conflicts folder.')}}const text=await sealText(JSON.stringify({format:'ChipInHQState',savedAt:new Date().toISOString(),state}),ghPass),r=await putFile('data/chipin.enc',text,'Sync Chip In HQ data',cur?.sha||'');ghStateSha=r.content?.sha||''}
 async function syncReceipts(){let changed=false;for(const e of state.expenses||[]){if(!e.receiptName)continue;const blob=await dbGet('receipts',e.id);if(!blob)continue;const bytes=new Uint8Array(await blob.arrayBuffer()),h=await hashBytes(bytes);if(e.receiptHash===h&&e.cloudReceiptPath)continue;const safe=e.receiptName.replace(/[^a-z0-9._-]+/gi,'-').slice(-70),path=`receipts/${taxYearForDate(e.date).replace('/','-')}/${e.id}-${h.slice(0,12)}-${safe}.enc`;setGhStatus(`Archiving ${e.receiptName}…`);await putEncrypted(path,bytes,`Archive receipt ${e.receiptName}`);Object.assign(e,{receiptHash:h,cloudReceiptPath:path,receiptType:blob.type,receiptSize:bytes.length});changed=true}if(changed)await dbPut('app','state',state)}
 async function syncGh(){if(!ghUnlocked||ghBusy)return;ghBusy=true;try{setGhStatus('Syncing encrypted data…');await syncReceipts();await writeCloudState();setGhStatus(`Synced · ${new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}`,'ok')}finally{ghBusy=false}}
-function scheduleGh(){if(!ghUnlocked)return;clearTimeout(ghTimer);ghTimer=setTimeout(()=>syncGh().catch(e=>{console.error(e);setGhStatus('Sync needs attention','bad');toast(e.message)}),800)}
+function scheduleGh(){
+  if(!ghUnlocked)return;
+  clearTimeout(ghTimer);
+  ghTimer=setTimeout(async()=>{
+    let lastErr=null;
+    for(const wait of [0,2000,5000]){
+      if(wait)await new Promise(r=>setTimeout(r,wait));
+      try{
+        await syncGh();
+        return;
+      }catch(e){
+        lastErr=e;
+        console.warn('Chip In sync retry',e);
+      }
+    }
+    console.error(lastErr);
+    setGhStatus('Saved locally · sync needs attention','bad');
+    toast(lastErr?.message||'Private storage sync needs attention');
+  },1200);
+}
 saveState=async()=>{await localSave();scheduleGh()};
 async function reconcileGh(){const remote=await readCloudState();if(!remote){if(useful())await syncGh();else setGhStatus('Private storage connected · empty','ok');return}const r=Date.parse(remote.updatedAt||0),l=Date.parse(state.updatedAt||0);if(!useful()||r>l){state=mergeDefaults(remote,DEFAULT_STATE);await dbPut('app','state',state);render();setGhStatus('Loaded latest private data','ok')}else if(l>r)await syncGh();else setGhStatus('Private storage up to date','ok');await archivePendingInvoices()}
 function invoiceSnap(inv){if(!inv.issuedSnapshot){const s=state.settings,c=clientById(inv.clientId)||{};inv.issuedSnapshot={capturedAt:new Date().toISOString(),business:{legalName:s.legalName,tradingName:s.tradingName,address:s.address,email:s.email,phone:s.phone,bankName:s.bankName,sortCode:s.sortCode,accountNumber:s.accountNumber,vatRegistered:s.vatRegistered,vatNumber:s.vatNumber},client:{name:c.name,contact:c.contact,address:c.address,email:c.email,phone:c.phone}}}return inv.issuedSnapshot}
