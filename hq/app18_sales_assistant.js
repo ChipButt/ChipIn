@@ -124,11 +124,11 @@
       <div class="section-title"><div><h2>Coming up</h2></div></div>
       <div class="card">${upcoming.length?`<div class="action-list">${upcoming.map(l=>`<div class="action-item"><div><div class="title">${methodLabels[l.nextActionMethod]||'CONTACT'} · ${esc(l.businessName)}</div><div class="meta">${fmtDate(l.nextActionDate)} · ${esc(contactFor(l))}</div></div><button class="btn small secondary" data-sales-action="edit-lead" data-id="${l.id}">Open</button></div>`).join('')}</div>`:'<p class="muted">No future follow-ups scheduled.</p>'}</div>
 
-      <div class="section-title"><div><h2>ChatGPT connection</h2><p>The HQ side is ready for a GPT Action endpoint.</p></div></div>
+      <div class="section-title"><div><h2>ChatGPT connection</h2><p>Firebase is the verified sales-data source ChatGPT will read.</p></div></div>
       <div class="card sales-api-card">
-        <div><strong>Current mode:</strong> secure HQ + manual ChatGPT handoff</div>
-        <p class="muted">The “Copy ChatGPT briefing” button produces verified structured data only. A hosted API bridge can later let a custom GPT ask HQ for the same data automatically without giving the GPT access to your whole private repository.</p>
-        <div class="hint-box"><strong>Planned GPT command:</strong> “What do I need to do today?” → GPT calls <span class="mono">/assistant/today</span> → returns these verified action records → GPT writes the wording.</div>
+        <div><strong>Current mode:</strong> Firebase Spark sales feed</div>
+        <p class="muted">HQ publishes only Sales Assistant data to Firestore. ChatGPT will be connected read-only to that Firestore feed; the rest of Chip In HQ remains separate.</p>
+        <div class="hint-box"><strong>End result:</strong> ask “What do I need to do today?” and ChatGPT reads the verified Firestore feed, then returns EMAIL / CALL / VISIT, the exact contact detail, the factual reason and suggested wording.</div>
       </div>`;
     wireSalesActions();
   };
