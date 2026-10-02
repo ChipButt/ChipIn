@@ -2,7 +2,9 @@
 // Personal figures live in encrypted/local state; they are never hard-coded in the public repository.
 (function(){
   DEFAULT_STATE.outgoings=DEFAULT_STATE.outgoings||[];
+  DEFAULT_STATE.monthlyEarningsRecords=DEFAULT_STATE.monthlyEarningsRecords||{};
   if(!state.outgoings)state.outgoings=[];
+  if(!state.monthlyEarningsRecords||Array.isArray(state.monthlyEarningsRecords))state.monthlyEarningsRecords={};
   const OUTGOINGS_SEED_VERSION='april-2024-v1';
   let outgoingsSeedLoading16=false;
 
@@ -40,14 +42,24 @@
   function monthLabel16(month){return new Intl.DateTimeFormat('en-GB',{month:'long',year:'numeric'}).format(new Date(month+'-01T12:00:00'))}
   function reserveRate16(){const n=Number(state.settings.reservePercent);return Math.max(0,Math.min(100,Number.isFinite(n)?n:25))}
   function paidDate16(j){return j?.paidDate||j?.endDate||j?.startDate||''}
-  function usableIncomeMonth16(month){
-    const [start,end]=monthBounds16(month),rate=reserveRate16();let fee=0,jobCosts=0,profit=0,taxPot=0,usable=0,count=0;
+  function monthlyRecords16(){return state.monthlyEarningsRecords||(state.monthlyEarningsRecords={})}
+  function syncCurrentMonthlyRecord16(){
+    const month=TODAY().slice(0,7),records=monthlyRecords16(),target=totalOutgoings16(),rate=reserveRate16(),now=new Date().toISOString(),old=records[month];
+    if(old&&Number(old.target)===target&&Number(old.reserveRate)===rate)return false;
+    records[month]={month,target,reserveRate:rate,createdAt:old?.createdAt||now,updatedAt:now};
+    return true;
+  }
+  function usableIncomeMonthAtRate16(month,rate){
+    const [start,end]=monthBounds16(month);let fee=0,jobCosts=0,profit=0,taxPot=0,usable=0,count=0;
     for(const j of state.jobs||[]){
       if(j.status!=='Paid'||!inRange(paidDate16(j),start,end))continue;
       const f=Number(j.paidAmount??j.amount??0),cost=(state.expenses||[]).filter(e=>e.jobId===j.id).reduce((s,e)=>s+Number(e.amount||0),0),p=f-cost,t=Math.max(0,p)*rate/100,u=p-t;
       fee+=f;jobCosts+=cost;profit+=p;taxPot+=t;usable+=u;count++;
     }
     return{month,start,end,rate,fee,jobCosts,profit,taxPot,usable,count};
+  }
+  function usableIncomeMonth16(month){
+    return usableIncomeMonthAtRate16(month,reserveRate16());
   }
   function coverage16(month=TODAY().slice(0,7)){
     const income=usableIncomeMonth16(month),target=totalOutgoings16(),gap=Math.max(0,target-income.usable),surplus=Math.max(0,income.usable-target),usableShare=Math.max(0,1-income.rate/100),profitNeeded=gap<=0?0:(usableShare>0?gap/usableShare:Infinity),pct=target>0?Math.max(0,Math.min(100,income.usable/target*100)):100;
@@ -73,6 +85,7 @@
       })).filter(x=>x.name);
       state.settings.outgoingsSeedVersion=seed.version||OUTGOINGS_SEED_VERSION;
       state.settings.outgoingsLoadedAt=new Date().toISOString();
+      syncCurrentMonthlyRecord16();
       await saveState();
       render();
       toast('Outgoings loaded from private ChipIn-Data');
@@ -94,13 +107,27 @@
   }
   function openOutgoing16(id){
     const o=id?outgoingById16(id):{};openModal(outgoingForm16(o),true);
-    $('#outgoingForm16').onsubmit=async e=>{e.preventDefault();const v=Object.fromEntries(new FormData(e.target).entries());v.amount=Math.max(0,Number(v.amount||0));v.dueDay=v.dueDay===''?null:Math.max(1,Math.min(31,Number(v.dueDay||1)));v.active=v.active==='true';v.group=String(v.group||'Other').trim()||'Other';v.name=String(v.name||'').trim();const target=o.id?o:{id:uid('out'),createdAt:new Date().toISOString()};Object.assign(target,v);if(!o.id)state.outgoings.push(target);await saveState();closeModal();render();toast('Outgoing saved')};
+    $('#outgoingForm16').onsubmit=async e=>{e.preventDefault();const v=Object.fromEntries(new FormData(e.target).entries());v.amount=Math.max(0,Number(v.amount||0));v.dueDay=v.dueDay===''?null:Math.max(1,Math.min(31,Number(v.dueDay||1)));v.active=v.active==='true';v.group=String(v.group||'Other').trim()||'Other';v.name=String(v.name||'').trim();const target=o.id?o:{id:uid('out'),createdAt:new Date().toISOString()};Object.assign(target,v);if(!o.id)state.outgoings.push(target);syncCurrentMonthlyRecord16();await saveState();closeModal();render();toast('Outgoing saved')};
   }
 
   function outgoingRows16(items){
     return items.map(o=>`<tr class="${o.active===false?'outgoing-paused16':''}"><td><strong>${esc(o.name)}</strong>${o.notes?`<div class="muted">${esc(o.notes)}</div>`:''}</td><td>${o.dueDay?`Day ${o.dueDay}`:'—'}</td><td>${o.active===false?'<span class="badge">Paused</span>':'<span class="badge ok">Included</span>'}</td><td><strong>${money(o.amount)}</strong></td><td class="right"><div class="row-actions"><button class="btn small secondary" data-action="edit-outgoing" data-id="${o.id}">Edit</button><button class="icon-btn" data-action="delete-outgoing" data-id="${o.id}">×</button></div></td></tr>`).join('');
   }
+  function monthlyHistory16(){
+    const records=monthlyRecords16(),months=Object.keys(records).sort().reverse();
+    return months.map(month=>{
+      const rec=records[month]||{},rate=Number.isFinite(Number(rec.reserveRate))?Number(rec.reserveRate):reserveRate16(),income=usableIncomeMonthAtRate16(month,rate),target=Math.max(0,Number(rec.target||0)),difference=income.usable-target;
+      return{month,target,rate,...income,difference};
+    });
+  }
+  function monthlyHistoryTable16(){
+    const rows=monthlyHistory16();
+    if(!rows.length)return empty('Your first monthly record will be created automatically.');
+    return `<div class="table-wrap"><table class="monthly-history16"><thead><tr><th>Month</th><th>Paid job fees</th><th>Usable earned</th><th>Needed to earn</th><th>Difference</th><th>Position</th></tr></thead><tbody>${rows.map(r=>`<tr><td><strong>${monthLabel16(r.month)}</strong><div class="muted">${r.rate}% reserve recorded</div></td><td>${money(r.fee)}</td><td><strong>${money(r.usable)}</strong></td><td>${money(r.target)}</td><td class="${r.difference>=0?'history-positive16':'history-negative16'}"><strong>${r.difference>=0?'+':''}${money(r.difference)}</strong></td><td>${r.difference>=0?'<span class="badge ok">Target met</span>':'<span class="badge warn">Below target</span>'}</td></tr>`).join('')}</tbody></table></div>`;
+  }
+
   function renderOutgoings16(){
+    if(syncCurrentMonthlyRecord16())saveState().catch(console.error);
     if(!outgoings16().length&&!state.settings.outgoingsSeedVersion&&ghUnlocked&&!outgoingsSeedLoading16){ensurePrivateOutgoings16();}
     if(outgoings16().length&&!state.settings.outgoingsSeedVersion)state.settings.outgoingsSeedVersion='existing-data';
     const month=TODAY().slice(0,7),cover=coverage16(month),groupRows=groups16(),active=activeOutgoings16(),groupTotals=groupTotals16(),todayDay=new Date().getDate();
@@ -116,6 +143,8 @@
       </div>
       <div class="outgoing-cover16"><div><strong>${money(cover.usable)}</strong> usable income against <strong>${money(cover.target)}</strong> monthly outgoings</div><div class="progress"><div style="width:${cover.pct}%"></div></div></div>
       ${dueKnown.length?`<div class="grid cards" style="grid-template-columns:repeat(2,minmax(0,1fr));margin-top:14px"><div class="card stat"><div class="label">Known due dates up to today</div><div class="value">${money(dueByNow)}</div><div class="hint">Based on the due days you have entered</div></div><div class="card stat"><div class="label">Known due later this month</div><div class="value">${money(dueLater)}</div><div class="hint">Does not include entries with no due day yet</div></div></div>`:''}
+      <div class="section-title"><div><h2>Monthly earnings record</h2><p>Each month's target is saved with that month, so later changes to your outgoings do not rewrite your old targets. “Usable earned” is paid-job income after linked job costs and that month's recorded Tax-pot reserve.</p></div></div>
+      ${monthlyHistoryTable16()}
       <div class="section-title"><div><h2>Monthly commitments</h2><p>These are personal outgoings. They are separate from the business Expenses page and do not reduce the Tax-pot calculation.</p></div><div class="row-actions"><button class="btn" data-action="new-outgoing">+ Outgoing</button></div></div>
       ${groupCards?`<div class="grid cards outgoing-groups16" style="grid-template-columns:repeat(auto-fit,minmax(190px,1fr));margin-bottom:18px">${groupCards}</div>`:''}
       ${sections||empty(emptyMessage)}`;
@@ -128,7 +157,7 @@
     if(action==='edit-outgoing'){openOutgoing16(id);return}
     if(action==='delete-outgoing'){
       const o=outgoingById16(id);if(!o)return;
-      confirmAction(`Delete ${o.name}?`,async()=>{state.outgoings=outgoings16().filter(x=>x.id!==id);await saveState()});return;
+      confirmAction(`Delete ${o.name}?`,async()=>{state.outgoings=outgoings16().filter(x=>x.id!==id);syncCurrentMonthlyRecord16();await saveState()});return;
     }
     if(action==='go-outgoings'){page='outgoings';render();return}
     return baseHandleAction16(action,id);
@@ -142,6 +171,7 @@
 
   const baseRenderDashboard16=renderDashboard;
   renderDashboard=function(){
+    if(syncCurrentMonthlyRecord16())saveState().catch(console.error);
     baseRenderDashboard16();
     const month=TODAY().slice(0,7),c=coverage16(month),panel=document.createElement('div');panel.id='dashboardOutgoings16';panel.className='card dashboard-outgoings16';
     if(!outgoings16().length){
@@ -157,6 +187,7 @@
   const style=document.createElement('style');style.textContent=`
     .outgoing-cover16{margin-top:14px;padding:14px 16px;border:1px solid var(--line);border-radius:12px;background:#fff}.outgoing-cover16>.progress{margin-top:10px}
     .outgoing-paused16{opacity:.58}.outgoing-group-title16{margin-top:22px}.outgoing-groups16 .value{font-size:22px}.outgoings-table16{width:100%;table-layout:fixed}.outgoings-table16 .out-name16{width:42%}.outgoings-table16 .out-due16{width:12%}.outgoings-table16 .out-status16{width:14%}.outgoings-table16 .out-amount16{width:18%}.outgoings-table16 .out-actions16{width:14%}.outgoings-table16 th,.outgoings-table16 td{vertical-align:top}
+    .monthly-history16 td,.monthly-history16 th{white-space:nowrap}.history-positive16{color:#1f7a4d}.history-negative16{color:#a14035}
     .dashboard-outgoings16{margin-top:14px}.outgoing-dashboard-grid16{display:grid;grid-template-columns:1fr 1.25fr;gap:24px;align-items:center}.outgoing-dashboard-big16{font-size:26px;font-weight:800;line-height:1.15;margin:5px 0}.outgoing-dashboard-big16.need16{color:#a14035}.outgoing-dashboard-big16.covered16{color:#1f7a4d}
     @media(max-width:800px){.outgoing-dashboard-grid16{grid-template-columns:1fr}.outgoing-summary16{grid-template-columns:1fr!important}.outgoing-dashboard-big16{font-size:22px}.outgoings-table16{min-width:720px}.outgoings-table16 .out-name16{width:40%}.outgoings-table16 .out-due16{width:12%}.outgoings-table16 .out-status16{width:14%}.outgoings-table16 .out-amount16{width:18%}.outgoings-table16 .out-actions16{width:16%}}
   `;document.head.appendChild(style);
