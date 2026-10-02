@@ -203,7 +203,7 @@
       </div>
       <div class="sales-action-list">${due.length?renderTodayGroups(due):`<div class="card"><div class="empty-state"><div class="empty-icon">✓</div><h3>You’re clear for now</h3><p>Add prospects or set follow-up dates and they will appear here automatically.</p></div></div>`}</div>
 
-      <div class="section-title"><div><h2>Sourced prospects</h2><p>Prospects researched by ChatGPT appear here before they enter your live pipeline.</p></div><button class="btn secondary small" data-sales-action="refresh-inbox">Refresh</button></div>
+      <div class="section-title"><div><h2>Sourced prospects</h2><p>Prospects researched by ChatGPT appear here before they enter your live pipeline.</p></div><div class="row-actions"><button class="btn gold small" data-sales-action="sales-now">NOW</button><button class="btn secondary small" data-sales-action="refresh-inbox">Refresh</button></div></div>
       <div id="salesProspectInbox" class="card"><p class="muted">Loading sourced prospects…</p></div>
 
       <div class="section-title"><div><h2>Pipeline</h2><p>Move every prospect forward or deliberately close it.</p></div><button class="btn secondary small" data-sales-action="targets">Targets</button></div>
@@ -271,6 +271,15 @@
     if(action==='targets')return openTargets();
     if(action==='chatgpt-pack')return copyChatGPTPack();
     if(action==='refresh-inbox')return loadProspectInbox(true);
+    if(action==='sales-now'){
+      const prompt='Check my Chip In Sales Assistant now. Please do BOTH immediately: (1) research every prospect currently queued/in Research, write the verified results back so HQ can move them to Contact, and (2) check Sourced Prospects and top the pool back up to 10 fresh verified prospects, avoiding duplicates, accepted and rejected businesses. Use current web/local-business sources and do not invent facts.';
+      let copied=false;
+      try{await navigator.clipboard.writeText(prompt);copied=true;}catch(e){console.warn('Clipboard copy failed',e);}
+      const w=window.open('https://chatgpt.com/','_blank','noopener');
+      if(copied)toast('Prompt copied — paste it into ChatGPT and send');
+      else toast('ChatGPT opened — copy the NOW prompt from Sales Assistant');
+      return w;
+    }
     if(action==='accept-sourced')return acceptSourcedProspect(id);
     if(action==='reject-sourced')return rejectSourcedProspect(id);
   }
