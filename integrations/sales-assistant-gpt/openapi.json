@@ -1,0 +1,33 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Chip In Sales Assistant",
+    "version": "1.0.0",
+    "description": "Read verified sales tasks and pipeline data exported by Chip In HQ. Never invent facts not returned by this API."
+  },
+  "servers": [{"url": "https://REPLACE_WITH_YOUR_WORKER.workers.dev"}],
+  "paths": {
+    "/assistant/today": {
+      "get": {
+        "operationId": "getTodaysSalesActions",
+        "summary": "Get Chip's sales actions due today or overdue",
+        "responses": {"200":{"description":"Verified action list"}}
+      }
+    },
+    "/assistant/pipeline": {
+      "get": {
+        "operationId": "getSalesPipeline",
+        "summary": "Get the current Chip In sales pipeline",
+        "responses": {"200":{"description":"Verified pipeline"}}
+      }
+    },
+    "/assistant/lead/{id}": {
+      "get": {
+        "operationId": "getSalesLead",
+        "summary": "Get one sales lead by ID",
+        "parameters":[{"name":"id","in":"path","required":true,"schema":{"type":"string"}}],
+        "responses":{"200":{"description":"Verified lead record"},"404":{"description":"Lead not found"}}
+      }
+    }
+  }
+}
