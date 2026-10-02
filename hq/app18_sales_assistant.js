@@ -54,8 +54,8 @@
     return l.address||'Address not recorded';
   }
   function mapsUrlFor(l){
-    const q=[l.businessName,l.address].filter(Boolean).join(', ');
-    return q?'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(q):'';
+    const destination=[l.businessName,l.address].filter(Boolean).join(', ');
+    return destination?'https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(destination):'';
   }
   function contactHtml(l){
     if(l.nextActionMethod==='visit'&&l.address){
