@@ -53,6 +53,16 @@
     if(l.nextActionMethod==='call')return l.phone||'Phone not recorded';
     return l.address||'Address not recorded';
   }
+  function mapsUrlFor(l){
+    const q=[l.businessName,l.address].filter(Boolean).join(', ');
+    return q?'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(q):'';
+  }
+  function contactHtml(l){
+    if(l.nextActionMethod==='visit'&&l.address){
+      return `<a class="sales-map-link" href="${mapsUrlFor(l)}" target="_blank" rel="noopener" aria-label="Open ${esc(l.businessName||'this address')} in Google Maps">${esc(l.address)} <span aria-hidden="true">↗</span></a>`;
+    }
+    return esc(contactFor(l));
+  }
   function reasonFor(l){
     if(l.nextActionReason)return l.nextActionReason;
     if(l.stage==='Found')return 'New prospect ready to research or contact.';
@@ -86,7 +96,7 @@
     return `<article class="sales-action-card ${overdue?'overdue':''}">
       <div class="sales-action-head"><span class="sales-method">${methodIcon[l.nextActionMethod]||'•'} ${methodLabels[l.nextActionMethod]||'CONTACT'}</span><span class="badge ${overdue?'bad':'warn'}">${overdue?'Overdue':fmtDate(l.nextActionDate)+(l.nextActionTime?' · '+esc(l.nextActionTime):'')}</span></div>
       <h3>Chip, you need to ${isResearch?'RESEARCH':' '+(methodLabels[l.nextActionMethod]||'CONTACT')} <strong>${esc(l.businessName)}</strong></h3>
-      <div class="sales-contact">${esc(contactFor(l))}</div>
+      <div class="sales-contact">${contactHtml(l)}</div>
       <p><strong>Why:</strong> ${esc(reasonFor(l))}</p>
       ${isResearch
         ? `<div class="sales-script"><div class="sales-script-label">Research required</div><p>${esc(script)}</p></div>`
@@ -212,7 +222,7 @@
       <div class="sales-pipeline">${stageOrder.map(stage=>pipelineColumn(stage)).join('')}</div>
 
       <div class="section-title"><div><h2>Coming up</h2></div></div>
-      <div class="card">${upcoming.length?`<div class="action-list">${upcoming.map(l=>`<div class="action-item"><div><div class="title">${methodLabels[l.nextActionMethod]||'CONTACT'} · ${esc(l.businessName)}</div><div class="meta">${fmtDate(l.nextActionDate)} · ${esc(contactFor(l))}</div></div><button class="btn small secondary" data-sales-action="edit-lead" data-id="${l.id}">Open</button></div>`).join('')}</div>`:'<p class="muted">No future follow-ups scheduled.</p>'}</div>
+      <div class="card">${upcoming.length?`<div class="action-list">${upcoming.map(l=>`<div class="action-item"><div><div class="title">${methodLabels[l.nextActionMethod]||'CONTACT'} · ${esc(l.businessName)}</div><div class="meta">${fmtDate(l.nextActionDate)}${l.nextActionTime?' · '+esc(l.nextActionTime):''} · ${l.nextActionMethod==='visit'&&l.address?contactHtml(l):esc(contactFor(l))}</div></div><button class="btn small secondary" data-sales-action="edit-lead" data-id="${l.id}">Open</button></div>`).join('')}</div>`:'<p class="muted">No future follow-ups scheduled.</p>'}</div>
 
       <div class="section-title"><div><h2>ChatGPT connection</h2><p>Firebase is the verified sales-data source ChatGPT will read.</p></div></div>
       <div class="card sales-api-card">
@@ -395,7 +405,7 @@
         ${[15,30,45,60,90,120].map(n=>`<option value="${n}" ${Number(l.nextActionDuration||30)===n?'selected':''}>${n<60?n+' minutes':n===60?'1 hour':n===90?'1½ hours':'2 hours'}</option>`).join('')}
       </select></div>
       <div class="field full"><label>Reason / plan</label><input name="reason" value="${esc(l.nextActionReason||'')}" placeholder="What are you planning to discuss or do?"></div>
-      ${suggested==='visit'&&l.address?`<div class="field full"><div class="hint-box"><strong>Visit:</strong> ${esc(l.address)}</div></div>`:''}
+      ${suggested==='visit'&&l.address?`<div class="field full"><div class="hint-box"><strong>Visit:</strong> <a class="sales-map-link" href="${mapsUrlFor(l)}" target="_blank" rel="noopener">${esc(l.address)} <span aria-hidden="true">↗</span></a></div></div>`:''}
       ${suggested==='call'&&l.phone?`<div class="field full"><div class="hint-box"><strong>Call:</strong> ${esc(l.phone)}</div></div>`:''}
     </div><div class="form-actions"><button class="btn secondary" type="button" data-close-modal>Cancel</button><button class="btn" type="submit">Add to calendar</button></div></form>`,true);
     $('#salesScheduleForm').onsubmit=async e=>{
@@ -548,6 +558,10 @@
   setInterval(liveRefreshSales,60000);
   window.addEventListener('focus',liveRefreshSales);
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)liveRefreshSales();});
+
+  const salesMapStyle=document.createElement('style');
+  salesMapStyle.textContent='.sales-map-link{color:#2f69d8;text-decoration:underline;text-underline-offset:2px;font-weight:600;overflow-wrap:anywhere}.sales-map-link:active{opacity:.72}';
+  document.head.appendChild(salesMapStyle);
 
   window.ChipInSalesAssistant = {
     getToday:()=>assistantPayload(),
