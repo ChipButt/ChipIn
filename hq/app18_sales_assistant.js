@@ -84,7 +84,7 @@
     const isResearch=l.nextActionMethod==='research';
     const script=l.aiReply||deterministicScript(l);
     return `<article class="sales-action-card ${overdue?'overdue':''}">
-      <div class="sales-action-head"><span class="sales-method">${methodIcon[l.nextActionMethod]||'•'} ${methodLabels[l.nextActionMethod]||'CONTACT'}</span><span class="badge ${overdue?'bad':'warn'}">${overdue?'Overdue':fmtDate(l.nextActionDate)}</span></div>
+      <div class="sales-action-head"><span class="sales-method">${methodIcon[l.nextActionMethod]||'•'} ${methodLabels[l.nextActionMethod]||'CONTACT'}</span><span class="badge ${overdue?'bad':'warn'}">${overdue?'Overdue':fmtDate(l.nextActionDate)+(l.nextActionTime?' · '+esc(l.nextActionTime):'')}</span></div>
       <h3>Chip, you need to ${isResearch?'RESEARCH':' '+(methodLabels[l.nextActionMethod]||'CONTACT')} <strong>${esc(l.businessName)}</strong></h3>
       <div class="sales-contact">${esc(contactFor(l))}</div>
       <p><strong>Why:</strong> ${esc(reasonFor(l))}</p>
@@ -100,7 +100,8 @@
               : `<button class="btn small secondary" data-sales-action="copy-research" data-id="${l.id}">Copy research brief</button>
                  <button class="btn small secondary" data-sales-action="edit-lead" data-id="${l.id}">Edit</button>
                  <button class="btn small" data-sales-action="done" data-id="${l.id}">Mark researched</button>`)
-          : `<button class="btn small secondary" data-sales-action="copy-script" data-id="${l.id}">Copy wording</button>
+          : `${['call','visit'].includes(l.nextActionMethod)?`<button class="btn small gold" data-sales-action="schedule-contact" data-id="${l.id}">${l.nextActionTime?'Reschedule':'Schedule'} ${l.nextActionMethod==='visit'?'visit':'call'}</button>`:''}
+             <button class="btn small secondary" data-sales-action="copy-script" data-id="${l.id}">Copy wording</button>
              <button class="btn small secondary" data-sales-action="edit-lead" data-id="${l.id}">Edit</button>
              <button class="btn small" data-sales-action="done" data-id="${l.id}">Mark done</button>`
         }
@@ -130,6 +131,7 @@
       const preferred=r.recommendedContactMethod;
       l.nextActionMethod=['email','call','visit'].includes(preferred)?preferred:(l.email?'email':l.phone?'call':l.address?'visit':'research');
       l.nextActionDate=TODAY();
+      l.nextActionTime='';l.nextActionDuration='';
       l.nextActionReason=r.contactReason||r.opportunity||'Research completed; make first contact.';
       if(r.suggestedOpening)l.aiReply=r.suggestedOpening;
       l.updatedAt=new Date().toISOString();
@@ -248,6 +250,7 @@
     if(action==='new-lead')return openLeadForm();
     if(action==='edit-lead')return openLeadForm(id);
     if(action==='done')return completeSalesAction(id);
+    if(action==='schedule-contact')return openContactSchedule(id);
     if(action==='copy-script'){
       const l=leadById(id); if(!l)return;
       await navigator.clipboard.writeText(l.aiReply||deterministicScript(l));
@@ -380,6 +383,31 @@
     await updateSourcedInbox();await loadProspectInbox();toast('Prospect rejected');
   }
 
+  function openContactSchedule(id){
+    const l=leadById(id);if(!l)return;
+    const suggested=['call','visit'].includes(l.nextActionMethod)?l.nextActionMethod:(l.phone?'call':'visit');
+    openModal(`<h2>Schedule contact</h2><p class="sub">Put this sales action into your Work calendar so you can plan exactly when you will do it.</p>
+    <form id="salesScheduleForm"><div class="form-grid">
+      <div class="field"><label>Action</label><select name="method"><option value="call" ${suggested==='call'?'selected':''}>CALL</option><option value="visit" ${suggested==='visit'?'selected':''}>VISIT</option></select></div>
+      <div class="field"><label>Date</label><input type="date" name="date" required value="${l.nextActionDate||TODAY()}"></div>
+      <div class="field"><label>Start time</label><input type="time" name="time" required value="${l.nextActionTime||'10:00'}"></div>
+      <div class="field"><label>Planned duration</label><select name="duration">
+        ${[15,30,45,60,90,120].map(n=>`<option value="${n}" ${Number(l.nextActionDuration||30)===n?'selected':''}>${n<60?n+' minutes':n===60?'1 hour':n===90?'1½ hours':'2 hours'}</option>`).join('')}
+      </select></div>
+      <div class="field full"><label>Reason / plan</label><input name="reason" value="${esc(l.nextActionReason||'')}" placeholder="What are you planning to discuss or do?"></div>
+      ${suggested==='visit'&&l.address?`<div class="field full"><div class="hint-box"><strong>Visit:</strong> ${esc(l.address)}</div></div>`:''}
+      ${suggested==='call'&&l.phone?`<div class="field full"><div class="hint-box"><strong>Call:</strong> ${esc(l.phone)}</div></div>`:''}
+    </div><div class="form-actions"><button class="btn secondary" type="button" data-close-modal>Cancel</button><button class="btn" type="submit">Add to calendar</button></div></form>`,true);
+    $('#salesScheduleForm').onsubmit=async e=>{
+      e.preventDefault();const v=Object.fromEntries(new FormData(e.target).entries());
+      l.nextActionMethod=v.method;l.nextActionDate=v.date;l.nextActionTime=v.time;l.nextActionDuration=Number(v.duration||30);
+      if(v.reason)l.nextActionReason=v.reason;
+      if(l.stage==='Research')l.stage='Contact';
+      l.updatedAt=new Date().toISOString();
+      await saveState();closeModal();render();toast((v.method==='visit'?'Visit':'Call')+' added to calendar');
+    };
+  }
+
   function openLeadForm(id){
     const l=id?leadById(id):{};
     openModal(`<h2>${l.id?'Edit prospect':'Add prospect'}</h2><p class="sub">Record enough information for HQ to tell you exactly who to contact, how, why and when.</p>
@@ -397,6 +425,8 @@
       <div class="field full"><label>Last contact summary</label><textarea name="lastContactSummary" placeholder="Only factual notes. What actually happened last time?">${esc(l.lastContactSummary||'')}</textarea></div>
       <div class="field"><label>Next action</label><select name="nextActionMethod">${['research','email','call','visit'].map(x=>`<option value="${x}" ${(l.nextActionMethod||'research')===x?'selected':''}>${methodLabels[x]}</option>`).join('')}</select></div>
       <div class="field"><label>Next action date</label><input type="date" name="nextActionDate" value="${l.nextActionDate||TODAY()}"></div>
+      <div class="field"><label>Next action time (optional)</label><input type="time" name="nextActionTime" value="${esc(l.nextActionTime||'')}"></div>
+      <div class="field"><label>Planned duration (minutes)</label><input type="number" min="5" step="5" name="nextActionDuration" value="${esc(l.nextActionDuration||'')}"></div>
       <div class="field full"><label>Why are you contacting them?</label><input name="nextActionReason" value="${esc(l.nextActionReason||'')}"></div>
       <div class="field full"><label>AI-approved wording (optional)</label><textarea name="aiReply" placeholder="Paste wording supplied by ChatGPT here if you want this exact wording shown on the action card.">${esc(l.aiReply||'')}</textarea></div>
       <div class="field full"><label>General notes</label><textarea name="notes">${esc(l.notes||'')}</textarea></div>
@@ -405,6 +435,7 @@
       e.preventDefault();
       const v=Object.fromEntries(new FormData(e.target).entries());
       v.estimatedValue=v.estimatedValue===''?'':Number(v.estimatedValue);
+      v.nextActionDuration=v.nextActionDuration===''?'':Number(v.nextActionDuration);
       const target=l.id?l:{id:uid('lead'),createdAt:new Date().toISOString()};
       Object.assign(target,v,{updatedAt:new Date().toISOString()});
       if(!l.id)sales().leads.push(target);
@@ -436,6 +467,7 @@
       e.preventDefault(); const v=Object.fromEntries(new FormData(e.target).entries());
       sales().activity.push({id:uid('saleact'),leadId:l.id,date:TODAY(),type:v.outcome,summary:v.summary,method:l.nextActionMethod,createdAt:new Date().toISOString()});
       l.lastContactDate=TODAY(); l.lastContactSummary=v.summary; l.aiReply='';
+      l.nextActionTime='';l.nextActionDuration='';
       if(v.outcome==='won'){l.stage='Won';l.nextActionDate='';}
       else if(v.outcome==='lost'){l.stage='Lost';l.nextActionDate='';}
       else {
@@ -486,7 +518,8 @@
         lastContactDate:l.lastContactDate||'',
         lastContactSummary:l.lastContactSummary||'',
         reason:reasonFor(l),
-        dueDate:l.nextActionDate
+        dueDate:l.nextActionDate,
+        dueTime:l.nextActionTime||''
       }))
     };
   }
@@ -520,6 +553,8 @@
     getToday:()=>assistantPayload(),
     getLead:id=>{const l=leadById(id);return l?structuredClone(l):null},
     getPipeline:()=>structuredClone(sales().leads),
+    openLead:id=>openLeadForm(id),
+    schedule:id=>openContactSchedule(id),
     saveAIReply:async(id,text)=>{const l=leadById(id);if(!l)throw Error('Lead not found');l.aiReply=String(text||'');await saveState();return true;}
   };
 })();
