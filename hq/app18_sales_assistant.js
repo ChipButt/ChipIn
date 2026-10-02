@@ -103,6 +103,7 @@
         : `<div class="sales-script"><div class="sales-script-label">You should say</div><p>“${esc(script)}”</p></div>`
       }
       ${l.aiReply?'<div class="sales-ai-flag">AI research/wording saved for this action</div>':''}
+      ${!isResearch&&l.websiteStatus==='no_functioning_site'?`<div class="hint-box" style="margin-top:10px"><strong>Website opportunity</strong><div style="margin-top:4px">${esc(l.websiteEvidence||'Research did not verify a functioning standalone website.')}</div><div class="row-actions" style="margin-top:8px;justify-content:flex-start;flex-wrap:wrap">${l.demoUrl?`<a class="btn small gold" href="${esc(l.demoUrl)}" target="_blank" rel="noopener">Open demo website</a>`:l.demoStatus==='queued'?'<span class="badge warn">Demo website queued</span>':`<button class="btn small gold" data-sales-action="generate-demo" data-id="${l.id}">Generate Demo Website</button>`}</div></div>`:''}
       <div class="row-actions sales-card-actions">
         ${isResearch
           ? (l.researchStatus==='queued'
@@ -136,6 +137,9 @@
       l.website=r.website||l.website||'';
       l.address=r.address||l.address||'';
       l.service=r.suggestedService||l.service||'';
+      l.websiteStatus=r.websiteStatus||l.websiteStatus||'';
+      l.websiteEvidence=r.websiteEvidence||l.websiteEvidence||'';
+      l.researchSources=Array.isArray(r.sources)?r.sources:(l.researchSources||[]);
       l.researchStatus='complete';
       l.stage='Contact';
       const preferred=r.recommendedContactMethod;
@@ -185,10 +189,35 @@
     return changed||stateChanged;
   }
 
+  async function applyDemoResults(){
+    if(typeof ghUnlocked==='undefined'||!ghUnlocked||typeof getFile!=='function'||typeof putFile!=='function')return false;
+    const rf=await getFile('sales-assistant/demo-website-results.json');
+    if(!rf)return false;
+    const data=JSON.parse(rf.text),results=Array.isArray(data.results)?data.results:[];
+    let changed=false;
+    for(const r of results){
+      if(r.status==='applied')continue;
+      const l=leadById(r.leadId)||sales().leads.find(x=>(x.businessName||'').toLowerCase()===(r.businessName||'').toLowerCase());
+      if(!l)continue;
+      if(r.demoUrl)l.demoUrl=r.demoUrl;
+      l.demoStatus=r.demoUrl?'ready':(r.status||l.demoStatus||'');
+      l.demoSlug=r.slug||l.demoSlug||'';
+      l.demoBuiltAt=r.builtAt||l.demoBuiltAt||'';
+      r.status='applied';r.appliedAt=new Date().toISOString();
+      changed=true;
+    }
+    if(changed){
+      await saveState();
+      await putFile('sales-assistant/demo-website-results.json',JSON.stringify(data,null,2),'Apply demo website results to HQ',rf.sha);
+    }
+    return changed;
+  }
+
   async function reconcileAutomaticResearch(){
     const applied=await applyResearchResults();
+    const demos=await applyDemoResults();
     const queued=await queueExistingResearchProspects();
-    return applied||queued;
+    return applied||demos||queued;
   }
 
   window.renderSales = function(){
@@ -284,8 +313,9 @@
     if(action==='targets')return openTargets();
     if(action==='chatgpt-pack')return copyChatGPTPack();
     if(action==='refresh-inbox')return loadProspectInbox(true);
+    if(action==='generate-demo')return queueDemoWebsite(id);
     if(action==='sales-now'){
-      const prompt='Check my Chip In Sales Assistant now. Please do BOTH immediately: (1) research every prospect currently queued/in Research, write the verified results back so HQ can move them to Contact, and (2) check Sourced Prospects and top the pool back up to 10 fresh verified prospects, avoiding duplicates, accepted and rejected businesses. Use current web/local-business sources and do not invent facts.';
+      const prompt='Check my Chip In Sales Assistant now. Please do BOTH immediately: (1) research every prospect currently queued/in Research, write the verified results back so HQ can move them to Contact, and (2) check Sourced Prospects and top the pool back up to 10 fresh verified prospects, avoiding duplicates, accepted and rejected businesses, and (3) build any queued demo websites in HospoLP and write their finished URLs back to the demo results file. Use current web/local-business sources and do not invent facts.';
       let copied=false;
       try{await navigator.clipboard.writeText(prompt);copied=true;}catch(e){console.warn('Clipboard copy failed',e);}
       const w=window.open('https://chatgpt.com/','_blank','noopener');
@@ -297,6 +327,22 @@
     if(action==='reject-sourced')return rejectSourcedProspect(id);
   }
 
+  async function queueDemoWebsite(id){
+    const l=leadById(id);if(!l)return;
+    if(l.websiteStatus!=='no_functioning_site')return toast('A demo is only offered when Research confirms no functioning website.');
+    if(typeof ghUnlocked==='undefined'||!ghUnlocked||typeof getFile!=='function'||typeof putFile!=='function')return toast('Unlock private storage first');
+    const path='sales-assistant/demo-website-queue.json';
+    const qf=await getFile(path);
+    const q=qf?JSON.parse(qf.text):{version:1,requests:[]};
+    q.requests=Array.isArray(q.requests)?q.requests:[];
+    const existing=q.requests.find(x=>x.leadId===l.id&&['queued','building'].includes(x.status));
+    if(!existing){
+      q.requests.push({leadId:l.id,businessName:l.businessName||'',contactName:l.contactName||'',address:l.address||'',phone:l.phone||'',email:l.email||'',website:l.website||'',service:l.service||'',researchSummary:l.researchSummary||'',opportunity:l.problem||'',websiteStatus:l.websiteStatus||'',websiteEvidence:l.websiteEvidence||'',sources:l.researchSources||[],queuedAt:new Date().toISOString(),status:'queued'});
+      await putFile(path,JSON.stringify(q,null,2),'Queue demo website build',qf?.sha||'');
+    }
+    l.demoStatus='queued';l.updatedAt=new Date().toISOString();
+    await saveState();render();toast('Demo website queued for generation');
+  }
   let sourcedInboxCache=null, sourcedInboxSha='';
   async function loadProspectInbox(showToast=false){
     const host=document.getElementById('salesProspectInbox');if(!host)return;
