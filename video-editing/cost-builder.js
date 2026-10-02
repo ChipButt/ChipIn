@@ -19,7 +19,7 @@
     });
     const subject=encodeURIComponent('Chip In - Video Creation Enquiry');
     const body=encodeURIComponent('Hi Chip,\n\nI used the video guide-price builder:\n\n'+lines.join('\n')+'\n\nGuide estimate: £'+low+'–£'+high+'\n\nPlease could you give me a bespoke quote?');
-    email.href='mailto:jamesbutt.chipin@gmail.com?subject='+subject+'&body='+body;
+    email.href='mailto:jamesbutt.chipin+video@gmail.com?subject='+subject+'&body='+body;
   }
   form.addEventListener('change',calculate);
   calculate();
