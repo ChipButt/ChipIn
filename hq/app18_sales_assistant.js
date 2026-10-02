@@ -141,10 +141,46 @@
       await saveState();
       await putFile('sales-assistant/research-results.json',JSON.stringify(data,null,2),'Apply researched prospects to HQ',rf.sha);
     }
+    return changed;
+  }
+
+  async function queueExistingResearchProspects(){
+    if(typeof ghUnlocked==='undefined'||!ghUnlocked||typeof getFile!=='function'||typeof putFile!=='function')return false;
+    const researchLeads=sales().leads.filter(l=>l.stage==='Research');
+    if(!researchLeads.length)return false;
+    const path='sales-assistant/research-queue.json';
+    const qf=await getFile(path);
+    const q=qf?JSON.parse(qf.text):{version:1,requests:[]};
+    q.requests=Array.isArray(q.requests)?q.requests:[];
+    const existing=new Set(q.requests.map(x=>x.id));
+    let changed=false,stateChanged=false;
+    for(const l of researchLeads){
+      if(!existing.has(l.id)){
+        q.requests.push({
+          id:l.id,businessName:l.businessName||'',website:l.website||'',address:l.address||'',
+          phone:l.phone||'',email:l.email||'',suggestedService:l.service||'',
+          discoveryReason:l.nextActionReason||l.problem||'Research this prospect and confirm a genuine opportunity.',
+          source:l.source||{},status:'queued',queuedAt:new Date().toISOString()
+        });
+        changed=true;
+      }
+      if(l.researchStatus!=='queued'){
+        const req=q.requests.find(x=>x.id===l.id);
+        if(req?.status==='queued'){l.researchStatus='queued';stateChanged=true;}
+      }
+    }
+    if(changed)await putFile(path,JSON.stringify(q,null,2),'Backfill automatic prospect research queue',qf?.sha||'');
+    if(stateChanged)await saveState();
+    return changed||stateChanged;
+  }
+
+  async function reconcileAutomaticResearch(){
+    const applied=await applyResearchResults();
+    const queued=await queueExistingResearchProspects();
+    return applied||queued;
   }
 
   window.renderSales = function(){
-    applyResearchResults().catch(e=>console.warn('Research result apply failed',e));
     const s=sales(), st=prospectStats(), due=dueActions(), upcoming=futureActions();
     $('#content').innerHTML=`
       <div class="sales-hero">
@@ -185,6 +221,7 @@
       </div>`;
     wireSalesActions();
     loadProspectInbox().catch(e=>{const el=document.getElementById('salesProspectInbox');if(el)el.innerHTML=`<p class="muted">${esc(e.message)}</p>`;});
+    reconcileAutomaticResearch().then(changed=>{if(changed)setTimeout(()=>render(),0)}).catch(e=>console.warn('Automatic research reconcile failed',e));
   };
 
   function renderTodayGroups(due){
