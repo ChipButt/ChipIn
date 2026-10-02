@@ -116,8 +116,7 @@
     let changed=false;
     for(const r of results){
       if(r.status==='applied')continue;
-      const l=leadById(r.id);if(!l)continue;
-      if(r.businessName&&l.businessName!==r.businessName)continue;
+      const l=leadById(r.id)||sales().leads.find(x=>(x.businessName||'').toLowerCase()===(r.businessName||'').toLowerCase());if(!l)continue;
       l.researchSummary=r.researchSummary||l.researchSummary||'';
       l.problem=r.opportunity||l.problem||'';
       l.contactName=r.contactName||l.contactName||'';
@@ -291,7 +290,8 @@
     }
     sourcedInboxSha=f.sha;
     sourcedInboxCache=JSON.parse(f.text);
-    const candidates=(sourcedInboxCache.candidates||[]).filter(x=>(x.status||'new')==='new');
+    const pipelineNames=new Set(sales().leads.map(l=>(l.businessName||'').toLowerCase()));
+    const candidates=(sourcedInboxCache.candidates||[]).filter(x=>(x.status||'new')==='new'&&!pipelineNames.has((x.businessName||'').toLowerCase()));
     if(!candidates.length){
       host.innerHTML='<p class="muted">No sourced prospects waiting.</p>';
       if(showToast)toast('Prospect inbox is up to date');
