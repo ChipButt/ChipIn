@@ -10,7 +10,7 @@ function nextActions(){
     const method=labels[l.nextActionMethod]||'Contact';
     const overdue=l.nextActionDate<today;
     const contact=l.nextActionMethod==='email'?l.email:l.nextActionMethod==='call'?l.phone:l.nextActionMethod==='visit'?l.address:(l.website||l.address||'');
-    a.push({type:'sales',id:l.id,title:`${method} ${l.businessName||'sales prospect'}`,meta:`${overdue?'Overdue · ':''}${l.nextActionReason||l.problem||'Sales action due'}${contact?' · '+contact:''}`,priority:overdue?4:2.5});
+    a.push({type:'sales',id:l.id,title:`${method} ${l.businessName||'sales prospect'}`,meta:`${overdue?'Overdue · ':''}${l.nextActionReason||l.problem||'Sales action due'}${l.demoUrl?' · Demo website ready':''}${contact?' · '+contact:''}`,priority:overdue?4:2.5});
   });
   return a.sort((x,y)=>y.priority-x.priority).slice(0,10);
 }
