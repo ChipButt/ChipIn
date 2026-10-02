@@ -108,7 +108,43 @@
     </article>`;
   }
 
+  async function applyResearchResults(){
+    if(typeof ghUnlocked==='undefined'||!ghUnlocked||typeof getFile!=='function'||typeof putFile!=='function')return;
+    const rf=await getFile('sales-assistant/research-results.json');
+    if(!rf)return;
+    const data=JSON.parse(rf.text),results=Array.isArray(data.results)?data.results:[];
+    let changed=false;
+    for(const r of results){
+      if(r.status==='applied')continue;
+      const l=leadById(r.id);if(!l)continue;
+      if(r.businessName&&l.businessName!==r.businessName)continue;
+      l.researchSummary=r.researchSummary||l.researchSummary||'';
+      l.problem=r.opportunity||l.problem||'';
+      l.contactName=r.contactName||l.contactName||'';
+      l.email=r.email||l.email||'';
+      l.phone=r.phone||l.phone||'';
+      l.website=r.website||l.website||'';
+      l.address=r.address||l.address||'';
+      l.service=r.suggestedService||l.service||'';
+      l.researchStatus='complete';
+      l.stage='Contact';
+      const preferred=r.recommendedContactMethod;
+      l.nextActionMethod=['email','call','visit'].includes(preferred)?preferred:(l.email?'email':l.phone?'call':l.address?'visit':'research');
+      l.nextActionDate=TODAY();
+      l.nextActionReason=r.contactReason||r.opportunity||'Research completed; make first contact.';
+      if(r.suggestedOpening)l.aiReply=r.suggestedOpening;
+      l.updatedAt=new Date().toISOString();
+      r.status='applied';r.appliedAt=new Date().toISOString();
+      changed=true;
+    }
+    if(changed){
+      await saveState();
+      await putFile('sales-assistant/research-results.json',JSON.stringify(data,null,2),'Apply researched prospects to HQ',rf.sha);
+    }
+  }
+
   window.renderSales = function(){
+    applyResearchResults().catch(e=>console.warn('Research result apply failed',e));
     const s=sales(), st=prospectStats(), due=dueActions(), upcoming=futureActions();
     $('#content').innerHTML=`
       <div class="sales-hero">
