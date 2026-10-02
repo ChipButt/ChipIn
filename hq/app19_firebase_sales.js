@@ -32,7 +32,9 @@
         email:l.email||'',phone:l.phone||'',address:l.address||'',website:l.website||'',estimatedValue:l.estimatedValue||'',service:l.service||'',
         stage:l.stage||'',problem:l.problem||'',lastContactDate:l.lastContactDate||'',
         lastContactSummary:l.lastContactSummary||'',nextActionMethod:l.nextActionMethod||'',
-        nextActionDate:l.nextActionDate||'',nextActionReason:l.nextActionReason||''
+        nextActionDate:l.nextActionDate||'',nextActionReason:l.nextActionReason||'',
+        websiteStatus:l.websiteStatus||'',websiteEvidence:l.websiteEvidence||'',researchSummary:l.researchSummary||'',
+        demoStatus:l.demoStatus||'',demoUrl:l.demoUrl||'',demoSlug:l.demoSlug||''
       }))
     };
   }
