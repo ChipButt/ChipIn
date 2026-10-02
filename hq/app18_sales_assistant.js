@@ -210,10 +210,10 @@
       e.preventDefault(); const v=Object.fromEntries(new FormData(e.target).entries());
       sales().activity.push({id:uid('saleact'),leadId:l.id,date:TODAY(),type:v.outcome,summary:v.summary,method:l.nextActionMethod,createdAt:new Date().toISOString()});
       l.lastContactDate=TODAY(); l.lastContactSummary=v.summary; l.aiReply='';
-      if(v.outcome==='won'){l.stage='Won';l.nextActionDate='';sales().activity.push({id:uid('saleact'),leadId:l.id,date:TODAY(),type:'won',summary:v.summary});}
+      if(v.outcome==='won'){l.stage='Won';l.nextActionDate='';}
       else if(v.outcome==='lost'){l.stage='Lost';l.nextActionDate='';}
       else {
-        if(v.outcome==='quote'){l.stage='Quote';sales().activity.push({id:uid('saleact'),leadId:l.id,date:TODAY(),type:'quote',summary:v.summary});}
+        if(v.outcome==='quote'){l.stage='Quote';}
         else if(v.outcome==='conversation')l.stage='Follow-up';
         else if(v.outcome==='no_reply')l.stage='Follow-up';
         l.nextActionDate=v.nextDate||addDays(TODAY(),sales().settings.defaultFollowUpDays);
