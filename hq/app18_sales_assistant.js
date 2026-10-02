@@ -119,7 +119,7 @@
       <div class="section-title"><div><h2>Today</h2><p>${due.length?due.length+' action'+(due.length===1?'':'s')+' need your attention.':'Nothing is overdue.'}</p></div>
         <button class="btn secondary small" data-sales-action="chatgpt-pack">Copy ChatGPT briefing</button>
       </div>
-      <div class="sales-action-list">${due.length?due.map(actionCard).join(''):`<div class="card"><div class="empty-state"><div class="empty-icon">✓</div><h3>You’re clear for now</h3><p>Add prospects or set follow-up dates and they will appear here automatically.</p></div></div>`}</div>
+      <div class="sales-action-list">${due.length?renderTodayGroups(due):`<div class="card"><div class="empty-state"><div class="empty-icon">✓</div><h3>You’re clear for now</h3><p>Add prospects or set follow-up dates and they will appear here automatically.</p></div></div>`}</div>
 
       <div class="section-title"><div><h2>Pipeline</h2><p>Move every prospect forward or deliberately close it.</p></div><button class="btn secondary small" data-sales-action="targets">Targets</button></div>
       <div class="sales-pipeline">${stageOrder.map(stage=>pipelineColumn(stage)).join('')}</div>
@@ -135,6 +135,15 @@
       </div>`;
     wireSalesActions();
   };
+
+  function renderTodayGroups(due){
+    const groups=[
+      ['VISIT',due.filter(l=>l.nextActionMethod==='visit')],
+      ['FOLLOW UP',due.filter(l=>['email','call'].includes(l.nextActionMethod))],
+      ['RESEARCH',due.filter(l=>l.nextActionMethod==='research')]
+    ];
+    return groups.filter(([,items])=>items.length).map(([title,items])=>`<div class="sales-task-group"><h3 style="margin:4px 0 10px">${title}</h3>${items.map(actionCard).join('')}</div>`).join('');
+  }
 
   function targetCard(label,value,target){
     return `<div class="card stat"><div class="label">${esc(label)}</div><div class="value">${value} / ${target}</div><div class="progress"><div style="width:${targetPct(value,target)}%"></div></div></div>`;
@@ -172,7 +181,7 @@
       <div class="field"><label>Website</label><input name="website" value="${esc(l.website||'')}" placeholder="https://…"></div>
       <div class="field"><label>Estimated value (£)</label><input name="estimatedValue" type="number" min="0" step="0.01" value="${esc(l.estimatedValue||'')}"></div>
       <div class="field full"><label>Address / location</label><input name="address" value="${esc(l.address||'')}"></div>
-      <div class="field"><label>Service to pitch</label><input name="service" value="${esc(l.service||'')}" placeholder="Website Design, Pub Quiz, Hospitality…"></div>
+      <div class="field"><label>Services they might need</label><input name="service" value="${esc(l.service||'')}" placeholder="Website Design, Pub Quiz, Hospitality…"></div>
       <div class="field"><label>Pipeline stage</label><select name="stage">${stageOrder.map(x=>`<option ${(l.stage||'Found')===x?'selected':''}>${x}</option>`).join('')}</select></div>
       <div class="field full"><label>Problem / opportunity noticed</label><textarea name="problem" placeholder="What have you actually noticed that Chip In could solve?">${esc(l.problem||'')}</textarea></div>
       <div class="field full"><label>Last contact summary</label><textarea name="lastContactSummary" placeholder="Only factual notes. What actually happened last time?">${esc(l.lastContactSummary||'')}</textarea></div>
