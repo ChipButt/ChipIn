@@ -29,7 +29,7 @@
       today,
       pipeline:pipeline.map(l=>({
         id:l.id||'',businessName:l.businessName||'',contactName:l.contactName||'',
-        email:l.email||'',phone:l.phone||'',address:l.address||'',service:l.service||'',
+        email:l.email||'',phone:l.phone||'',address:l.address||'',website:l.website||'',estimatedValue:l.estimatedValue||'',service:l.service||'',
         stage:l.stage||'',problem:l.problem||'',lastContactDate:l.lastContactDate||'',
         lastContactSummary:l.lastContactSummary||'',nextActionMethod:l.nextActionMethod||'',
         nextActionDate:l.nextActionDate||'',nextActionReason:l.nextActionReason||''
