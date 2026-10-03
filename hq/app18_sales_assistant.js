@@ -269,7 +269,7 @@
     return stateChanged||queueChanged||inboxChanged;
   }
 
-  async function queueExistingResearchProspects(){  async function queueExistingResearchProspects(){
+  async function queueExistingResearchProspects(){
     if(typeof ghUnlocked==='undefined'||!ghUnlocked||typeof getFile!=='function'||typeof putFile!=='function')return false;
     const researchLeads=sales().leads.filter(l=>l.stage==='Research');
     if(!researchLeads.length)return false;
@@ -449,7 +449,7 @@
     window.open(url,'_blank','noopener');
     toast('Demo website generated immediately');
   }
-  let sourcedInboxCache=null, sourcedInboxSha='';  let sourcedInboxCache=null, sourcedInboxSha='';
+  let sourcedInboxCache=null, sourcedInboxSha='';
   async function loadProspectInbox(showToast=false){
     const host=document.getElementById('salesProspectInbox');if(!host)return;
     if(typeof ghUnlocked==='undefined'||!ghUnlocked||typeof getFile!=='function'){
