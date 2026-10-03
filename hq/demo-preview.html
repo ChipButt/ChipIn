@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow,noarchive">
+<meta name="theme-color" content="#132f4f">
+<title>Chip In Website Concept</title>
+<style>
+:root{--ink:#152231;--primary:#163c63;--primary2:#0e2945;--accent:#c49a52;--paper:#f5f0e7;--surface:#fff;--muted:#627080}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--paper);color:var(--ink);line-height:1.6}.shell{width:min(1120px,calc(100% - 34px));margin:auto}.concept-bar{background:#111;color:#fff;text-align:center;padding:10px 16px;font-size:11px;letter-spacing:.08em;font-weight:800}.header{position:sticky;top:0;z-index:10;background:rgba(255,255,255,.96);backdrop-filter:blur(10px);border-bottom:1px solid #ddd}.header-inner{min-height:72px;display:flex;align-items:center;justify-content:space-between;gap:20px}.brand{font:700 24px Georgia,serif}.brand small{display:block;font:700 10px Arial,sans-serif;text-transform:uppercase;letter-spacing:.15em;color:var(--muted)}nav{display:flex;gap:22px}nav a{color:var(--ink);font-weight:700;text-decoration:none;font-size:13px}.hero{position:relative;overflow:hidden;background:linear-gradient(135deg,var(--primary),var(--primary2));color:#fff;padding:105px 0}.hero:before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 15% 15%,rgba(255,255,255,.09),transparent 32%),radial-gradient(circle at 85% 80%,rgba(196,154,82,.18),transparent 35%)}.hero-grid{position:relative;display:grid;grid-template-columns:1.2fr .72fr;gap:70px;align-items:center}.eyebrow{font-size:11px;letter-spacing:.18em;text-transform:uppercase;font-weight:800;color:var(--accent)}h1,h2,h3{font-family:Georgia,"Times New Roman",serif}h1{font-size:clamp(54px,8vw,96px);line-height:.92;margin:16px 0 28px}.hero-copy{font-size:20px;max-width:650px;color:#f0f4f7}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:28px}.button{display:inline-block;padding:13px 18px;border-radius:5px;text-decoration:none;font-weight:800}.button.primary{background:var(--accent);color:#18202a}.button.ghost{border:1px solid #ffffff77;color:#fff}.hero-card{background:var(--surface);color:var(--ink);padding:30px;border-radius:10px;box-shadow:0 25px 70px rgba(0,0,0,.18)}.hero-card h2{font-size:32px;line-height:1.1;margin:10px 0}.hero-card p{color:var(--muted)}.section{padding:86px 0}.section-heading{max-width:720px;margin-bottom:34px}.section-heading h2{font-size:clamp(38px,5vw,58px);line-height:1.05;margin:8px 0}.section-heading p{color:var(--muted);font-size:18px}.module-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}.module{background:var(--surface);border:1px solid #ded8cc;border-radius:9px;padding:28px}.module span{display:inline-grid;place-items:center;width:34px;height:34px;border-radius:50%;background:var(--primary);color:#fff;font-weight:800;font-size:12px}.module h3{font-size:26px;margin:16px 0 8px}.module p{color:var(--muted);margin:0}.research{background:#fff}.research-grid{display:grid;grid-template-columns:.75fr 1.25fr;gap:65px}.research-card{padding:28px;background:var(--paper);border-left:4px solid var(--accent)}.research-card p{margin-top:0}.contact{background:var(--primary2);color:#fff}.contact-grid{display:grid;grid-template-columns:.8fr 1.2fr;gap:45px}.contact h2{font-size:48px;margin:10px 0}.contact-stack{background:#ffffff0c;border:1px solid #ffffff25;border-radius:9px;padding:12px 28px}.contact-row{padding:16px 0;border-bottom:1px solid #ffffff2c}.contact-row:last-child{border-bottom:0}.contact-row small{display:block;text-transform:uppercase;letter-spacing:.14em;color:#cfdae5}.contact-row strong,.contact-row a{color:#fff;overflow-wrap:anywhere}.footer{background:#091a2d;color:#c7d0da;padding:34px 0;font-size:12px}.error{max-width:700px;margin:90px auto;padding:30px;background:#fff;border:1px solid #ddd}.muted{color:var(--muted)}@media(max-width:760px){nav{display:none}.hero{padding:68px 0}.hero-grid,.research-grid,.contact-grid{grid-template-columns:1fr;gap:35px}.module-grid{grid-template-columns:1fr}.section{padding:62px 0}.hero-card{padding:24px}h1{font-size:58px}}
+</style>
+</head>
+<body>
+<div class="concept-bar">CHIP IN CONCEPT WEBSITE · UNCOMMISSIONED PREVIEW · PUBLIC/VERIFIED INFORMATION ONLY</div>
+<div id="app"></div>
+<script>
+(function(){
+  const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const decode=()=>{
+    const raw=location.hash.slice(1).replace(/-/g,'+').replace(/_/g,'/');
+    const pad=raw+'='.repeat((4-raw.length%4)%4);
+    const bytes=Uint8Array.from(atob(pad),c=>c.charCodeAt(0));
+    return JSON.parse(new TextDecoder().decode(bytes));
+  };
+  const hash=s=>[...String(s||'Chip In')].reduce((a,c)=>(a*31+c.charCodeAt(0))>>>0,7);
+  const palettes=[
+    ['#173f35','#0f3028','#b78a44','#f4efe3'],
+    ['#243a63','#172743','#d1a35b','#f3efe8'],
+    ['#613942','#42242b','#c89a63','#f5ece9'],
+    ['#3f425f','#292b45','#c7a052','#f0eee9'],
+    ['#38524a','#253a34','#d0a85c','#f3f0e8']
+  ];
+  let d;
+  try{d=decode()}catch(e){document.getElementById('app').innerHTML='<div class="error"><h1>Concept preview unavailable</h1><p>This preview link is incomplete or damaged.</p></div>';return}
+  const p=palettes[hash(d.businessName)%palettes.length];
+  document.documentElement.style.setProperty('--primary',p[0]);document.documentElement.style.setProperty('--primary2',p[1]);document.documentElement.style.setProperty('--accent',p[2]);document.documentElement.style.setProperty('--paper',p[3]);
+  document.title=(d.businessName||'Business')+' · Chip In Concept';
+  const contact=d.phone||d.email;
+  const map=d.address?'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(d.address):'';
+  const summary=d.researchSummary||'This concept uses the verified information currently available and is intended to demonstrate structure and visual direction only.';
+  document.getElementById('app').innerHTML=`
+<header class="header"><div class="shell header-inner"><div class="brand">${esc(d.businessName||'Business')}<small>Website concept by Chip In</small></div><nav><a href="#about">About</a><a href="#structure">Website</a><a href="#contact">Contact</a></nav></div></header>
+<main>
+<section class="hero"><div class="shell hero-grid"><div><p class="eyebrow">A clearer home online</p><h1>${esc(d.businessName||'Your business')}</h1><p class="hero-copy">A clean, mobile-friendly website concept built around the verified public information currently available.</p><div class="actions">${d.phone?'<a class="button primary" href="tel:'+esc(d.phone.replace(/[^+\\d]/g,''))+'">Call</a>':''}${map?'<a class="button ghost" href="'+esc(map)+'" target="_blank" rel="noopener">Find us</a>':''}</div></div><aside class="hero-card"><p class="eyebrow">Concept direction</p><h2>Simple to understand. Easy to use.</h2><p>This is an early visual example, not a finished customer website. Final branding, imagery, copy, services, prices and opening hours would come directly from the business.</p></aside></div></section>
+<section id="structure" class="section"><div class="shell"><div class="section-heading"><p class="eyebrow">What the finished site can do</p><h2>Put the important information in one place</h2><p>The final version can be shaped around what customers most often need before they contact or visit.</p></div><div class="module-grid"><article class="module"><span>01</span><h3>About</h3><p>Tell the business story clearly and give customers confidence before they make contact.</p></article><article class="module"><span>02</span><h3>Services</h3><p>Present the confirmed services, products, menus or treatments in a clean mobile-friendly format.</p></article><article class="module"><span>03</span><h3>Visit & contact</h3><p>Make phone, email, directions, opening information and enquiries quick to find.</p></article></div></div></section>
+<section id="about" class="section research"><div class="shell research-grid"><div><p class="eyebrow">Starting point</p><h2>Built from research, then refined with you</h2></div><div class="research-card"><p>${esc(summary)}</p>${d.websiteEvidence?'<p class="muted"><strong>Website research:</strong> '+esc(d.websiteEvidence)+'</p>':''}<p class="muted">Any unverified details are deliberately left out of this concept rather than guessed.</p></div></div></section>
+<section id="contact" class="section contact"><div class="shell contact-grid"><div><p class="eyebrow">Public contact information</p><h2>${esc(d.businessName||'Business')}</h2><p>${esc(d.address||'Contact details to be confirmed')}</p></div><div class="contact-stack">${d.phone?'<div class="contact-row"><small>Phone</small><strong>'+esc(d.phone)+'</strong></div>':''}${d.email?'<div class="contact-row"><small>Email</small><strong>'+esc(d.email)+'</strong></div>':''}${d.address?'<div class="contact-row"><small>Address</small><strong>'+esc(d.address)+'</strong></div>':''}<div class="contact-row"><small>Status</small><strong>Chip In concept preview · not commissioned or approved by the business</strong></div></div></div></section>
+</main>
+<footer class="footer"><div class="shell">Prepared by Chip In as a sales concept using verified information available at the time of research. This preview is not an official website for ${esc(d.businessName||'the business')}.</div></footer>`;
+})();
+</script>
+</body></html>
