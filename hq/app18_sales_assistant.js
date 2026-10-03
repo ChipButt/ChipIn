@@ -374,6 +374,9 @@
       <div class="section-title"><div><h2>Sourced prospects</h2><p>Prospects researched by ChatGPT appear here before they enter your live pipeline.</p></div><div class="row-actions"><button class="btn gold small" data-sales-action="sales-now">NOW</button><button class="btn secondary small" data-sales-action="refresh-inbox">Refresh</button></div></div>
       <div id="salesProspectInbox" class="card"><p class="muted">Loading sourced prospects…</p></div>
 
+      <div class="section-title"><div><h2>Automation queue</h2><p>Live status from the private Sales Assistant worker files.</p></div><button class="btn secondary small" data-sales-action="refresh-workers">Refresh status</button></div>
+      <div id="salesWorkerStatus" class="card"><p class="muted">Loading automation status…</p></div>
+
       <div class="section-title"><div><h2>Pipeline</h2><p>Move every prospect forward or deliberately close it.</p></div><button class="btn secondary small" data-sales-action="targets">Targets</button></div>
       <div class="sales-pipeline">${stageOrder.map(stage=>pipelineColumn(stage)).join('')}</div>
 
@@ -388,6 +391,7 @@
       </div>`;
     wireSalesActions();
     loadProspectInbox().catch(e=>{const el=document.getElementById('salesProspectInbox');if(el)el.innerHTML=`<p class="muted">${esc(e.message)}</p>`;});
+    loadWorkerStatus().catch(e=>{const el=document.getElementById('salesWorkerStatus');if(el)el.innerHTML=`<p class="muted">${esc(e.message)}</p>`;});
     reconcileAutomaticResearch().then(changed=>{if(changed)setTimeout(()=>render(),0)}).catch(e=>console.warn('Automatic research reconcile failed',e));
   };
 
@@ -440,6 +444,7 @@
     if(action==='targets')return openTargets();
     if(action==='chatgpt-pack')return copyChatGPTPack();
     if(action==='refresh-inbox')return loadProspectInbox(true);
+    if(action==='refresh-workers')return loadWorkerStatus(true);
     if(action==='generate-demo')return generateDemoWebsite(id);
     if(action==='open-demo'){
       const l=leadById(id);if(!l)return;
@@ -473,6 +478,49 @@
     toast('Demo website generated immediately');
   }
   let sourcedInboxCache=null, sourcedInboxSha='';
+  function workerWhen(v){
+    if(!v)return 'Not recorded';
+    const d=new Date(v);if(Number.isNaN(d.getTime()))return esc(v);
+    return d.toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+  }
+  function workerOutcome(w){
+    if(!w)return 'No heartbeat yet';
+    if(w.state==='running')return 'Running now';
+    if(w.state==='error')return 'Error'+(w.lastError?' · '+w.lastError:'');
+    if(w.lastOutcome==='success')return 'Last run succeeded';
+    if(w.lastOutcome==='partial')return 'Last run partly succeeded';
+    if(w.lastOutcome==='empty')return 'Queue checked · nothing waiting';
+    if(w.lastOutcome==='already_full')return 'Prospect pool already full';
+    return w.lastOutcome?String(w.lastOutcome).replace(/_/g,' '):'Waiting for next run';
+  }
+  async function loadWorkerStatus(showToast=false){
+    const host=document.getElementById('salesWorkerStatus');if(!host)return;
+    if(typeof ghUnlocked==='undefined'||!ghUnlocked||typeof getFile!=='function'){
+      host.innerHTML='<p class="muted">Unlock private storage to load automation status.</p>';return;
+    }
+    const [sf,rqf,dqf,pif]=await Promise.all([
+      getFile('sales-assistant/worker-status.json'),
+      getFile('sales-assistant/research-queue.json'),
+      getFile('sales-assistant/demo-website-queue.json'),
+      getFile('sales-assistant/prospect-inbox.json')
+    ]);
+    const status=sf?JSON.parse(sf.text):{};
+    const rq=rqf?JSON.parse(rqf.text):{requests:[]};
+    const dq=dqf?JSON.parse(dqf.text):{requests:[]};
+    const pi=pif?JSON.parse(pif.text):{candidates:[]};
+    const researchQueued=(rq.requests||[]).filter(x=>x.status==='queued').length;
+    const demosQueued=(dq.requests||[]).filter(x=>['queued','built_local','publish_pending','needs_rebuild'].includes(x.status)).length;
+    const newProspects=(pi.candidates||[]).filter(x=>(x.status||'new')==='new').length;
+    const d=status.demoBuilder||{},r=status.researchWorker||{},p=status.prospectRefill||{};
+    const lastTime=w=>w.lastCompletedAt||w.lastFailedAt||w.lastCheckedAt||w.lastStartedAt||'';
+    host.innerHTML=`<div class="stack">
+      <div class="action-item"><div><div class="title">Website builder</div><div class="meta">${demosQueued} waiting · ${esc(workerOutcome(d))}</div><div class="meta">Last activity: ${workerWhen(lastTime(d))}</div></div><span class="badge ${d.state==='error'?'bad':d.state==='running'?'warn':'ok'}">${esc(d.state||'idle')}</span></div>
+      <div class="action-item"><div><div class="title">Prospect research</div><div class="meta">${researchQueued} waiting · ${esc(workerOutcome(r))}</div><div class="meta">Last activity: ${workerWhen(lastTime(r))}</div></div><span class="badge ${r.state==='error'?'bad':r.state==='running'?'warn':'ok'}">${esc(r.state||'idle')}</span></div>
+      <div class="action-item"><div><div class="title">Sourced prospect refill</div><div class="meta">${newProspects} fresh prospects · ${esc(workerOutcome(p))}</div><div class="meta">Last activity: ${workerWhen(lastTime(p))}</div></div><span class="badge ${p.state==='error'?'bad':p.state==='running'?'warn':'ok'}">${esc(p.state||'idle')}</span></div>
+    </div>`;
+    if(showToast)toast('Automation status refreshed');
+  }
+
   async function loadProspectInbox(showToast=false){
     const host=document.getElementById('salesProspectInbox');if(!host)return;
     if(typeof ghUnlocked==='undefined'||!ghUnlocked||typeof getFile!=='function'){
