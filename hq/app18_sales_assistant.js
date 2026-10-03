@@ -133,6 +133,7 @@
       websiteEvidence:l.websiteEvidence||'',
       demoProfile:l.demoProfile||null,
       images:Array.isArray(l.demoImages)?l.demoImages:[],
+      openingHours:Array.isArray(l.openingHours)?l.openingHours:[],
       generatedAt:new Date().toISOString()
     };
   }
@@ -252,6 +253,7 @@
       l.researchSources=Array.isArray(r.sources)?r.sources:(l.researchSources||[]);
       if(r.category)l.category=r.category;
       if(r.demoProfile&&typeof r.demoProfile==='object')l.demoProfile=r.demoProfile;
+      if(Array.isArray(r.openingHours))l.openingHours=r.openingHours;
       if(Array.isArray(r.images))l.demoImages=r.images;
       l.researchStatus='complete';
       l.stage='Contact';
