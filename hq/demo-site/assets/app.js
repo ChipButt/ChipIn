@@ -191,7 +191,7 @@
     ]
   };
   function serviceKey(x){
-    const t=[x?.name,x?.description,x?.desc,x?.details].filter(Boolean).join(' ').toLowerCase();
+    const t=[x?.name,x?.shortSummary,x?.description,x?.desc,x?.details,Array.isArray(x?.detailParagraphs)?x.detailParagraphs.join(' '):''].filter(Boolean).join(' ').toLowerCase();
     if(/dog|pet|groom/.test(t))return'dog';
     if(/barber|beard|men'?s grooming/.test(t))return'barber';
     if(/nail|manicure|pedicure/.test(t))return'nails';
@@ -217,7 +217,10 @@
       gifts:/gift|present/,
       flowers:/flower|floral|bouquet|arrangement/
     }[key];
-    return d.images.find(img=>img?.url&&words.test([img.alt,img.type].filter(Boolean).join(' ').toLowerCase()))?.url||'';
+    const exactRole='service:'+slugify(x?.slug||x?.name||'');
+    const roleMatch=d.images.find(img=>img?.url&&String(img.role||'').toLowerCase()===exactRole);
+    if(roleMatch)return roleMatch.url;
+    return d.images.find(img=>img?.url&&words.test([img.alt,img.type,img.role].filter(Boolean).join(' ').toLowerCase()))?.url||'';
   }
   function serviceImage(d,x,variant=0){
     const supplied=suppliedServiceImage(d,x);
@@ -229,7 +232,8 @@
   function setTheme(p){const[a,b,c,d]=p;document.documentElement.style.setProperty('--primary',a);document.documentElement.style.setProperty('--primary-2',b);document.documentElement.style.setProperty('--accent',c);document.documentElement.style.setProperty('--paper',d)}
   let d;try{d=decode()}catch(e){document.body.innerHTML='<div class="shell section"><div class="card"><h2>Concept preview unavailable</h2><p>This preview link is incomplete or damaged.</p></div></div>';return}
   const text=[d.businessName,d.category,d.service,d.researchSummary,d.opportunity,d.websiteEvidence,JSON.stringify(d.demoProfile||{})].join(' ').toLowerCase();
-  const kind=kindFor(text),profile=profiles[kind],images=safeImages(d,kind),offerings=(Array.isArray(d.demoProfile?.offerings)&&d.demoProfile.offerings.length)?d.demoProfile.offerings:offeringList(text,kind);
+  const researchedServices=Array.isArray(d.demoProfile?.services)&&d.demoProfile.services.length?d.demoProfile.services:(Array.isArray(d.demoProfile?.offerings)&&d.demoProfile.offerings.length?d.demoProfile.offerings:[]);
+  const kind=kindFor(text),profile=profiles[kind],images=safeImages(d,kind),offerings=researchedServices.length?researchedServices:offeringList(text,kind);
   setTheme(profile.palette);
   const place=locality(d.address),hash=location.hash;
   const page=document.body.dataset.page||'home';
@@ -259,7 +263,7 @@
   }else if(page==='about'){
     main=`<main><section class="page-hero"><div class="shell"><p class="eyebrow">About</p><h1>${esc(d.demoProfile?.aboutHeading||d.businessName||'About')}</h1><p class="page-lead">${esc(aboutLead)}</p></div></section><section class="section"><div class="shell two-column"><div class="demo-about-image">${aboutImage?'<img src="'+esc(aboutImage)+'" alt="Concept business imagery">':''}</div><div class="prose"><p>${esc(aboutBody)}</p><div class="fact-row">${facts.map(x=>'<span>'+esc(x)+'</span>').join('')}</div></div></div></section></main>`;
   }else if(page==='services'){
-    main=`<main><section class="page-hero"><div class="shell"><p class="eyebrow">What we do</p><h1>${esc(d.demoProfile?.servicesHeading||'Services')}</h1><p class="page-lead">${esc(d.demoProfile?.servicesLead||'Explore the services and specialities identified during research.')}</p></div></section><section class="section food-section"><div class="shell"><div class="demo-services-grid">${offerings.map((x,i)=>'<a class="demo-service-card" href="'+esc(serviceHref(x))+'">'+(serviceImages[i]?'<img src="'+esc(serviceImages[i])+'" alt="'+esc(x.name)+'">':'')+'<div class="demo-service-copy"><h3>'+esc(x.name)+'</h3><p>'+esc(x.description||x.desc||'')+'</p><strong class="demo-service-link">More about '+esc(x.name)+' →</strong></div></a>').join('')}</div></div></section></main>`;
+    main=`<main><section class="page-hero"><div class="shell"><p class="eyebrow">What we do</p><h1>${esc(d.demoProfile?.servicesHeading||'Services')}</h1><p class="page-lead">${esc(d.demoProfile?.servicesLead||'Explore the services and specialities identified during research.')}</p></div></section><section class="section food-section"><div class="shell"><div class="demo-services-grid">${offerings.map((x,i)=>'<a class="demo-service-card" href="'+esc(serviceHref(x))+'">'+(serviceImages[i]?'<img src="'+esc(serviceImages[i])+'" alt="'+esc(x.name)+'">':'')+'<div class="demo-service-copy"><h3>'+esc(x.name)+'</h3><p>'+esc(x.shortSummary||x.description||x.desc||'')+'</p><strong class="demo-service-link">More about '+esc(x.name)+' →</strong></div></a>').join('')}</div></div></section></main>`;
   }else if(page==='service'){
     const wanted=new URLSearchParams(location.search).get('s')||'';
     const service=offerings.find(x=>slugify(x.name)===wanted)||offerings[0];
@@ -267,9 +271,10 @@
       main='<main><section class="page-hero"><div class="shell"><h1>Service information</h1></div></section></main>';
     }else{
       const detailImage=serviceImage(d,service,1);
-      const detailText=service.details||service.longDescription||service.description||service.desc||'Contact the business for the latest details about this service.';
+      const paragraphs=Array.isArray(service.detailParagraphs)&&service.detailParagraphs.length?service.detailParagraphs:[service.details||service.longDescription||service.description||service.desc||'Contact the business for the latest details about this service.'];
+      const detailText=paragraphs.filter(Boolean);
       const extra=Array.isArray(service.facts)?service.facts:[];
-      main=`<main><section class="page-hero"><div class="shell"><p class="eyebrow">Service</p><h1>${esc(service.name)}</h1><p class="page-lead">${esc(service.description||service.desc||'')}</p></div></section><section class="section"><div class="shell demo-service-detail">${detailImage?'<img class="demo-service-detail-image" src="'+esc(detailImage)+'" alt="'+esc(service.name)+'">':''}<div><p class="eyebrow">${esc(d.businessName||'')}</p><h2>${esc(service.name)}</h2><p class="lead">${esc(detailText)}</p>${extra.length?'<div class="fact-row">'+extra.map(x=>'<span>'+esc(typeof x==='string'?x:(x.text||x.title||''))+'</span>').join('')+'</div>':''}<div class="demo-service-actions">${d.phone?'<a class="button button-primary" href="tel:'+esc(String(d.phone).replace(/[^+\\d]/g,''))+'">Call '+esc(d.phone)+'</a>':''}<a class="button button-primary" href="${href('hours')}">Opening hours</a><a class="button button-ghost-dark" href="${href('services')}">All services</a></div></div></div></section></main>`;
+      main=`<main><section class="page-hero"><div class="shell"><p class="eyebrow">Service</p><h1>${esc(service.name)}</h1><p class="page-lead">${esc(service.description||service.desc||'')}</p></div></section><section class="section"><div class="shell demo-service-detail">${detailImage?'<img class="demo-service-detail-image" src="'+esc(detailImage)+'" alt="'+esc(service.name)+'">':''}<div><p class="eyebrow">${esc(d.businessName||'')}</p><h2>${esc(service.name)}</h2>${detailText.map(p=>'<p class="lead">'+esc(p)+'</p>').join('')}${extra.length?'<div class="fact-row">'+extra.map(x=>'<span>'+esc(typeof x==='string'?x:(x.text||x.title||''))+'</span>').join('')+'</div>':''}<div class="demo-service-actions">${d.phone?'<a class="button button-primary" href="tel:'+esc(String(d.phone).replace(/[^+\\d]/g,''))+'">Call '+esc(d.phone)+'</a>':''}<a class="button button-primary" href="${href('hours')}">Opening hours</a><a class="button button-ghost-dark" href="${href('services')}">All services</a></div></div></div></section></main>`;
     }
   }else if(page==='hours'){
     main=`<main><section class="page-hero"><div class="shell"><p class="eyebrow">Plan your visit</p><h1>Opening hours</h1><p class="page-lead">${verified?'Current public opening hours identified during research.':'Current opening hours could not be reliably verified, so please contact the business before making a special journey.'}</p></div></section><section class="section hours-section"><div class="shell"><div class="hours-grid">${hours.map(h=>'<div class="hours-row"><strong>'+esc(h.day)+'</strong><span>'+esc(h.display||h.hours||'Please contact to confirm')+'</span></div>').join('')}</div></div></section></main>`;
