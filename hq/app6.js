@@ -34,7 +34,13 @@ async function saveCredential(token,pass){
 }
 async function restoreCredentialBackup(){
   let sealed=localStorage.getItem(CRED_KEY);
-  if(sealed)return sealed;
+  if(sealed){
+    try{
+      const backup=await dbGet('app','github-credential');
+      if(backup!==sealed)await dbPut('app','github-credential',sealed);
+    }catch(e){console.warn('Credential backup migration failed',e)}
+    return sealed;
+  }
   try{
     sealed=await dbGet('app','github-credential');
     if(sealed){
