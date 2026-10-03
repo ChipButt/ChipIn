@@ -127,8 +127,9 @@
     const data=JSON.parse(rf.text),results=Array.isArray(data.results)?data.results:[];
     let changed=false;
     for(const r of results){
-      if(r.status==='applied')continue;
       const l=leadById(r.id)||sales().leads.find(x=>(x.businessName||'').toLowerCase()===(r.businessName||'').toLowerCase());if(!l)continue;
+      const needsBackfill=!l.websiteStatus&&!!r.websiteStatus || !l.websiteEvidence&&!!r.websiteEvidence || (!l.researchSources?.length&&Array.isArray(r.sources)&&r.sources.length);
+      if(r.status==='applied'&&!needsBackfill)continue;
       l.researchSummary=r.researchSummary||l.researchSummary||'';
       l.problem=r.opportunity||l.problem||'';
       l.contactName=r.contactName||l.contactName||'';
@@ -149,7 +150,8 @@
       l.nextActionReason=r.contactReason||r.opportunity||'Research completed; make first contact.';
       if(r.suggestedOpening)l.aiReply=r.suggestedOpening;
       l.updatedAt=new Date().toISOString();
-      r.status='applied';r.appliedAt=new Date().toISOString();
+      r.status='applied';
+      if(!r.appliedAt)r.appliedAt=new Date().toISOString();
       changed=true;
     }
     if(changed){
