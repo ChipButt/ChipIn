@@ -123,11 +123,16 @@
   function demoPayload(l){
     return {
       businessName:l.businessName||'Business',
+      category:l.category||l.demoProfile?.businessType||'',
+      service:l.service||'',
       address:l.address||'',
       phone:l.phone||'',
       email:l.email||'',
       researchSummary:l.researchSummary||'',
+      opportunity:l.problem||'',
       websiteEvidence:l.websiteEvidence||'',
+      demoProfile:l.demoProfile||null,
+      images:Array.isArray(l.demoImages)?l.demoImages:[],
       generatedAt:new Date().toISOString()
     };
   }
@@ -245,6 +250,9 @@
       l.websiteStatus=r.websiteStatus||l.websiteStatus||'';
       l.websiteEvidence=r.websiteEvidence||l.websiteEvidence||'';
       l.researchSources=Array.isArray(r.sources)?r.sources:(l.researchSources||[]);
+      if(r.category)l.category=r.category;
+      if(r.demoProfile&&typeof r.demoProfile==='object')l.demoProfile=r.demoProfile;
+      if(Array.isArray(r.images))l.demoImages=r.images;
       l.researchStatus='complete';
       l.stage='Contact';
       const preferred=r.recommendedContactMethod;
