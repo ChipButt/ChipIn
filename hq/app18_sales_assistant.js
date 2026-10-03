@@ -120,16 +120,120 @@
     </article>`;
   }
 
-  async function applyResearchResults(){
+  function demoPayload(l){
+    return {
+      businessName:l.businessName||'Business',
+      address:l.address||'',
+      phone:l.phone||'',
+      email:l.email||'',
+      researchSummary:l.researchSummary||'',
+      websiteEvidence:l.websiteEvidence||'',
+      generatedAt:new Date().toISOString()
+    };
+  }
+  function encodeDemoPayload(payload){
+    const bytes=new TextEncoder().encode(JSON.stringify(payload));
+    let raw='';for(let i=0;i<bytes.length;i++)raw+=String.fromCharCode(bytes[i]);
+    return btoa(raw).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  }
+  function buildLocalDemo(l){
+    if(l.demoUrl&&l.demoStatus==='ready')return l.demoUrl;
+    l.demoStatus='ready';
+    l.demoBuiltAt=new Date().toISOString();
+    l.demoSlug='hq-concept-preview';
+    l.demoUrl=new URL('demo-preview.html',location.href).href+'#'+encodeDemoPayload(demoPayload(l));
+    l.updatedAt=new Date().toISOString();
+    return l.demoUrl;
+  }
+  async function syncLocalDemoRecord(l){
     if(typeof ghUnlocked==='undefined'||!ghUnlocked||typeof getFile!=='function'||typeof putFile!=='function')return;
+    try{
+      const path='sales-assistant/demo-website-queue.json';
+      const qf=await getFile(path);
+      const q=qf?JSON.parse(qf.text):{version:1,requests:[]};
+      q.requests=Array.isArray(q.requests)?q.requests:[];
+      let req=q.requests.find(x=>x.leadId===l.id);
+      if(!req){
+        req={leadId:l.id,businessName:l.businessName||'',websiteStatus:l.websiteStatus||'',queuedAt:l.demoBuiltAt,status:'built_local'};
+        q.requests.push(req);
+      }
+      Object.assign(req,{status:'built_local',builtAt:l.demoBuiltAt,demoUrl:l.demoUrl,renderer:'hq-concept-preview'});
+      await putFile(path,JSON.stringify(q,null,2),'Record HQ-generated demo website',qf?.sha||'');
+
+      const resultPath='sales-assistant/demo-website-results.json';
+      const rf=await getFile(resultPath);
+      const data=rf?JSON.parse(rf.text):{version:1,results:[]};
+      data.results=Array.isArray(data.results)?data.results:[];
+      const result={leadId:l.id,businessName:l.businessName||'',slug:l.demoSlug||'',demoUrl:l.demoUrl,builtAt:l.demoBuiltAt,summary:'Self-contained concept preview generated directly by Chip In HQ from verified research data.',renderer:'hq-concept-preview',status:'ready'};
+      const i=data.results.findIndex(x=>x.leadId===l.id);
+      if(i>=0)data.results[i]={...data.results[i],...result};else data.results.push(result);
+      await putFile(resultPath,JSON.stringify(data,null,2),'Record HQ demo website result',rf?.sha||'');
+    }catch(e){console.warn('Demo record sync failed; local demo remains available',e)}
+  }
+  async function processLocalDemoQueue(){
+    if(typeof ghUnlocked==='undefined'||!ghUnlocked||typeof getFile!=='function'||typeof putFile!=='function')return false;
+    const path='sales-assistant/demo-website-queue.json';
+    const qf=await getFile(path);if(!qf)return false;
+    const q=JSON.parse(qf.text);q.requests=Array.isArray(q.requests)?q.requests:[];
+    const pending=q.requests.filter(x=>['queued','building'].includes(x.status));
+    if(!pending.length)return false;
+    let changed=false,stateChanged=false;
+    const built=[];
+    for(const req of pending){
+      let l=leadById(req.leadId)||sales().leads.find(x=>(x.businessName||'').toLowerCase()===(req.businessName||'').toLowerCase());
+      if(!l&&req.leadId){
+        l={id:req.leadId,createdAt:req.queuedAt||new Date().toISOString(),updatedAt:new Date().toISOString(),businessName:req.businessName||'',contactName:req.contactName||'',email:req.email||'',phone:req.phone||'',website:req.website||'',address:req.address||'',service:req.service||'Website Design',problem:req.opportunity||'',researchSummary:req.researchSummary||'',websiteStatus:req.websiteStatus||'',websiteEvidence:req.websiteEvidence||'',researchSources:req.sources||[],estimatedValue:'',stage:'Contact',nextActionMethod:req.email?'email':req.phone?'call':req.address?'visit':'research',nextActionDate:TODAY(),nextActionReason:req.opportunity||'Demo website ready; make contact.',notes:'',researchStatus:'complete'};
+        sales().leads.push(l);stateChanged=true;
+      }
+      if(!l)continue;
+      if((l.websiteStatus||req.websiteStatus)!=='no_functioning_site'){
+        req.status='needs_review';req.reason='HQ will only generate a prospect demo after Research confirms no functioning standalone website.';changed=true;continue;
+      }
+      if(!l.websiteStatus)l.websiteStatus=req.websiteStatus;
+      if(!l.websiteEvidence)l.websiteEvidence=req.websiteEvidence||'';
+      buildLocalDemo(l);
+      Object.assign(req,{status:'built_local',builtAt:l.demoBuiltAt,demoUrl:l.demoUrl,renderer:'hq-concept-preview'});
+      built.push(l);changed=true;stateChanged=true;
+    }
+    if(stateChanged)await saveState();
+    if(changed){
+      try{await putFile(path,JSON.stringify(q,null,2),'Convert queued demos to HQ concept previews',qf.sha)}catch(e){console.warn('Demo queue status sync failed',e)}
+      for(const l of built)await syncLocalDemoRecord(l);
+    }
+    return stateChanged||changed;
+  }
+
+  async function applyResearchResults(){
+    if(typeof ghUnlocked==='undefined'||!ghUnlocked||typeof getFile!=='function')return false;
     const rf=await getFile('sales-assistant/research-results.json');
-    if(!rf)return;
+    if(!rf)return false;
     const data=JSON.parse(rf.text),results=Array.isArray(data.results)?data.results:[];
-    let changed=false;
+    let qf=null,q={version:1,requests:[]},inboxFile=null,inbox=null;
+    try{qf=await getFile('sales-assistant/research-queue.json');if(qf){q=JSON.parse(qf.text);q.requests=Array.isArray(q.requests)?q.requests:[]}}catch(e){console.warn('Research queue read failed',e)}
+    try{inboxFile=await getFile('sales-assistant/prospect-inbox.json');if(inboxFile)inbox=JSON.parse(inboxFile.text)}catch(e){console.warn('Prospect inbox read failed',e)}
+    let stateChanged=false,queueChanged=false,inboxChanged=false;
     for(const r of results){
-      const l=leadById(r.id)||sales().leads.find(x=>(x.businessName||'').toLowerCase()===(r.businessName||'').toLowerCase());if(!l)continue;
+      if(!r||!r.id||!['ready','applied'].includes(r.status||'ready'))continue;
+      const req=(q.requests||[]).find(x=>x.id===r.id);
+      let l=leadById(r.id)||sales().leads.find(x=>(x.businessName||'').toLowerCase()===(r.businessName||'').toLowerCase());
+      if(!l&&req){
+        l={
+          id:r.id,createdAt:req.queuedAt||new Date().toISOString(),updatedAt:new Date().toISOString(),
+          businessName:r.businessName||req.businessName||'',contactName:r.contactName||'',email:r.email||req.email||'',phone:r.phone||req.phone||'',
+          website:r.website||req.website||'',address:r.address||req.address||'',service:r.suggestedService||req.suggestedService||'',
+          problem:r.opportunity||req.discoveryReason||'',estimatedValue:'',stage:'Research',nextActionMethod:'research',nextActionDate:TODAY(),
+          nextActionReason:req.discoveryReason||r.contactReason||r.opportunity||'Research this prospect.',notes:'',
+          source:req.source||{},researchStatus:'queued'
+        };
+        sales().leads.push(l);stateChanged=true;
+      }
+      if(!l)continue;
+      const stamp=[r.verifiedAt||'',r.businessName||'',r.websiteStatus||'',r.websiteEvidence||''].join('|');
       const needsBackfill=!l.websiteStatus&&!!r.websiteStatus || !l.websiteEvidence&&!!r.websiteEvidence || (!l.researchSources?.length&&Array.isArray(r.sources)&&r.sources.length);
-      if(r.status==='applied'&&!needsBackfill)continue;
+      if(l.researchResultStamp===stamp&&!needsBackfill){
+        if(req?.status==='queued'){req.status='researched';req.researchedAt=req.researchedAt||new Date().toISOString();queueChanged=true}
+        continue;
+      }
       l.researchSummary=r.researchSummary||l.researchSummary||'';
       l.problem=r.opportunity||l.problem||'';
       l.contactName=r.contactName||l.contactName||'';
@@ -145,23 +249,27 @@
       l.stage='Contact';
       const preferred=r.recommendedContactMethod;
       l.nextActionMethod=['email','call','visit'].includes(preferred)?preferred:(l.email?'email':l.phone?'call':l.address?'visit':'research');
-      l.nextActionDate=TODAY();
-      l.nextActionTime='';l.nextActionDuration='';
+      l.nextActionDate=TODAY();l.nextActionTime='';l.nextActionDuration='';
       l.nextActionReason=r.contactReason||r.opportunity||'Research completed; make first contact.';
       if(r.suggestedOpening)l.aiReply=r.suggestedOpening;
+      l.researchResultStamp=stamp;
       l.updatedAt=new Date().toISOString();
-      r.status='applied';
-      if(!r.appliedAt)r.appliedAt=new Date().toISOString();
-      changed=true;
+      if(req?.status==='queued'){req.status='researched';req.researchedAt=req.researchedAt||new Date().toISOString();queueChanged=true}
+      const candidate=(inbox?.candidates||[]).find(x=>(x.businessName||'').toLowerCase()===(l.businessName||'').toLowerCase());
+      if(candidate&&(candidate.status||'new')==='new'&&req){candidate.status='accepted';candidate.reviewedAt=candidate.reviewedAt||new Date().toISOString();inboxChanged=true}
+      stateChanged=true;
     }
-    if(changed){
-      await saveState();
-      await putFile('sales-assistant/research-results.json',JSON.stringify(data,null,2),'Apply researched prospects to HQ',rf.sha);
+    if(stateChanged)await saveState();
+    if(queueChanged&&qf&&typeof putFile==='function'){
+      try{await putFile('sales-assistant/research-queue.json',JSON.stringify(q,null,2),'Reconcile completed prospect research',qf.sha)}catch(e){console.warn('Research queue reconcile write failed',e)}
     }
-    return changed;
+    if(inboxChanged&&inboxFile&&typeof putFile==='function'){
+      try{await putFile('sales-assistant/prospect-inbox.json',JSON.stringify(inbox,null,2),'Reconcile accepted researched prospects',inboxFile.sha)}catch(e){console.warn('Prospect inbox reconcile write failed',e)}
+    }
+    return stateChanged||queueChanged||inboxChanged;
   }
 
-  async function queueExistingResearchProspects(){
+  async function queueExistingResearchProspects(){  async function queueExistingResearchProspects(){
     if(typeof ghUnlocked==='undefined'||!ghUnlocked||typeof getFile!=='function'||typeof putFile!=='function')return false;
     const researchLeads=sales().leads.filter(l=>l.stage==='Research');
     if(!researchLeads.length)return false;
@@ -218,8 +326,9 @@
   async function reconcileAutomaticResearch(){
     const applied=await applyResearchResults();
     const demos=await applyDemoResults();
+    const localDemos=await processLocalDemoQueue();
     const queued=await queueExistingResearchProspects();
-    return applied||demos||queued;
+    return applied||demos||localDemos||queued;
   }
 
   window.renderSales = function(){
@@ -315,37 +424,32 @@
     if(action==='targets')return openTargets();
     if(action==='chatgpt-pack')return copyChatGPTPack();
     if(action==='refresh-inbox')return loadProspectInbox(true);
-    if(action==='generate-demo')return queueDemoWebsite(id);
+    if(action==='generate-demo')return generateDemoWebsite(id);
     if(action==='sales-now'){
-      const prompt='Check my Chip In Sales Assistant now. Please do BOTH immediately: (1) research every prospect currently queued/in Research, write the verified results back so HQ can move them to Contact, and (2) check Sourced Prospects and top the pool back up to 10 fresh verified prospects, avoiding duplicates, accepted and rejected businesses, and (3) build any queued demo websites in HospoLP and write their finished URLs back to the demo results file. Use current web/local-business sources and do not invent facts.';
+      try{await reconcileAutomaticResearch();await processLocalDemoQueue()}catch(e){console.warn('NOW local reconcile failed',e)}
+      const prompt='Do the Chip In Sales Assistant NOW actions. HQ has already handled website-demo generation locally. Please immediately: (1) research every prospect still genuinely queued/in Research and write verified results back to sales-assistant/research-results.json, marking those research queue entries researched; and (2) check Sourced Prospects and top the pool back up to exactly 10 fresh verified prospects, avoiding anything already in the pipeline or inbox with any status. Use current web/local-business sources and do not invent facts. Do not build or publish prospect websites: HQ now generates those previews itself.';
       let copied=false;
       try{await navigator.clipboard.writeText(prompt);copied=true;}catch(e){console.warn('Clipboard copy failed',e);}
       const w=window.open('https://chatgpt.com/','_blank','noopener');
-      if(copied)toast('Prompt copied — paste it into ChatGPT and send');
-      else toast('ChatGPT opened — copy the NOW prompt from Sales Assistant');
+      if(copied)toast('Website demos processed · NOW prompt copied for Research + prospect refill');
+      else toast('Website demos processed · ChatGPT opened');
       return w;
     }
     if(action==='accept-sourced')return acceptSourcedProspect(id);
     if(action==='reject-sourced')return rejectSourcedProspect(id);
   }
 
-  async function queueDemoWebsite(id){
+  async function generateDemoWebsite(id){
     const l=leadById(id);if(!l)return;
     if(l.websiteStatus!=='no_functioning_site')return toast('A demo is only offered when Research confirms no functioning website.');
-    if(typeof ghUnlocked==='undefined'||!ghUnlocked||typeof getFile!=='function'||typeof putFile!=='function')return toast('Unlock private storage first');
-    const path='sales-assistant/demo-website-queue.json';
-    const qf=await getFile(path);
-    const q=qf?JSON.parse(qf.text):{version:1,requests:[]};
-    q.requests=Array.isArray(q.requests)?q.requests:[];
-    const existing=q.requests.find(x=>x.leadId===l.id&&['queued','building'].includes(x.status));
-    if(!existing){
-      q.requests.push({leadId:l.id,businessName:l.businessName||'',contactName:l.contactName||'',address:l.address||'',phone:l.phone||'',email:l.email||'',website:l.website||'',service:l.service||'',researchSummary:l.researchSummary||'',opportunity:l.problem||'',websiteStatus:l.websiteStatus||'',websiteEvidence:l.websiteEvidence||'',sources:l.researchSources||[],queuedAt:new Date().toISOString(),status:'queued'});
-      await putFile(path,JSON.stringify(q,null,2),'Queue demo website build',qf?.sha||'');
-    }
-    l.demoStatus='queued';l.updatedAt=new Date().toISOString();
-    await saveState();render();toast('Demo website queued for generation');
+    const url=buildLocalDemo(l);
+    await saveState();
+    syncLocalDemoRecord(l).catch(e=>console.warn('Demo record sync failed',e));
+    render();
+    window.open(url,'_blank','noopener');
+    toast('Demo website generated immediately');
   }
-  let sourcedInboxCache=null, sourcedInboxSha='';
+  let sourcedInboxCache=null, sourcedInboxSha='';  let sourcedInboxCache=null, sourcedInboxSha='';
   async function loadProspectInbox(showToast=false){
     const host=document.getElementById('salesProspectInbox');if(!host)return;
     if(typeof ghUnlocked==='undefined'||!ghUnlocked||typeof getFile!=='function'){
@@ -401,7 +505,7 @@
       website:x.website||'',address:x.address||'',service:x.suggestedService||'',problem:'',
       estimatedValue:'',stage:'Research',nextActionMethod:'research',nextActionDate:TODAY(),
       nextActionReason:x.discoveryReason||'Research this prospect and confirm a genuine opportunity.',
-      notes:x.notes||'',source:{type:'chatgpt-sourced',sourceLabel:x.sourceLabel||'',sourceUrl:x.sourceUrl||'',verifiedAt:x.verifiedAt||''},
+      notes:x.notes||'',category:x.category||'',sourceCandidateId:x.id||'',source:{type:'chatgpt-sourced',sourceLabel:x.sourceLabel||'',sourceUrl:x.sourceUrl||'',verifiedAt:x.verifiedAt||''},
       researchStatus:'queued'
     };
     sales().leads.push(lead);
