@@ -94,20 +94,20 @@
   }
   function offeringList(text,kind){
     const defs=[
-      ['Hair', ['hair','hairdressing'], 'Hair services are part of the current public business offering.'],
-      ['Beauty', ['beauty','treatment'], 'Beauty services are included in the current public business information.'],
-      ['Nails', ['nail'], 'Nail services are listed as part of the current offering.'],
-      ['Tanning', ['tanning','sunbed'], 'Tanning is listed among the current services.'],
-      ['Bouquets', ['bouquet'], 'Bouquets are part of the florist offering identified in research.'],
-      ['Weddings', ['wedding','bridal'], 'Wedding work is included in the current business offering.'],
-      ['Gifts', ['gift'], 'Gifts are included in the current public business information.'],
-      ['Seasonal flowers', ['seasonal'], 'Seasonal work is identified as part of the current opportunity.'],
-      ['Coffee', ['coffee'], 'Coffee is part of the current food and drink offering.'],
-      ['Food', ['food','lunch','breakfast','menu'], 'Food is part of the current business offering.'],
-      ['Events', ['event','party','live music','quiz'], 'Events or entertainment are part of the current public business information.'],
-      ['Dog grooming', ['dog grooming','grooming'], 'Dog grooming is part of the verified current business offering.'],
-      ['Vehicle sales', ['car sales','dealer','stock'], 'Vehicle sales are part of the current business activity.'],
-      ['Servicing', ['servicing','service','repairs','diagnostics','mot'], 'Vehicle service or repair work is part of the current offering.']
+      ['Hair', ['hair','hairdressing'], 'Hair services from a local salon in the heart of the community.'],
+      ['Beauty', ['beauty','treatment'], 'Beauty treatments alongside the wider salon offering.'],
+      ['Nails', ['nail'], 'Nail services available alongside hair and beauty.'],
+      ['Tanning', ['tanning','sunbed'], 'Tanning services from the same local salon.'],
+      ['Bouquets', ['bouquet'], 'Bouquets for everyday moments, gifts and special occasions.'],
+      ['Weddings', ['wedding','bridal'], 'Floral work for weddings and celebrations.'],
+      ['Gifts', ['gift'], 'Flowers and gifts from the local shop.'],
+      ['Seasonal flowers', ['seasonal'], 'Seasonal floral work throughout the year.'],
+      ['Coffee', ['coffee'], 'Coffee served as part of the local food and drink offering.'],
+      ['Food', ['food','lunch','breakfast','menu'], 'Food and local hospitality in an easy-going setting.'],
+      ['Events', ['event','party','live music','quiz'], 'Events and entertainment alongside the everyday offering.'],
+      ['Dog grooming', ['dog grooming','grooming'], 'Local grooming and care for dogs.'],
+      ['Vehicle sales', ['car sales','dealer','stock'], 'Vehicles presented clearly with an easy route to enquire.'],
+      ['Servicing', ['servicing','service','repairs','diagnostics','mot'], 'Local vehicle servicing, repair and workshop support.']
     ];
     const found=[];
     defs.forEach(([name,terms,desc])=>{if(terms.some(t=>text.includes(t))&&!found.some(x=>x.name===name))found.push({name,desc})});
@@ -142,7 +142,7 @@
   const maps=d.address?'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(d.address):'';
   const facts=(d.demoProfile&&Array.isArray(d.demoProfile.facts)?d.demoProfile.facts:offerings.map(x=>x.name)).slice(0,6);
   const aboutLead=(d.demoProfile&&d.demoProfile.aboutLead)||profile.about;
-  const aboutBody=(d.demoProfile&&d.demoProfile.aboutBody)||((d.businessName||'This business')+' is based in '+place+'. '+(offerings.length?'Current public information highlights '+offerings.map(x=>x.name.toLowerCase()).join(', ')+'.':'The website can focus on the confirmed services and the information customers need most.'));
+  const aboutBody=(d.demoProfile&&d.demoProfile.aboutBody)||((d.businessName||'This business')+' is based in '+place+'. '+(offerings.length?offerings.map(x=>x.name).join(', ')+' all sit together in one clear local offering.':'A simple local business with clear contact information and an easy way to get in touch.'));
   const heroTitle=(d.demoProfile&&d.demoProfile.heroTitle)||d.businessName||'Local business';
   const heroSubtitle=(d.demoProfile&&d.demoProfile.heroSubtitle)||place;
   const strapline=(d.demoProfile&&d.demoProfile.strapline)||profile.title;
