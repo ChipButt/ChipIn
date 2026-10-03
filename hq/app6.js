@@ -21,7 +21,29 @@ async function getFile(path){const f=await api(`/contents/${path}?ref=main`,{all
 async function putFile(path,text,msg,sha=''){const body={message:msg,content:toB64Text(text),branch:'main'};if(sha)body.sha=sha;return api(`/contents/${path}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})}
 async function putEncrypted(path,bytes,msg){const old=await getFile(path);return putFile(path,await sealBytes(bytes,ghPass),msg,old?.sha||'')}
 async function getEncrypted(path){const f=await getFile(path);return f?openBytes(f.text,ghPass):null}
-async function saveCredential(token,pass){localStorage.setItem(CRED_KEY,await sealText(token,pass))}
+async function requestPersistentStorage(){
+  try{
+    if(navigator.storage?.persist)await navigator.storage.persist();
+  }catch(e){console.warn('Persistent storage request unavailable',e)}
+}
+async function saveCredential(token,pass){
+  const sealed=await sealText(token,pass);
+  localStorage.setItem(CRED_KEY,sealed);
+  try{await dbPut('app','github-credential',sealed)}catch(e){console.warn('IndexedDB credential backup failed',e)}
+  await requestPersistentStorage();
+}
+async function restoreCredentialBackup(){
+  let sealed=localStorage.getItem(CRED_KEY);
+  if(sealed)return sealed;
+  try{
+    sealed=await dbGet('app','github-credential');
+    if(sealed){
+      localStorage.setItem(CRED_KEY,sealed);
+      return sealed;
+    }
+  }catch(e){console.warn('Credential backup restore failed',e)}
+  return '';
+}
 function lockGh(){ghToken='';ghPass='';ghUnlocked=false;ghStateSha='';setGhStatus(localStorage.getItem(CRED_KEY)?'Private storage locked':'Private storage not set up','warn');render()}
 async function unlockGh(pass){const c=localStorage.getItem(CRED_KEY);if(!c)throw Error('This device is not connected yet.');const token=await openText(c,pass);await checkToken(token);ghToken=token;ghPass=pass;ghUnlocked=true;setGhStatus('Private storage connected','ok');await reconcileGh()}
 function setupGh(){openModal(`<h2>Connect private storage</h2><p class="sub">Paste the fine-grained GitHub token you created. It will be encrypted on this device before it is saved.</p><form id="ghSetup"><div class="form-grid"><div class="field full"><label>GitHub token</label><input name="token" type="password" autocomplete="off" required placeholder="github_pat_…"></div><div class="field"><label>Create Chip In HQ passphrase</label><input name="pass" type="password" minlength="10" autocomplete="new-password" required></div><div class="field"><label>Confirm passphrase</label><input name="again" type="password" minlength="10" autocomplete="new-password" required></div></div><div class="warning-box" style="margin-top:14px"><strong>Do not lose this passphrase.</strong> It is never stored in GitHub and is required to decrypt the private repository.</div><div class="form-actions"><button class="btn secondary" type="button" data-close-modal>Cancel</button><button class="btn gold" type="submit">Connect securely</button></div></form>`,true);document.getElementById('ghSetup').onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target),t=String(f.get('token')||'').trim(),p=String(f.get('pass')||''),a=String(f.get('again')||'');if(p!==a)return toast('Passphrases do not match');const btn=e.target.querySelector('[type=submit]');btn.disabled=true;btn.textContent='Checking…';try{await checkToken(t);await saveCredential(t,p);ghToken=t;ghPass=p;ghUnlocked=true;closeModal();await reconcileGh();render();toast('Private storage connected')}catch(err){btn.disabled=false;btn.textContent='Connect securely';toast(err.message)}}}
@@ -59,7 +81,18 @@ async function archivePendingInvoices(){if(!ghUnlocked)return;for(const i of sta
 markInvoiceSent=async id=>{const i=invoiceById(id);invoiceSnap(i);await baseMarkSent(id);try{await archiveInvoice(i);if(ghUnlocked)toast('Invoice sent and securely archived')}catch(e){i.archivePending=true;await localSave();toast('Invoice sent; archive will retry')}};
 downloadInvoicePDF=async inv=>{try{if(inv.archivePath&&ghUnlocked){const bytes=await getEncrypted(inv.archivePath);if(bytes)return downloadBlob(new Blob([bytes],{type:'application/pdf'}),`${inv.number}.pdf`)}const b=pdfBlob(inv);downloadBlob(b,`${inv.number}.pdf`);if(ghUnlocked&&invoiceStatus(inv)!=='Draft'&&!inv.archivePath)archiveInvoice(inv).catch(console.error)}catch(e){baseDownloadPDF(inv)}};
 downloadReceipt=async id=>{const e=expenseById(id);let b=await dbGet('receipts',id);if(!b&&e?.cloudReceiptPath&&ghUnlocked){try{const bytes=await getEncrypted(e.cloudReceiptPath);b=new Blob([bytes],{type:e.receiptType||'application/octet-stream'});await dbPut('receipts',id,b)}catch(err){return toast(err.message)}}if(b)return downloadBlob(b,e.receiptName||`receipt-${id}`);baseDownloadReceipt(id)};
-function addGhSettings(){const host=document.getElementById('content');if(!host||document.getElementById('ghCard'))return;const c=document.createElement('div');c.id='ghCard';c.innerHTML=`<div class="section-title"><div><h2>Private cross-device storage</h2></div></div><div class="card"><div class="accent-bar"></div><h2>ChipIn-Data</h2><p class="muted">Business records, outgoings, prep blocks, issued invoice PDFs and receipts are encrypted before they leave this browser. The public ChipIn repository never receives your private records or token.</p><div class="hint-box"><strong>Repository:</strong> ${DATA_REPO}<br><strong>Status:</strong> <span id="ghSettingsStatus">${esc(ghStatus)}</span></div><div class="row-actions" style="justify-content:flex-start;margin-top:14px;flex-wrap:wrap">${!localStorage.getItem(CRED_KEY)?'<button class="btn gold" type="button" id="ghSetupBtn">Connect private storage</button>':ghUnlocked?'<button class="btn gold" type="button" id="ghSyncBtn">Sync now</button><button class="btn secondary" type="button" id="ghLockBtn">Lock</button>':'<button class="btn gold" type="button" id="ghUnlockBtn">Unlock</button>'}${localStorage.getItem(CRED_KEY)?'<button class="btn secondary" type="button" id="ghForgetBtn">Remove token from this device</button>':''}</div><div class="warning-box" style="margin-top:14px">Your encryption passphrase is not stored in GitHub. Keep it somewhere secure.</div></div>`;const danger=[...host.querySelectorAll('.section-title h2')].find(h=>h.textContent.trim()==='Danger zone')?.closest('.section-title');danger?danger.before(c):host.appendChild(c);document.getElementById('ghSetupBtn')?.addEventListener('click',setupGh);document.getElementById('ghUnlockBtn')?.addEventListener('click',unlockBox);document.getElementById('ghSyncBtn')?.addEventListener('click',()=>syncGh().then(()=>toast('Private storage synced')).catch(e=>toast(e.message)));document.getElementById('ghLockBtn')?.addEventListener('click',lockGh);document.getElementById('ghForgetBtn')?.addEventListener('click',()=>confirmAction('Remove the encrypted GitHub token from this device? Nothing in ChipIn-Data will be deleted.',async()=>{localStorage.removeItem(CRED_KEY);lockGh()}))}
+function addGhSettings(){const host=document.getElementById('content');if(!host||document.getElementById('ghCard'))return;const c=document.createElement('div');c.id='ghCard';c.innerHTML=`<div class="section-title"><div><h2>Private cross-device storage</h2></div></div><div class="card"><div class="accent-bar"></div><h2>ChipIn-Data</h2><p class="muted">Business records, outgoings, prep blocks, issued invoice PDFs and receipts are encrypted before they leave this browser. The public ChipIn repository never receives your private records or token.</p><div class="hint-box"><strong>Repository:</strong> ${DATA_REPO}<br><strong>Status:</strong> <span id="ghSettingsStatus">${esc(ghStatus)}</span></div><div class="row-actions" style="justify-content:flex-start;margin-top:14px;flex-wrap:wrap">${!localStorage.getItem(CRED_KEY)?'<button class="btn gold" type="button" id="ghSetupBtn">Connect private storage</button>':ghUnlocked?'<button class="btn gold" type="button" id="ghSyncBtn">Sync now</button><button class="btn secondary" type="button" id="ghLockBtn">Lock</button>':'<button class="btn gold" type="button" id="ghUnlockBtn">Unlock</button>'}${localStorage.getItem(CRED_KEY)?'<button class="btn secondary" type="button" id="ghForgetBtn">Remove token from this device</button>':''}</div><div class="warning-box" style="margin-top:14px">Your encryption passphrase is not stored in GitHub. Keep it somewhere secure.</div></div>`;const danger=[...host.querySelectorAll('.section-title h2')].find(h=>h.textContent.trim()==='Danger zone')?.closest('.section-title');danger?danger.before(c):host.appendChild(c);document.getElementById('ghSetupBtn')?.addEventListener('click',setupGh);document.getElementById('ghUnlockBtn')?.addEventListener('click',unlockBox);document.getElementById('ghSyncBtn')?.addEventListener('click',()=>syncGh().then(()=>toast('Private storage synced')).catch(e=>toast(e.message)));document.getElementById('ghLockBtn')?.addEventListener('click',lockGh);document.getElementById('ghForgetBtn')?.addEventListener('click',()=>confirmAction('Remove the encrypted GitHub token from this device? Nothing in ChipIn-Data will be deleted.',async()=>{localStorage.removeItem(CRED_KEY);try{await dbDelete('app','github-credential')}catch{}lockGh()}))}
 renderSettings=function(){baseSettings();addGhSettings()};
 function whenFree(fn,n=0){if(n>40)return;if(document.getElementById('modal')?.classList.contains('hidden'))return fn();setTimeout(()=>whenFree(fn,n+1),500)}
-setTimeout(()=>{addGhBadge();if(localStorage.getItem(CRED_KEY)){setGhStatus('Private storage locked','warn');setTimeout(()=>whenFree(unlockBox),500)}else{setGhStatus('Private storage not set up','warn');setTimeout(()=>whenFree(setupGh),500)}},400);
+async function bootstrapGhStorage(){
+  addGhBadge();
+  const credential=await restoreCredentialBackup();
+  if(credential){
+    setGhStatus('Private storage locked','warn');
+    setTimeout(()=>whenFree(unlockBox),500);
+  }else{
+    setGhStatus('Private storage not set up','warn');
+    setTimeout(()=>whenFree(setupGh),500);
+  }
+}
+setTimeout(()=>bootstrapGhStorage().catch(e=>{console.error(e);setGhStatus('Private storage needs attention','bad')}),400);
