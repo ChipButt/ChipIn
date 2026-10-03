@@ -145,9 +145,11 @@
     return btoa(raw).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
   }
   function buildLocalDemo(l){
+    if(l.demoRenderer==='hospolp-published'&&/^https:\/\/chipbutt\.github\.io\/HospoLP\/samples\//.test(l.demoUrl||''))return l.demoUrl;
     l.demoStatus='ready';
     l.demoBuiltAt=new Date().toISOString();
-    l.demoSlug='hq-multipage-demo';
+    l.demoSlug=l.demoSlug&&l.demoSlug!=='hq-concept-preview'&&l.demoSlug!=='hq-multipage-demo'?l.demoSlug:'hq-multipage-demo';
+    l.demoRenderer='hq-multipage-draft';
     l.demoUrl=new URL('demo-site/',location.href).href+'#'+encodeDemoPayload(demoPayload(l));
     l.updatedAt=new Date().toISOString();
     return l.demoUrl;
@@ -326,6 +328,7 @@
       l.demoStatus=r.demoUrl?'ready':(r.status||l.demoStatus||'');
       l.demoSlug=r.slug||l.demoSlug||'';
       l.demoBuiltAt=r.builtAt||l.demoBuiltAt||'';
+      l.demoRenderer=r.renderer||l.demoRenderer||'';
       r.status='applied';r.appliedAt=new Date().toISOString();
       changed=true;
     }
