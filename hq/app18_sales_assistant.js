@@ -146,9 +146,9 @@
   }
   function buildLocalDemo(l){
     l.demoStatus='ready';
-    l.demoBuiltAt=l.demoBuiltAt||new Date().toISOString();
-    l.demoSlug='hq-concept-preview';
-    l.demoUrl=new URL('demo-preview.html',location.href).href+'#'+encodeDemoPayload(demoPayload(l));
+    l.demoBuiltAt=new Date().toISOString();
+    l.demoSlug='hq-multipage-demo';
+    l.demoUrl=new URL('demo-site/',location.href).href+'#'+encodeDemoPayload(demoPayload(l));
     l.updatedAt=new Date().toISOString();
     return l.demoUrl;
   }
@@ -164,14 +164,14 @@
         req={leadId:l.id,businessName:l.businessName||'',websiteStatus:l.websiteStatus||'',queuedAt:l.demoBuiltAt,status:'built_local'};
         q.requests.push(req);
       }
-      Object.assign(req,{status:'built_local',builtAt:l.demoBuiltAt,demoUrl:l.demoUrl,renderer:'hq-concept-preview'});
+      Object.assign(req,{status:'built_local',builtAt:l.demoBuiltAt,demoUrl:l.demoUrl,renderer:'hq-multipage-demo'});
       await putFile(path,JSON.stringify(q,null,2),'Record HQ-generated demo website',qf?.sha||'');
 
       const resultPath='sales-assistant/demo-website-results.json';
       const rf=await getFile(resultPath);
       const data=rf?JSON.parse(rf.text):{version:1,results:[]};
       data.results=Array.isArray(data.results)?data.results:[];
-      const result={leadId:l.id,businessName:l.businessName||'',slug:l.demoSlug||'',demoUrl:l.demoUrl,builtAt:l.demoBuiltAt,summary:'Self-contained concept preview generated directly by Chip In HQ from verified research data.',renderer:'hq-concept-preview',status:'ready'};
+      const result={leadId:l.id,businessName:l.businessName||'',slug:l.demoSlug||'',demoUrl:l.demoUrl,builtAt:l.demoBuiltAt,summary:'Multi-page HospoLP-style concept website generated directly by Chip In HQ from verified research data.',renderer:'hq-multipage-demo',status:'ready'};
       const i=data.results.findIndex(x=>x.leadId===l.id);
       if(i>=0)data.results[i]={...data.results[i],...result};else data.results.push(result);
       await putFile(resultPath,JSON.stringify(data,null,2),'Record HQ demo website result',rf?.sha||'');
@@ -199,7 +199,7 @@
       if(!l.websiteStatus)l.websiteStatus=req.websiteStatus;
       if(!l.websiteEvidence)l.websiteEvidence=req.websiteEvidence||'';
       buildLocalDemo(l);
-      Object.assign(req,{status:'built_local',builtAt:l.demoBuiltAt,demoUrl:l.demoUrl,renderer:'hq-concept-preview'});
+      Object.assign(req,{status:'built_local',builtAt:l.demoBuiltAt,demoUrl:l.demoUrl,renderer:'hq-multipage-demo'});
       built.push(l);changed=true;stateChanged=true;
     }
     if(stateChanged)await saveState();
