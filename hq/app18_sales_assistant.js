@@ -103,7 +103,7 @@
         : `<div class="sales-script"><div class="sales-script-label">You should say</div><p>“${esc(script)}”</p></div>`
       }
       ${l.aiReply?'<div class="sales-ai-flag">AI research/wording saved for this action</div>':''}
-      ${!isResearch&&l.websiteStatus==='no_functioning_site'?`<div class="hint-box" style="margin-top:10px"><strong>Website opportunity</strong><div style="margin-top:4px">${esc(l.websiteEvidence||'Research did not verify a functioning standalone website.')}</div><div class="row-actions" style="margin-top:8px;justify-content:flex-start;flex-wrap:wrap">${l.demoUrl?`<a class="btn small gold" href="${esc(l.demoUrl)}" target="_blank" rel="noopener">Open demo website</a>`:l.demoStatus==='queued'?'<span class="badge warn">Demo website queued</span>':`<button class="btn small gold" data-sales-action="generate-demo" data-id="${l.id}">Generate Demo Website</button>`}</div></div>`:''}
+      ${!isResearch&&l.websiteStatus==='no_functioning_site'?`<div class="hint-box" style="margin-top:10px"><strong>Website opportunity</strong><div style="margin-top:4px">${esc(l.websiteEvidence||'Research did not verify a functioning standalone website.')}</div><div class="row-actions" style="margin-top:8px;justify-content:flex-start;flex-wrap:wrap">${l.demoUrl?`<button class="btn small gold" data-sales-action="open-demo" data-id="${l.id}">Open demo website</button>`:l.demoStatus==='queued'?'<span class="badge warn">Demo website queued</span>':`<button class="btn small gold" data-sales-action="generate-demo" data-id="${l.id}">Generate Demo Website</button>`}</div></div>`:''}
       <div class="row-actions sales-card-actions">
         ${isResearch
           ? (l.researchStatus==='queued'
@@ -134,6 +134,8 @@
       demoProfile:l.demoProfile||null,
       images:Array.isArray(l.demoImages)?l.demoImages:[],
       openingHours:Array.isArray(l.openingHours)?l.openingHours:[],
+      openingHoursSource:l.openingHoursSource||'',
+      openingHoursVerified:l.openingHoursVerified===true,
       generatedAt:new Date().toISOString()
     };
   }
@@ -143,9 +145,8 @@
     return btoa(raw).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
   }
   function buildLocalDemo(l){
-    if(l.demoUrl&&l.demoStatus==='ready')return l.demoUrl;
     l.demoStatus='ready';
-    l.demoBuiltAt=new Date().toISOString();
+    l.demoBuiltAt=l.demoBuiltAt||new Date().toISOString();
     l.demoSlug='hq-concept-preview';
     l.demoUrl=new URL('demo-preview.html',location.href).href+'#'+encodeDemoPayload(demoPayload(l));
     l.updatedAt=new Date().toISOString();
@@ -235,7 +236,7 @@
       }
       if(!l)continue;
       const stamp=[r.verifiedAt||'',r.businessName||'',r.websiteStatus||'',r.websiteEvidence||''].join('|');
-      const needsBackfill=!l.websiteStatus&&!!r.websiteStatus || !l.websiteEvidence&&!!r.websiteEvidence || (!l.researchSources?.length&&Array.isArray(r.sources)&&r.sources.length);
+      const needsBackfill=!l.websiteStatus&&!!r.websiteStatus || !l.websiteEvidence&&!!r.websiteEvidence || (!l.researchSources?.length&&Array.isArray(r.sources)&&r.sources.length) || (!l.openingHours?.length&&Array.isArray(r.openingHours)&&r.openingHours.length) || (!l.demoProfile&&r.demoProfile) || (!l.demoImages?.length&&Array.isArray(r.images)&&r.images.length);
       if(l.researchResultStamp===stamp&&!needsBackfill){
         if(req?.status==='queued'){req.status='researched';req.researchedAt=req.researchedAt||new Date().toISOString();queueChanged=true}
         continue;
@@ -254,6 +255,8 @@
       if(r.category)l.category=r.category;
       if(r.demoProfile&&typeof r.demoProfile==='object')l.demoProfile=r.demoProfile;
       if(Array.isArray(r.openingHours))l.openingHours=r.openingHours;
+      if(r.openingHoursSource)l.openingHoursSource=r.openingHoursSource;
+      if(typeof r.openingHoursVerified==='boolean')l.openingHoursVerified=r.openingHoursVerified;
       if(Array.isArray(r.images))l.demoImages=r.images;
       l.researchStatus='complete';
       l.stage='Contact';
@@ -435,6 +438,13 @@
     if(action==='chatgpt-pack')return copyChatGPTPack();
     if(action==='refresh-inbox')return loadProspectInbox(true);
     if(action==='generate-demo')return generateDemoWebsite(id);
+    if(action==='open-demo'){
+      const l=leadById(id);if(!l)return;
+      const url=buildLocalDemo(l);
+      saveState().catch(()=>{});
+      window.open(url,'_blank','noopener');
+      return;
+    }
     if(action==='sales-now'){
       try{await reconcileAutomaticResearch();await processLocalDemoQueue()}catch(e){console.warn('NOW local reconcile failed',e)}
       const prompt='Do the Chip In Sales Assistant NOW actions. HQ has already handled website-demo generation locally. Please immediately: (1) research every prospect still genuinely queued/in Research and write verified results back to sales-assistant/research-results.json, marking those research queue entries researched; and (2) check Sourced Prospects and top the pool back up to exactly 10 fresh verified prospects, avoiding anything already in the pipeline or inbox with any status. Use current web/local-business sources and do not invent facts. Do not build or publish prospect websites: HQ now generates those previews itself.';
