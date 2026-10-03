@@ -1,6 +1,6 @@
 // Chip In HQ secure private GitHub storage
 const DATA_REPO='ChipButt/ChipIn-Data', DATA_API=`https://api.github.com/repos/${DATA_REPO}`, CRED_KEY='chipin_github_cred_v1', KDF_ROUNDS=250000;
-let ghToken='', ghPass='', ghUnlocked=false, ghStateSha='', ghTimer=null, ghBusy=false, ghStatus='Private storage locked';
+let ghToken='', ghPass='', ghUnlocked=false, ghStateSha='', ghTimer=null, ghBusy=false, ghPendingSync=false, ghWriteChain=Promise.resolve(), ghStatus='Private storage locked';
 const localSave=saveState, baseSettings=renderSettings, baseMarkSent=markInvoiceSent, baseDownloadReceipt=downloadReceipt, baseDownloadPDF=downloadInvoicePDF;
 const enc=new TextEncoder(), dec=new TextDecoder();
 const b64=b=>{let s='';for(let i=0;i<b.length;i+=32768)s+=String.fromCharCode(...b.subarray(i,i+32768));return btoa(s)};
@@ -14,7 +14,7 @@ async function hashBytes(b){return [...new Uint8Array(await crypto.subtle.digest
 function useful(){return !!(state.settings?.setupComplete||state.clients?.length||state.jobs?.length||state.invoices?.length||state.expenses?.length||state.prepBlocks?.length||state.outgoings?.length)}
 function setGhStatus(s,k=''){ghStatus=s;for(const id of ['ghSyncState','ghSettingsStatus']){const e=document.getElementById(id);if(e){e.textContent=s;e.dataset.kind=k}}}
 function addGhBadge(){if(document.getElementById('ghSyncState'))return;const f=document.querySelector('.sidebar-foot');if(!f)return;const d=document.createElement('div');d.className='cloud-sync-state';d.id='ghSyncState';d.textContent=ghStatus;f.insertBefore(d,f.lastElementChild)}
-async function api(path,opt={}){if(!ghToken)throw Error('Private storage is locked.');const r=await fetch(DATA_API+path,{...opt,headers:{Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28',Authorization:`Bearer ${ghToken}`,...(opt.headers||{})}});if(r.status===404&&opt.allow404)return null;if(r.status===401||r.status===403)throw Error('GitHub rejected the Chip In token. Check that it is valid and restricted to ChipIn-Data with Contents read/write.');if(!r.ok)throw Error(`GitHub storage error ${r.status}: ${(await r.text()).slice(0,180)}`);return r.status===204?null:r.json()}
+async function api(path,opt={}){if(!ghToken)throw Error('Private storage is locked.');const r=await fetch(DATA_API+path,{...opt,headers:{Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28',Authorization:`Bearer ${ghToken}`,...(opt.headers||{})}});if(r.status===404&&opt.allow404)return null;const bodyText=!r.ok?await r.text():'';if(r.status===401||r.status===403){const e=Error('GitHub rejected the Chip In token. Check that it is valid and restricted to ChipIn-Data with Contents read/write.');e.status=r.status;e.body=bodyText;throw e}if(!r.ok){const e=Error(`GitHub storage error ${r.status}: ${bodyText.slice(0,180)}`);e.status=r.status;e.body=bodyText;throw e}return r.status===204?null:r.json()}
 async function checkToken(token){const old=ghToken;ghToken=token;try{const r=await api('');if(r.full_name!==DATA_REPO||!r.private)throw Error('The token did not open the private ChipIn-Data repository.')}finally{ghToken=old}}
 const toB64Text=s=>b64(enc.encode(s)), fromB64Text=s=>dec.decode(unb64((s||'').replace(/\n/g,'')));
 async function getFile(path){const f=await api(`/contents/${path}?ref=main`,{allow404:true});return f?{sha:f.sha,text:fromB64Text(f.content)}:null}
@@ -55,9 +55,71 @@ async function unlockGh(pass){const c=localStorage.getItem(CRED_KEY);if(!c)throw
 function setupGh(){openModal(`<h2>Connect private storage</h2><p class="sub">Paste the fine-grained GitHub token you created. It will be encrypted on this device before it is saved.</p><form id="ghSetup"><div class="form-grid"><div class="field full"><label>GitHub token</label><input name="token" type="password" autocomplete="off" required placeholder="github_pat_…"></div><div class="field"><label>Create Chip In HQ passphrase</label><input name="pass" type="password" minlength="10" autocomplete="new-password" required></div><div class="field"><label>Confirm passphrase</label><input name="again" type="password" minlength="10" autocomplete="new-password" required></div></div><div class="warning-box" style="margin-top:14px"><strong>Do not lose this passphrase.</strong> It is never stored in GitHub and is required to decrypt the private repository.</div><div class="form-actions"><button class="btn secondary" type="button" data-close-modal>Cancel</button><button class="btn gold" type="submit">Connect securely</button></div></form>`,true);document.getElementById('ghSetup').onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target),t=String(f.get('token')||'').trim(),p=String(f.get('pass')||''),a=String(f.get('again')||'');if(p!==a)return toast('Passphrases do not match');const btn=e.target.querySelector('[type=submit]');btn.disabled=true;btn.textContent='Checking…';try{await checkToken(t);await saveCredential(t,p);ghToken=t;ghPass=p;ghUnlocked=true;closeModal();await reconcileGh();render();toast('Private storage connected')}catch(err){btn.disabled=false;btn.textContent='Connect securely';toast(err.message)}}}
 function unlockBox(){openModal(`<h2>Unlock Chip In HQ</h2><p class="sub">Enter your encryption passphrase to sync with the private ChipIn-Data repository.</p><form id="ghUnlock"><div class="field"><label>Passphrase</label><input name="pass" type="password" autocomplete="current-password" required autofocus></div><div class="form-actions"><button class="btn secondary" type="button" data-close-modal>Use local copy only</button><button class="btn gold" type="submit">Unlock</button></div></form>`);document.getElementById('ghUnlock').onsubmit=async e=>{e.preventDefault();const p=String(new FormData(e.target).get('pass')||''),b=e.target.querySelector('[type=submit]');b.disabled=true;b.textContent='Unlocking…';try{await unlockGh(p);closeModal();render();toast('Private storage unlocked')}catch(err){b.disabled=false;b.textContent='Unlock';toast(err.message)}}}
 async function readCloudState(){const f=await getFile('data/chipin.enc');if(!f)return null;const x=JSON.parse(await openText(f.text,ghPass));if(x.format!=='ChipInHQState')throw Error('Private data format not recognised.');ghStateSha=f.sha;return x.state}
-async function writeCloudState(){const cur=await getFile('data/chipin.enc');if(cur&&ghStateSha&&cur.sha!==ghStateSha){const other=JSON.parse(await openText(cur.text,ghPass)).state;if(Date.parse(other.updatedAt||0)>=Date.parse(state.updatedAt||0)){const c=await sealText(JSON.stringify({format:'ChipInConflict',savedAt:new Date().toISOString(),state}),ghPass);await putFile(`conflicts/${new Date().toISOString().replace(/[:.]/g,'-')}.enc`,c,'Preserve sync conflict');state=mergeDefaults(other,DEFAULT_STATE);await dbPut('app','state',state);ghStateSha=cur.sha;render();throw Error('A newer change from another device was loaded. Your local version was preserved in the encrypted conflicts folder.')}}const text=await sealText(JSON.stringify({format:'ChipInHQState',savedAt:new Date().toISOString(),state}),ghPass),r=await putFile('data/chipin.enc',text,'Sync Chip In HQ data',cur?.sha||'');ghStateSha=r.content?.sha||''}
+async function serialiseGhWrite(fn){
+  const run=ghWriteChain.then(fn,fn);
+  ghWriteChain=run.catch(()=>{});
+  return run;
+}
+async function withStateWriteLock(fn){
+  if(navigator.locks?.request)return navigator.locks.request('chipin-hq-data-write',{mode:'exclusive'},fn);
+  return serialiseGhWrite(fn);
+}
+async function preserveLocalConflict(localState){
+  const stamp=new Date().toISOString().replace(/[:.]/g,'-')+'-'+Math.random().toString(36).slice(2,8);
+  const sealed=await sealText(JSON.stringify({format:'ChipInConflict',savedAt:new Date().toISOString(),state:localState}),ghPass);
+  await putFile(`conflicts/${stamp}.enc`,sealed,'Preserve sync conflict');
+}
+async function writeCloudState(){
+  return withStateWriteLock(async()=>{
+    for(let attempt=0;attempt<4;attempt++){
+      const localSnapshot=structuredClone(state);
+      const cur=await getFile('data/chipin.enc');
+      if(cur&&ghStateSha&&cur.sha!==ghStateSha){
+        const other=JSON.parse(await openText(cur.text,ghPass)).state;
+        if(Date.parse(other.updatedAt||0)>=Date.parse(localSnapshot.updatedAt||0)){
+          await preserveLocalConflict(localSnapshot);
+          state=mergeDefaults(other,DEFAULT_STATE);
+          await dbPut('app','state',state);
+          ghStateSha=cur.sha;
+          render();
+          setGhStatus('Loaded newer private data · local copy preserved','warn');
+          return {loadedRemote:true};
+        }
+      }
+      const text=await sealText(JSON.stringify({format:'ChipInHQState',savedAt:new Date().toISOString(),state:localSnapshot}),ghPass);
+      try{
+        const r=await putFile('data/chipin.enc',text,'Sync Chip In HQ data',cur?.sha||'');
+        ghStateSha=r.content?.sha||'';
+        return {synced:true};
+      }catch(e){
+        if(e?.status!==409)throw e;
+        console.warn('Chip In state SHA changed during write; refreshing and retrying',attempt+1);
+        ghStateSha='';
+        if(attempt<3)await new Promise(r=>setTimeout(r,150*(attempt+1)));
+      }
+    }
+    throw Error('Private storage changed repeatedly while syncing. Your local copy is safe and HQ will retry automatically.');
+  });
+}
 async function syncReceipts(){let changed=false;for(const e of state.expenses||[]){if(!e.receiptName)continue;const blob=await dbGet('receipts',e.id);if(!blob)continue;const bytes=new Uint8Array(await blob.arrayBuffer()),h=await hashBytes(bytes);if(e.receiptHash===h&&e.cloudReceiptPath)continue;const safe=e.receiptName.replace(/[^a-z0-9._-]+/gi,'-').slice(-70),path=`receipts/${taxYearForDate(e.date).replace('/','-')}/${e.id}-${h.slice(0,12)}-${safe}.enc`;setGhStatus(`Archiving ${e.receiptName}…`);await putEncrypted(path,bytes,`Archive receipt ${e.receiptName}`);Object.assign(e,{receiptHash:h,cloudReceiptPath:path,receiptType:blob.type,receiptSize:bytes.length});changed=true}if(changed)await dbPut('app','state',state)}
-async function syncGh(){if(!ghUnlocked||ghBusy)return;ghBusy=true;try{setGhStatus('Syncing encrypted data…');await syncReceipts();await writeCloudState();setGhStatus(`Synced · ${new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}`,'ok')}finally{ghBusy=false}}
+async function syncGh(){
+  if(!ghUnlocked)return;
+  if(ghBusy){ghPendingSync=true;return}
+  ghBusy=true;
+  try{
+    setGhStatus('Syncing encrypted data…');
+    await syncReceipts();
+    const result=await writeCloudState();
+    if(!result?.loadedRemote)setGhStatus(`Synced · ${new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}`,'ok');
+  }finally{
+    ghBusy=false;
+    if(ghPendingSync){
+      ghPendingSync=false;
+      clearTimeout(ghTimer);
+      ghTimer=setTimeout(()=>syncGh().catch(e=>{console.error(e);setGhStatus('Saved locally · sync will retry','warn');scheduleGh()}),250);
+    }
+  }
+}
 function scheduleGh(){
   if(!ghUnlocked)return;
   clearTimeout(ghTimer);
