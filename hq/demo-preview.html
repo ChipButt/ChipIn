@@ -4,50 +4,167 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow,noarchive">
-<meta name="theme-color" content="#132f4f">
+<meta name="theme-color" content="#7a3e2e">
 <title>Chip In Website Concept</title>
-<style>
-:root{--ink:#152231;--primary:#163c63;--primary2:#0e2945;--accent:#c49a52;--paper:#f5f0e7;--surface:#fff;--muted:#627080}
-*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--paper);color:var(--ink);line-height:1.6}.shell{width:min(1120px,calc(100% - 34px));margin:auto}.concept-bar{background:#111;color:#fff;text-align:center;padding:10px 16px;font-size:11px;letter-spacing:.08em;font-weight:800}.header{position:sticky;top:0;z-index:10;background:rgba(255,255,255,.96);backdrop-filter:blur(10px);border-bottom:1px solid #ddd}.header-inner{min-height:72px;display:flex;align-items:center;justify-content:space-between;gap:20px}.brand{font:700 24px Georgia,serif}.brand small{display:block;font:700 10px Arial,sans-serif;text-transform:uppercase;letter-spacing:.15em;color:var(--muted)}nav{display:flex;gap:22px}nav a{color:var(--ink);font-weight:700;text-decoration:none;font-size:13px}.hero{position:relative;overflow:hidden;background:linear-gradient(135deg,var(--primary),var(--primary2));color:#fff;padding:105px 0}.hero:before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 15% 15%,rgba(255,255,255,.09),transparent 32%),radial-gradient(circle at 85% 80%,rgba(196,154,82,.18),transparent 35%)}.hero-grid{position:relative;display:grid;grid-template-columns:1.2fr .72fr;gap:70px;align-items:center}.eyebrow{font-size:11px;letter-spacing:.18em;text-transform:uppercase;font-weight:800;color:var(--accent)}h1,h2,h3{font-family:Georgia,"Times New Roman",serif}h1{font-size:clamp(54px,8vw,96px);line-height:.92;margin:16px 0 28px}.hero-copy{font-size:20px;max-width:650px;color:#f0f4f7}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:28px}.button{display:inline-block;padding:13px 18px;border-radius:5px;text-decoration:none;font-weight:800}.button.primary{background:var(--accent);color:#18202a}.button.ghost{border:1px solid #ffffff77;color:#fff}.hero-card{background:var(--surface);color:var(--ink);padding:30px;border-radius:10px;box-shadow:0 25px 70px rgba(0,0,0,.18)}.hero-card h2{font-size:32px;line-height:1.1;margin:10px 0}.hero-card p{color:var(--muted)}.section{padding:86px 0}.section-heading{max-width:720px;margin-bottom:34px}.section-heading h2{font-size:clamp(38px,5vw,58px);line-height:1.05;margin:8px 0}.section-heading p{color:var(--muted);font-size:18px}.module-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}.module{background:var(--surface);border:1px solid #ded8cc;border-radius:9px;padding:28px}.module span{display:inline-grid;place-items:center;width:34px;height:34px;border-radius:50%;background:var(--primary);color:#fff;font-weight:800;font-size:12px}.module h3{font-size:26px;margin:16px 0 8px}.module p{color:var(--muted);margin:0}.research{background:#fff}.research-grid{display:grid;grid-template-columns:.75fr 1.25fr;gap:65px}.research-card{padding:28px;background:var(--paper);border-left:4px solid var(--accent)}.research-card p{margin-top:0}.contact{background:var(--primary2);color:#fff}.contact-grid{display:grid;grid-template-columns:.8fr 1.2fr;gap:45px}.contact h2{font-size:48px;margin:10px 0}.contact-stack{background:#ffffff0c;border:1px solid #ffffff25;border-radius:9px;padding:12px 28px}.contact-row{padding:16px 0;border-bottom:1px solid #ffffff2c}.contact-row:last-child{border-bottom:0}.contact-row small{display:block;text-transform:uppercase;letter-spacing:.14em;color:#cfdae5}.contact-row strong,.contact-row a{color:#fff;overflow-wrap:anywhere}.footer{background:#091a2d;color:#c7d0da;padding:34px 0;font-size:12px}.error{max-width:700px;margin:90px auto;padding:30px;background:#fff;border:1px solid #ddd}.muted{color:var(--muted)}@media(max-width:760px){nav{display:none}.hero{padding:68px 0}.hero-grid,.research-grid,.contact-grid{grid-template-columns:1fr;gap:35px}.module-grid{grid-template-columns:1fr}.section{padding:62px 0}.hero-card{padding:24px}h1{font-size:58px}}
-</style>
+<meta name="description" content="Chip In prospect website concept">
+<link rel="stylesheet" href="hospolp-demo.css">
 </head>
 <body>
-<div class="concept-bar">CHIP IN CONCEPT WEBSITE · UNCOMMISSIONED PREVIEW · PUBLIC/VERIFIED INFORMATION ONLY</div>
+<div class="demo-label">CHIP IN CONCEPT WEBSITE · UNCOMMISSIONED PREVIEW</div>
 <div id="app"></div>
 <script>
 (function(){
-  const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const decode=()=>{
     const raw=location.hash.slice(1).replace(/-/g,'+').replace(/_/g,'/');
     const pad=raw+'='.repeat((4-raw.length%4)%4);
     const bytes=Uint8Array.from(atob(pad),c=>c.charCodeAt(0));
     return JSON.parse(new TextDecoder().decode(bytes));
   };
-  const hash=s=>[...String(s||'Chip In')].reduce((a,c)=>(a*31+c.charCodeAt(0))>>>0,7);
-  const palettes=[
-    ['#173f35','#0f3028','#b78a44','#f4efe3'],
-    ['#243a63','#172743','#d1a35b','#f3efe8'],
-    ['#613942','#42242b','#c89a63','#f5ece9'],
-    ['#3f425f','#292b45','#c7a052','#f0eee9'],
-    ['#38524a','#253a34','#d0a85c','#f3f0e8']
-  ];
+  const has=(text,...terms)=>terms.some(x=>text.includes(x));
+  const locality=address=>{
+    const a=String(address||'');
+    if(/bidford-on-avon/i.test(a))return'Bidford-on-Avon';
+    if(/alcester/i.test(a))return'Alcester';
+    if(/studley/i.test(a))return'Studley';
+    if(/broom/i.test(a))return'Broom';
+    return a.split(',').map(x=>x.trim()).filter(Boolean)[1]||'Warwickshire';
+  };
+  const photos={
+    salon:[
+      'https://images.pexels.com/photos/7750099/pexels-photo-7750099.jpeg?auto=compress&cs=tinysrgb&w=1600',
+      'https://images.pexels.com/photos/14564860/pexels-photo-14564860.jpeg?auto=compress&cs=tinysrgb&w=1200',
+      'https://images.pexels.com/photos/7750115/pexels-photo-7750115.jpeg?auto=compress&cs=tinysrgb&w=1200'
+    ],
+    florist:[
+      'https://images.pexels.com/photos/6720594/pexels-photo-6720594.jpeg?auto=compress&cs=tinysrgb&w=1600',
+      'https://images.pexels.com/photos/5894075/pexels-photo-5894075.jpeg?auto=compress&cs=tinysrgb&w=1200',
+      'https://images.pexels.com/photos/12362043/pexels-photo-12362043.jpeg?auto=compress&cs=tinysrgb&w=1200'
+    ],
+    cafe:[
+      'https://images.pexels.com/photos/302899/pexels-photo-302899.jpeg?auto=compress&cs=tinysrgb&w=1600',
+      'https://images.pexels.com/photos/262978/pexels-photo-262978.jpeg?auto=compress&cs=tinysrgb&w=1200',
+      'https://images.pexels.com/photos/1855214/pexels-photo-1855214.jpeg?auto=compress&cs=tinysrgb&w=1200'
+    ],
+    pub:[
+      'https://images.pexels.com/photos/1267696/pexels-photo-1267696.jpeg?auto=compress&cs=tinysrgb&w=1600',
+      'https://images.pexels.com/photos/63633/bar-local-cong-ireland-63633.jpeg?auto=compress&cs=tinysrgb&w=1200',
+      'https://images.pexels.com/photos/260922/pexels-photo-260922.jpeg?auto=compress&cs=tinysrgb&w=1200'
+    ],
+    dog:[
+      'https://images.pexels.com/photos/6568501/pexels-photo-6568501.jpeg?auto=compress&cs=tinysrgb&w=1600',
+      'https://images.pexels.com/photos/6131008/pexels-photo-6131008.jpeg?auto=compress&cs=tinysrgb&w=1200',
+      'https://images.pexels.com/photos/4587998/pexels-photo-4587998.jpeg?auto=compress&cs=tinysrgb&w=1200'
+    ],
+    auto:[
+      'https://images.pexels.com/photos/3802510/pexels-photo-3802510.jpeg?auto=compress&cs=tinysrgb&w=1600',
+      'https://images.pexels.com/photos/4489702/pexels-photo-4489702.jpeg?auto=compress&cs=tinysrgb&w=1200',
+      'https://images.pexels.com/photos/97075/pexels-photo-97075.jpeg?auto=compress&cs=tinysrgb&w=1200'
+    ],
+    retail:[
+      'https://images.pexels.com/photos/264507/pexels-photo-264507.jpeg?auto=compress&cs=tinysrgb&w=1600',
+      'https://images.pexels.com/photos/3962285/pexels-photo-3962285.jpeg?auto=compress&cs=tinysrgb&w=1200',
+      'https://images.pexels.com/photos/5709661/pexels-photo-5709661.jpeg?auto=compress&cs=tinysrgb&w=1200'
+    ],
+    generic:[
+      'https://images.pexels.com/photos/3184465/pexels-photo-3184465.jpeg?auto=compress&cs=tinysrgb&w=1600',
+      'https://images.pexels.com/photos/3184436/pexels-photo-3184436.jpeg?auto=compress&cs=tinysrgb&w=1200',
+      'https://images.pexels.com/photos/3184418/pexels-photo-3184418.jpeg?auto=compress&cs=tinysrgb&w=1200'
+    ]
+  };
+  const profiles={
+    salon:{eyebrow:'Hair · Beauty · Self-care',title:'Feel good. Look like you.',about:'A local salon built around personal service and easy-to-find information.',palette:['#7a4358','#4d2938','#e3b36a','#f7eef0']},
+    florist:{eyebrow:'Flowers · Gifts · Occasions',title:'Flowers for the moments that matter.',about:'Fresh flowers, thoughtful gifts and floral work for everyday moments and special occasions.',palette:['#46604d','#2f4336','#d1a45f','#f1eee4']},
+    cafe:{eyebrow:'Coffee · Food · Local',title:'A local place worth stopping for.',about:'A straightforward local spot for food, drink and time together.',palette:['#7a3e2e','#4b2620','#e6b85c','#f7efe4']},
+    pub:{eyebrow:'Drinks · Food · Community',title:'Your local, online.',about:'A welcoming local venue with the information customers need before they visit.',palette:['#173f35','#0f3028','#b78a44','#f4efe3']},
+    dog:{eyebrow:'Dogs · Grooming · Care',title:'Good care, clearly presented.',about:'A local dog-care business with a simple place for services, contact and booking information.',palette:['#415d67','#2a4149','#d7aa5e','#eef2ef']},
+    auto:{eyebrow:'Vehicles · Service · Local',title:'Make the stock and services easy to find.',about:'A clear digital home for vehicle information, services and contact details.',palette:['#35465e','#202c3e','#d09b51','#edf0f3']},
+    retail:{eyebrow:'Independent · Local · Useful',title:'A better shop window online.',about:'A clear, visual home for products, services and contact information.',palette:['#56445d','#392f40','#c8a15d','#f3eef2']},
+    generic:{eyebrow:'Independent · Local · Easy to find',title:'A proper home online.',about:'A simple, polished website that puts the useful information first.',palette:['#3f5065','#283747','#caa15a','#f1efe9']}
+  };
+  function kindFor(text){
+    if(has(text,'florist','bouquet','flower','floral'))return'florist';
+    if(has(text,'salon','hair','beauty','nail','tanning','make-up','makeup','skin care','skincare'))return'salon';
+    if(has(text,'cafe','coffee','bakery','restaurant','food','takeaway'))return'cafe';
+    if(has(text,'pub','bar','beer','live music'))return'pub';
+    if(has(text,'dog','grooming','pet'))return'dog';
+    if(has(text,'car sales','garage','vehicle','mot','auto services'))return'auto';
+    if(has(text,'shop','retail','products','ecommerce','homeware'))return'retail';
+    return'generic';
+  }
+  function offeringList(text,kind){
+    const defs=[
+      ['Hair', ['hair','hairdressing'], 'Hair services are part of the current public business offering.'],
+      ['Beauty', ['beauty','treatment'], 'Beauty services are included in the current public business information.'],
+      ['Nails', ['nail'], 'Nail services are listed as part of the current offering.'],
+      ['Tanning', ['tanning','sunbed'], 'Tanning is listed among the current services.'],
+      ['Bouquets', ['bouquet'], 'Bouquets are part of the florist offering identified in research.'],
+      ['Weddings', ['wedding','bridal'], 'Wedding work is included in the current business offering.'],
+      ['Gifts', ['gift'], 'Gifts are included in the current public business information.'],
+      ['Seasonal flowers', ['seasonal'], 'Seasonal work is identified as part of the current opportunity.'],
+      ['Coffee', ['coffee'], 'Coffee is part of the current food and drink offering.'],
+      ['Food', ['food','lunch','breakfast','menu'], 'Food is part of the current business offering.'],
+      ['Events', ['event','party','live music','quiz'], 'Events or entertainment are part of the current public business information.'],
+      ['Dog grooming', ['dog grooming','grooming'], 'Dog grooming is part of the verified current business offering.'],
+      ['Vehicle sales', ['car sales','dealer','stock'], 'Vehicle sales are part of the current business activity.'],
+      ['Servicing', ['servicing','service','repairs','diagnostics','mot'], 'Vehicle service or repair work is part of the current offering.']
+    ];
+    const found=[];
+    defs.forEach(([name,terms,desc])=>{if(terms.some(t=>text.includes(t))&&!found.some(x=>x.name===name))found.push({name,desc})});
+    if(!found.length){
+      const fallback={
+        florist:[{name:'Flowers',desc:'Floral work is central to the current business offering.'}],
+        salon:[{name:'Salon services',desc:'The current public information identifies this as a salon or beauty business.'}],
+        cafe:[{name:'Food & drink',desc:'The current public information identifies this as a local food or drink business.'}],
+        pub:[{name:'Pub & hospitality',desc:'The current public information identifies this as a local hospitality business.'}],
+        dog:[{name:'Dog care',desc:'The current public information identifies this as a local dog-care business.'}],
+        auto:[{name:'Automotive',desc:'The current public information identifies this as an automotive business.'}],
+        retail:[{name:'Products & services',desc:'The current public information identifies an independent retail or product business.'}],
+        generic:[{name:'What we offer',desc:'A clear place to present the verified services and information customers need.'}]
+      };
+      return fallback[kind];
+    }
+    return found.slice(0,6);
+  }
+  function initials(name){return String(name||'CI').split(/\s+/).filter(Boolean).slice(0,2).map(x=>x[0]).join('').toUpperCase()}
+  function safeImages(d,kind){
+    const supplied=Array.isArray(d.images)?d.images.filter(x=>x&&x.url).map(x=>x.url):[];
+    return (supplied.length?supplied:photos[kind]).slice(0,4);
+  }
+  function theme(p){const [a,b,c,d]=p;document.documentElement.style.setProperty('--primary',a);document.documentElement.style.setProperty('--primary-2',b);document.documentElement.style.setProperty('--accent',c);document.documentElement.style.setProperty('--paper',d)}
   let d;
-  try{d=decode()}catch(e){document.getElementById('app').innerHTML='<div class="error"><h1>Concept preview unavailable</h1><p>This preview link is incomplete or damaged.</p></div>';return}
-  const p=palettes[hash(d.businessName)%palettes.length];
-  document.documentElement.style.setProperty('--primary',p[0]);document.documentElement.style.setProperty('--primary2',p[1]);document.documentElement.style.setProperty('--accent',p[2]);document.documentElement.style.setProperty('--paper',p[3]);
-  document.title=(d.businessName||'Business')+' · Chip In Concept';
-  const contact=d.phone||d.email;
-  const map=d.address?'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(d.address):'';
-  const summary=d.researchSummary||'This concept uses the verified information currently available and is intended to demonstrate structure and visual direction only.';
+  try{d=decode()}catch(e){document.getElementById('app').innerHTML='<div class="shell section"><div class="card"><h2>Concept preview unavailable</h2><p>This preview link is incomplete or damaged.</p></div></div>';return}
+  const text=[d.businessName,d.category,d.service,d.researchSummary,d.opportunity,d.websiteEvidence,JSON.stringify(d.demoProfile||{})].join(' ').toLowerCase();
+  const kind=kindFor(text),profile=profiles[kind],imgs=safeImages(d,kind),offerings=(d.demoProfile&&Array.isArray(d.demoProfile.offerings)&&d.demoProfile.offerings.length)?d.demoProfile.offerings:offeringList(text,kind);
+  theme(profile.palette);
+  document.title=(d.businessName||'Business')+' | '+locality(d.address);
+  const place=locality(d.address), map=d.address?'https://www.google.com/maps?q='+encodeURIComponent(d.address)+'&output=embed':'';
+  const maps=d.address?'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(d.address):'';
+  const facts=(d.demoProfile&&Array.isArray(d.demoProfile.facts)?d.demoProfile.facts:offerings.map(x=>x.name)).slice(0,6);
+  const aboutLead=(d.demoProfile&&d.demoProfile.aboutLead)||profile.about;
+  const aboutBody=(d.demoProfile&&d.demoProfile.aboutBody)||((d.businessName||'This business')+' is based in '+place+'. '+(offerings.length?'Current public information highlights '+offerings.map(x=>x.name.toLowerCase()).join(', ')+'.':'The website can focus on the confirmed services and the information customers need most.'));
+  const heroTitle=(d.demoProfile&&d.demoProfile.heroTitle)||d.businessName||'Local business';
+  const heroSubtitle=(d.demoProfile&&d.demoProfile.heroSubtitle)||place;
+  const strapline=(d.demoProfile&&d.demoProfile.strapline)||profile.title;
+  const hours=Array.isArray(d.demoProfile?.hours)?d.demoProfile.hours:[];
+  const gallery=imgs.slice(0,3);
   document.getElementById('app').innerHTML=`
-<header class="header"><div class="shell header-inner"><div class="brand">${esc(d.businessName||'Business')}<small>Website concept by Chip In</small></div><nav><a href="#about">About</a><a href="#structure">Website</a><a href="#contact">Contact</a></nav></div></header>
-<main>
-<section class="hero"><div class="shell hero-grid"><div><p class="eyebrow">A clearer home online</p><h1>${esc(d.businessName||'Your business')}</h1><p class="hero-copy">A clean, mobile-friendly website concept built around the verified public information currently available.</p><div class="actions">${d.phone?'<a class="button primary" href="tel:'+esc(d.phone.replace(/[^+\\d]/g,''))+'">Call</a>':''}${map?'<a class="button ghost" href="'+esc(map)+'" target="_blank" rel="noopener">Find us</a>':''}</div></div><aside class="hero-card"><p class="eyebrow">Concept direction</p><h2>Simple to understand. Easy to use.</h2><p>This is an early visual example, not a finished customer website. Final branding, imagery, copy, services, prices and opening hours would come directly from the business.</p></aside></div></section>
-<section id="structure" class="section"><div class="shell"><div class="section-heading"><p class="eyebrow">What the finished site can do</p><h2>Put the important information in one place</h2><p>The final version can be shaped around what customers most often need before they contact or visit.</p></div><div class="module-grid"><article class="module"><span>01</span><h3>About</h3><p>Tell the business story clearly and give customers confidence before they make contact.</p></article><article class="module"><span>02</span><h3>Services</h3><p>Present the confirmed services, products, menus or treatments in a clean mobile-friendly format.</p></article><article class="module"><span>03</span><h3>Visit & contact</h3><p>Make phone, email, directions, opening information and enquiries quick to find.</p></article></div></div></section>
-<section id="about" class="section research"><div class="shell research-grid"><div><p class="eyebrow">Starting point</p><h2>Built from research, then refined with you</h2></div><div class="research-card"><p>${esc(summary)}</p>${d.websiteEvidence?'<p class="muted"><strong>Website research:</strong> '+esc(d.websiteEvidence)+'</p>':''}<p class="muted">Any unverified details are deliberately left out of this concept rather than guessed.</p></div></div></section>
-<section id="contact" class="section contact"><div class="shell contact-grid"><div><p class="eyebrow">Public contact information</p><h2>${esc(d.businessName||'Business')}</h2><p>${esc(d.address||'Contact details to be confirmed')}</p></div><div class="contact-stack">${d.phone?'<div class="contact-row"><small>Phone</small><strong>'+esc(d.phone)+'</strong></div>':''}${d.email?'<div class="contact-row"><small>Email</small><strong>'+esc(d.email)+'</strong></div>':''}${d.address?'<div class="contact-row"><small>Address</small><strong>'+esc(d.address)+'</strong></div>':''}<div class="contact-row"><small>Status</small><strong>Chip In concept preview · not commissioned or approved by the business</strong></div></div></div></section>
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="site-header" id="top"><div class="shell header-inner"><a class="brand" href="#top"><span class="brand-mark">${esc(initials(d.businessName))}</span><span class="brand-copy"><strong>${esc(d.businessName||'Business')}</strong><small>${esc(place)}</small></span></a><button class="nav-toggle" type="button" aria-expanded="false" aria-controls="primary-nav"><span></span><span></span><span></span><span class="sr-only">Toggle navigation</span></button><nav class="primary-nav" id="primary-nav"><a href="#about">About</a><a href="#services">Services</a>${hours.length?'<a href="#hours">Hours</a>':''}<a href="#gallery">Gallery</a><a href="#visit">Visit</a></nav></div></header>
+<main id="main">
+<section class="hero demo-image-hero"><div class="hero-media"><img src="${esc(imgs[0])}" alt="${esc(kind==='florist'?'Concept floral imagery':kind==='salon'?'Concept salon imagery':'Concept business imagery')}"></div><div class="shell hero-grid"><div class="hero-copy"><p class="eyebrow">${esc((d.demoProfile&&d.demoProfile.heroEyebrow)||profile.eyebrow)}</p><h1><span>${esc(heroTitle)}</span><em>${esc(heroSubtitle)}</em></h1><p class="hero-intro">${esc(strapline)}</p><div class="hero-actions">${d.phone?'<a class="button button-primary" href="tel:'+esc(String(d.phone).replace(/[^+\\d]/g,''))+'">Call</a>':''}${maps?'<a class="button button-ghost" href="'+esc(maps)+'" target="_blank" rel="noopener">Get directions</a>':''}</div></div><aside class="hero-card"><div class="hero-card-topline">${esc(place)}</div><div class="today-status">${esc(d.businessName||'Local business')}</div><div class="mini-rule"></div><p>${esc(aboutLead)}</p>${d.phone?'<a class="text-link" href="tel:'+esc(String(d.phone).replace(/[^+\\d]/g,''))+'">Get in touch →</a>':''}</aside></div></section>
+<section class="section about" id="about"><div class="shell two-column"><div class="demo-about-image"><img src="${esc(imgs[1]||imgs[0])}" alt="Concept imagery relevant to ${esc(d.businessName||'the business')}"></div><div class="prose"><p class="eyebrow">About</p><h2>${esc((d.demoProfile&&d.demoProfile.aboutHeading)||('Local to '+place+'.'))}</h2><p class="lead">${esc(aboutLead)}</p><p>${esc(aboutBody)}</p><div class="fact-row">${facts.map(x=>'<span>'+esc(x)+'</span>').join('')}</div></div></div></section>
+<section class="section food-section" id="services"><div class="shell"><div class="section-heading centered"><p class="eyebrow">What we do</p><h2>${esc((d.demoProfile&&d.demoProfile.servicesHeading)||'Services & specialities')}</h2></div><div class="demo-services-grid">${offerings.map((x,i)=>'<article class="demo-service-card"><img src="'+esc(imgs[(i+1)%imgs.length])+'" alt="Concept imagery for '+esc(x.name)+'"><div class="demo-service-copy"><small>0'+(i+1)+'</small><h3>'+esc(x.name)+'</h3><p>'+esc(x.description||x.desc||'')+'</p></div></article>').join('')}</div></div></section>
+${hours.length?'<section class="section hours-section" id="hours"><div class="shell"><div class="section-heading centered"><p class="eyebrow">Plan your visit</p><h2>Opening hours</h2></div><div class="hours-grid">'+hours.map(h=>'<div class="hours-row"><strong>'+esc(h.day)+'</strong><span>'+esc(h.display||h.hours||'')+'</span></div>').join('')+'</div></div></section>':''}
+<section class="section gallery-section" id="gallery"><div class="shell"><div class="section-heading centered"><p class="eyebrow">A feel for the finished site</p><h2>${esc((d.demoProfile&&d.demoProfile.galleryHeading)||'A visual shop window')}</h2></div><div class="gallery-grid">${gallery.map((u,i)=>'<div class="gallery-item"><img src="'+esc(u)+'" alt="Concept image '+(i+1)+'"></div>').join('')}</div><p class="demo-gallery-note">${d.images&&d.images.length?'Images identified during research.':'Prototype stock imagery is being used until the business supplies its own photography.'}</p></div></section>
+<section class="section visit-section" id="visit"><div class="shell demo-contact-grid"><div class="demo-contact-card"><p class="eyebrow">Find us</p><h2>${esc(d.businessName||'Visit')}</h2><address>${esc(d.address||'Address to be confirmed')}</address><div class="contact-stack">${d.phone?'<a href="tel:'+esc(String(d.phone).replace(/[^+\\d]/g,''))+'"><span>Call</span><strong>'+esc(d.phone)+'</strong></a>':''}${d.email?'<a href="mailto:'+esc(d.email)+'"><span>Email</span><strong>'+esc(d.email)+'</strong></a>':''}</div>${maps?'<a class="button button-primary" href="'+esc(maps)+'" target="_blank" rel="noopener">Open in Maps</a>':''}<p class="demo-unverified-note">Concept preview only. Final copy, branding, photography, prices and opening information would be confirmed directly with the business before launch.</p></div>${map?'<div class="demo-map"><iframe title="Map" loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="'+esc(map)+'"></iframe></div>':'<img class="demo-section-image" src="'+esc(imgs[2]||imgs[0])+'" alt="Concept business imagery">'}</div></section>
 </main>
-<footer class="footer"><div class="shell">Prepared by Chip In as a sales concept using verified information available at the time of research. This preview is not an official website for ${esc(d.businessName||'the business')}.</div></footer>`;
+<footer class="site-footer"><div class="shell footer-grid"><div><div class="footer-brand">${esc(d.businessName||'Business')}</div><p>${esc(d.address||'')}</p></div><div class="footer-links"><a href="#services">Services</a><a href="#gallery">Gallery</a><a href="#visit">Contact</a></div><p class="footer-small">Chip In concept website · uncommissioned preview · prototype imagery may be used until official business assets are supplied.</p></div></footer>
+<nav class="mobile-actions"><a ${d.phone?'href="tel:'+esc(String(d.phone).replace(/[^+\\d]/g,''))+'"':'href="#visit"'}>Call</a><a href="#services">Services</a><a href="#visit">Visit</a></nav>`;
+  const toggle=document.querySelector('.nav-toggle'),nav=document.querySelector('.primary-nav');
+  toggle?.addEventListener('click',()=>{nav?.classList.toggle('open');toggle.setAttribute('aria-expanded',String(nav?.classList.contains('open')))});
+  nav?.addEventListener('click',e=>{if(e.target.matches('a')){nav.classList.remove('open');toggle?.setAttribute('aria-expanded','false')}});
 })();
 </script>
-</body></html>
+</body>
+</html>
