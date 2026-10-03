@@ -191,9 +191,11 @@
   const heroTitle=(d.demoProfile&&d.demoProfile.heroTitle)||d.businessName||'Local business';
   const heroSubtitle=(d.demoProfile&&d.demoProfile.heroSubtitle)||place;
   const strapline=(d.demoProfile&&d.demoProfile.strapline)||profile.title;
-  const hours=Array.isArray(d.demoProfile?.hours)?d.demoProfile.hours.filter(x=>x&&x.day):[];
-  const hoursSource=d.demoProfile?.hoursSource||'';
-  const hoursVerified=d.demoProfile?.hoursVerified===true||hours.length>0;
+  const hours=Array.isArray(d.demoProfile?.hours)&&d.demoProfile.hours.length
+    ? d.demoProfile.hours.filter(x=>x&&x.day)
+    : (Array.isArray(d.openingHours)?d.openingHours.filter(x=>x&&x.day):[]);
+  const hoursSource=d.demoProfile?.hoursSource||d.openingHoursSource||'';
+  const hoursVerified=d.demoProfile?.hoursVerified===true||d.openingHoursVerified===true||hours.length>0;
   const fallbackDays=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
   const displayHours=hours.length?hours:fallbackDays.map(day=>({day,display:'Please contact the business to confirm'}));
   document.getElementById('app').innerHTML=`
