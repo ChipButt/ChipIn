@@ -107,11 +107,11 @@
     generic:{eyebrow:'Independent · Local · Easy to find',strapline:'A proper home online.',about:'A simple, polished website that puts the useful information first.',palette:['#3f5065','#283747','#caa15a','#f1efe9']}
   };
   function kindFor(text){
+    if(has(text,'dog','dog grooming','pet grooming','pet care','pet salon','mobile grooming','pets'))return'dog';
     if(has(text,'florist','bouquet','flower','floral'))return'florist';
     if(has(text,'salon','hair','beauty','nail','tanning','make-up','makeup','skin care','skincare'))return'salon';
     if(has(text,'cafe','coffee','bakery','restaurant','food','takeaway'))return'cafe';
     if(has(text,'pub','bar','beer','live music'))return'pub';
-    if(has(text,'dog','grooming','pet'))return'dog';
     if(has(text,'car sales','garage','vehicle','mot','auto services'))return'auto';
     if(has(text,'shop','retail','products','ecommerce','homeware'))return'retail';
     return'generic';
@@ -140,6 +140,92 @@
   }
   function initials(name){return String(name||'CI').split(/\s+/).filter(Boolean).slice(0,2).map(x=>x[0]).join('').toUpperCase()}
   function safeImages(d,kind){const supplied=Array.isArray(d.images)?d.images.filter(x=>x&&x.url).map(x=>x.url):[];return [...new Set([...supplied,...(photos[kind]||photos.generic)])]}
+  const servicePhotoPools={
+    dog:[
+      'https://images.pexels.com/photos/6816844/pexels-photo-6816844.jpeg?auto=compress&cs=tinysrgb&w=1200',
+      'https://images.pexels.com/photos/6131007/pexels-photo-6131007.jpeg?auto=compress&cs=tinysrgb&w=1200',
+      'https://images.pexels.com/photos/19145877/pexels-photo-19145877.jpeg?auto=compress&cs=tinysrgb&w=1200',
+      'https://images.pexels.com/photos/6131001/pexels-photo-6131001.jpeg?auto=compress&cs=tinysrgb&w=1200'
+    ],
+    hair:[
+      'https://images.pexels.com/photos/8834077/pexels-photo-8834077.jpeg?auto=compress&cs=tinysrgb&w=1200',
+      'https://images.pexels.com/photos/8834095/pexels-photo-8834095.jpeg?auto=compress&cs=tinysrgb&w=1200',
+      'https://images.pexels.com/photos/8467964/pexels-photo-8467964.jpeg?auto=compress&cs=tinysrgb&w=1200',
+      'https://images.pexels.com/photos/7984818/pexels-photo-7984818.jpeg?auto=compress&cs=tinysrgb&w=1200'
+    ],
+    barber:[
+      'https://images.pexels.com/photos/7518732/pexels-photo-7518732.jpeg?auto=compress&cs=tinysrgb&w=1200',
+      'https://images.pexels.com/photos/7697644/pexels-photo-7697644.jpeg?auto=compress&cs=tinysrgb&w=1200',
+      'https://images.pexels.com/photos/7447145/pexels-photo-7447145.jpeg?auto=compress&cs=tinysrgb&w=1200',
+      'https://images.pexels.com/photos/9992818/pexels-photo-9992818.jpeg?auto=compress&cs=tinysrgb&w=1200'
+    ],
+    beauty:[
+      'https://images.pexels.com/photos/29692111/pexels-photo-29692111.jpeg?auto=compress&cs=tinysrgb&w=1200',
+      'https://images.pexels.com/photos/5069589/pexels-photo-5069589.jpeg?auto=compress&cs=tinysrgb&w=1200',
+      'https://images.pexels.com/photos/19242404/pexels-photo-19242404.jpeg?auto=compress&cs=tinysrgb&w=1200',
+      'https://images.pexels.com/photos/30793291/pexels-photo-30793291.jpeg?auto=compress&cs=tinysrgb&w=1200'
+    ],
+    nails:[
+      'https://images.pexels.com/photos/34930151/pexels-photo-34930151.jpeg?auto=compress&cs=tinysrgb&w=1200',
+      'https://images.pexels.com/photos/34930163/pexels-photo-34930163.jpeg?auto=compress&cs=tinysrgb&w=1200',
+      'https://images.pexels.com/photos/34930141/pexels-photo-34930141.jpeg?auto=compress&cs=tinysrgb&w=1200'
+    ],
+    tanning:[
+      'https://images.pexels.com/photos/16645419/pexels-photo-16645419.jpeg?auto=compress&cs=tinysrgb&w=1200',
+      'https://images.pexels.com/photos/14256895/pexels-photo-14256895.jpeg?auto=compress&cs=tinysrgb&w=1200'
+    ],
+    flowers:[
+      'https://images.pexels.com/photos/5414034/pexels-photo-5414034.jpeg?auto=compress&cs=tinysrgb&w=1200',
+      'https://images.pexels.com/photos/5894075/pexels-photo-5894075.jpeg?auto=compress&cs=tinysrgb&w=1200',
+      'https://images.pexels.com/photos/4466552/pexels-photo-4466552.jpeg?auto=compress&cs=tinysrgb&w=1200',
+      'https://images.pexels.com/photos/36613717/pexels-photo-36613717.jpeg?auto=compress&cs=tinysrgb&w=1200'
+    ],
+    gifts:[
+      'https://images.pexels.com/photos/5874681/pexels-photo-5874681.jpeg?auto=compress&cs=tinysrgb&w=1200',
+      'https://images.pexels.com/photos/6045405/pexels-photo-6045405.jpeg?auto=compress&cs=tinysrgb&w=1200'
+    ],
+    delivery:[
+      'https://images.pexels.com/photos/5413724/pexels-photo-5413724.jpeg?auto=compress&cs=tinysrgb&w=1200',
+      'https://images.pexels.com/photos/5413722/pexels-photo-5413722.jpeg?auto=compress&cs=tinysrgb&w=1200',
+      'https://images.pexels.com/photos/7363155/pexels-photo-7363155.jpeg?auto=compress&cs=tinysrgb&w=1200'
+    ]
+  };
+  function serviceKey(x){
+    const t=[x?.name,x?.description,x?.desc,x?.details].filter(Boolean).join(' ').toLowerCase();
+    if(/dog|pet|groom/.test(t))return'dog';
+    if(/barber|beard|men'?s grooming/.test(t))return'barber';
+    if(/nail|manicure|pedicure/.test(t))return'nails';
+    if(/tann|sunbed|solarium/.test(t))return'tanning';
+    if(/facial|beauty|skin|wax|lash|brow|aesthetic/.test(t))return'beauty';
+    if(/hair|cut|styling|colour|color/.test(t))return'hair';
+    if(/deliver|collection/.test(t))return'delivery';
+    if(/gift/.test(t))return'gifts';
+    if(/flower|floral|bouquet|arrangement|wedding/.test(t))return'flowers';
+    return'';
+  }
+  function suppliedServiceImage(d,x){
+    const key=serviceKey(x);
+    if(!key||!Array.isArray(d.images))return'';
+    const words={
+      dog:/dog|pet|groom/,
+      barber:/barber|beard|men'?s grooming/,
+      nails:/nail|manicure|pedicure/,
+      tanning:/tann|sunbed|solarium/,
+      beauty:/facial|beauty|skin|wax|lash|brow/,
+      hair:/hair|cut|styling|colour|color/,
+      delivery:/deliver|collection|customer/,
+      gifts:/gift|present/,
+      flowers:/flower|floral|bouquet|arrangement/
+    }[key];
+    return d.images.find(img=>img?.url&&words.test([img.alt,img.type].filter(Boolean).join(' ').toLowerCase()))?.url||'';
+  }
+  function serviceImage(d,x,variant=0){
+    const supplied=suppliedServiceImage(d,x);
+    if(supplied&&variant===0)return supplied;
+    const pool=servicePhotoPools[serviceKey(x)]||[];
+    return pool[variant%Math.max(pool.length,1)]||supplied||'';
+  }
+  function slugify(s){return String(s||'service').toLowerCase().replace(/&/g,' and ').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'service'}
   function setTheme(p){const[a,b,c,d]=p;document.documentElement.style.setProperty('--primary',a);document.documentElement.style.setProperty('--primary-2',b);document.documentElement.style.setProperty('--accent',c);document.documentElement.style.setProperty('--paper',d)}
   let d;try{d=decode()}catch(e){document.body.innerHTML='<div class="shell section"><div class="card"><h2>Concept preview unavailable</h2><p>This preview link is incomplete or damaged.</p></div></div>';return}
   const text=[d.businessName,d.category,d.service,d.researchSummary,d.opportunity,d.websiteEvidence,JSON.stringify(d.demoProfile||{})].join(' ').toLowerCase();
@@ -150,14 +236,15 @@
   const paths={home:'./',about:'about/',services:'services/',hours:'hours/',gallery:'gallery/',visit:'visit/'};
   const root=page==='home'?'./':'../';
   const href=p=>root+paths[p]+hash;
+  const serviceHref=x=>root+'service/?s='+encodeURIComponent(slugify(x?.name))+hash;
   const pageHref=p=>p===page?' aria-current="page"':'';
   const hoursRaw=Array.isArray(d.demoProfile?.hours)&&d.demoProfile.hours.length?d.demoProfile.hours:(Array.isArray(d.openingHours)?d.openingHours:[]);
   const fallbackDays=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
   const hours=hoursRaw.length?hoursRaw:fallbackDays.map(day=>({day,display:'Please contact the business to confirm'}));
   const verified=d.demoProfile?.hoursVerified===true||d.openingHoursVerified===true||hoursRaw.length>0;
   const heroImage=images[0]||'',aboutImage=images[1]||'';
-  const serviceImages=offerings.map((_,i)=>images[i+2]||'');
-  const galleryImages=images.slice(2+offerings.length,2+offerings.length+6);
+  const serviceImages=offerings.map(x=>serviceImage(d,x,0));
+  const galleryImages=images.slice(2,8).filter((u,i,a)=>u&&u!==heroImage&&u!==aboutImage&&a.indexOf(u)===i);
   const facts=(Array.isArray(d.demoProfile?.facts)&&d.demoProfile.facts.length?d.demoProfile.facts:offerings.map(x=>x.name)).slice(0,6);
   const aboutLead=d.demoProfile?.aboutLead||profile.about;
   const aboutBody=d.demoProfile?.aboutBody||((d.businessName||'This business')+' is based in '+place+'. '+(offerings.length?'Current public information highlights '+offerings.map(x=>x.name.toLowerCase()).join(', ')+'.':''));
@@ -172,7 +259,18 @@
   }else if(page==='about'){
     main=`<main><section class="page-hero"><div class="shell"><p class="eyebrow">About</p><h1>${esc(d.demoProfile?.aboutHeading||d.businessName||'About')}</h1><p class="page-lead">${esc(aboutLead)}</p></div></section><section class="section"><div class="shell two-column"><div class="demo-about-image">${aboutImage?'<img src="'+esc(aboutImage)+'" alt="Concept business imagery">':''}</div><div class="prose"><p>${esc(aboutBody)}</p><div class="fact-row">${facts.map(x=>'<span>'+esc(x)+'</span>').join('')}</div></div></div></section></main>`;
   }else if(page==='services'){
-    main=`<main><section class="page-hero"><div class="shell"><p class="eyebrow">What we do</p><h1>${esc(d.demoProfile?.servicesHeading||'Services')}</h1><p class="page-lead">${esc(d.demoProfile?.servicesLead||'Explore the services and specialities identified during research.')}</p></div></section><section class="section food-section"><div class="shell"><div class="demo-services-grid">${offerings.map((x,i)=>'<article class="demo-service-card">'+(serviceImages[i]?'<img src="'+esc(serviceImages[i])+'" alt="Concept imagery for '+esc(x.name)+'">':'')+'<div class="demo-service-copy"><h3>'+esc(x.name)+'</h3><p>'+esc(x.description||x.desc||'')+'</p></div></article>').join('')}</div></div></section></main>`;
+    main=`<main><section class="page-hero"><div class="shell"><p class="eyebrow">What we do</p><h1>${esc(d.demoProfile?.servicesHeading||'Services')}</h1><p class="page-lead">${esc(d.demoProfile?.servicesLead||'Explore the services and specialities identified during research.')}</p></div></section><section class="section food-section"><div class="shell"><div class="demo-services-grid">${offerings.map((x,i)=>'<a class="demo-service-card" href="'+esc(serviceHref(x))+'">'+(serviceImages[i]?'<img src="'+esc(serviceImages[i])+'" alt="'+esc(x.name)+'">':'')+'<div class="demo-service-copy"><h3>'+esc(x.name)+'</h3><p>'+esc(x.description||x.desc||'')+'</p><strong class="demo-service-link">More about '+esc(x.name)+' →</strong></div></a>').join('')}</div></div></section></main>`;
+  }else if(page==='service'){
+    const wanted=new URLSearchParams(location.search).get('s')||'';
+    const service=offerings.find(x=>slugify(x.name)===wanted)||offerings[0];
+    if(!service){
+      main='<main><section class="page-hero"><div class="shell"><h1>Service information</h1></div></section></main>';
+    }else{
+      const detailImage=serviceImage(d,service,1);
+      const detailText=service.details||service.longDescription||service.description||service.desc||'Contact the business for the latest details about this service.';
+      const extra=Array.isArray(service.facts)?service.facts:[];
+      main=`<main><section class="page-hero"><div class="shell"><p class="eyebrow">Service</p><h1>${esc(service.name)}</h1><p class="page-lead">${esc(service.description||service.desc||'')}</p></div></section><section class="section"><div class="shell demo-service-detail">${detailImage?'<img class="demo-service-detail-image" src="'+esc(detailImage)+'" alt="'+esc(service.name)+'">':''}<div><p class="eyebrow">${esc(d.businessName||'')}</p><h2>${esc(service.name)}</h2><p class="lead">${esc(detailText)}</p>${extra.length?'<div class="fact-row">'+extra.map(x=>'<span>'+esc(typeof x==='string'?x:(x.text||x.title||''))+'</span>').join('')+'</div>':''}<div class="demo-service-actions">${d.phone?'<a class="button button-primary" href="tel:'+esc(String(d.phone).replace(/[^+\\d]/g,''))+'">Call '+esc(d.phone)+'</a>':''}<a class="button button-primary" href="${href('hours')}">Opening hours</a><a class="button button-ghost-dark" href="${href('services')}">All services</a></div></div></div></section></main>`;
+    }
   }else if(page==='hours'){
     main=`<main><section class="page-hero"><div class="shell"><p class="eyebrow">Plan your visit</p><h1>Opening hours</h1><p class="page-lead">${verified?'Current public opening hours identified during research.':'Current opening hours could not be reliably verified, so please contact the business before making a special journey.'}</p></div></section><section class="section hours-section"><div class="shell"><div class="hours-grid">${hours.map(h=>'<div class="hours-row"><strong>'+esc(h.day)+'</strong><span>'+esc(h.display||h.hours||'Please contact to confirm')+'</span></div>').join('')}</div></div></section></main>`;
   }else if(page==='gallery'){
