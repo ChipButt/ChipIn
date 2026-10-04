@@ -220,25 +220,6 @@
     wirePageActions();
   };
 
-  // Dashboard hook: app1's render() captured the original renderDashboard function
-  // before this module loaded, so wrap render() itself to populate the finance slot after dashboard render.
-  const renderWithOutgoings16=render;
-  render=function(){
-    renderWithOutgoings16();
-    if(page!=='dashboard')return;
-    const month=TODAY().slice(0,7),c=coverage16(month);
-    let slot=document.getElementById('dashboardOutgoingsSlot16');
-    if(!slot){slot=document.createElement('div');slot.id='dashboardOutgoingsSlot16';document.getElementById('content')?.appendChild(slot);}
-    if(!slot)return;
-    if(!outgoings16().length){
-      if(ghUnlocked&&!state.settings.outgoingsSeedVersion&&!outgoingsSeedLoading16)ensurePrivateOutgoings16();
-      slot.innerHTML=`<div class="section-title"><div><h2>Monthly position</h2></div></div><div class="card"><p class="muted">${outgoingsSeedLoading16?'Loading your saved outgoings from private storage…':(!ghUnlocked?'Unlock private storage to load your saved outgoings.':'Your private outgoings are ready to be loaded.')}</p><button class="btn" data-action="go-outgoings">Open outgoings</button></div>`;
-    }else{
-      slot.innerHTML=`<div class="grid cards outgoing-summary16 dashboard-summary16" style="grid-template-columns:repeat(3,minmax(0,1fr));margin-top:14px"><div class="card stat"><div class="accent-bar"></div><div class="label">Monthly outgoings</div><div class="value">${money(c.target)}</div><div class="hint">${activeOutgoings16().length} active commitments</div></div><div class="card stat"><div class="accent-bar"></div><div class="label">Usable Chip In income · ${monthLabel16(month)}</div><div class="value">${money(c.usable)}</div><div class="hint">After linked job costs + ${c.rate}% Tax pot</div></div><div class="card stat"><div class="accent-bar"></div><div class="label">${c.gap>0?'Still to cover':'Surplus after outgoings'}</div><div class="value">${money(c.gap>0?c.gap:c.surplus)}</div><div class="hint">${c.gap>0?(Number.isFinite(c.profitNeeded)?`${money(c.profitNeeded)} more job profit at ${c.rate}% reserve`:'No usable share at the current reserve rate'):'This month is covered by usable income'}</div></div></div><div class="outgoing-cover16 dashboard-cover16"><div><strong>${money(c.usable)}</strong> usable income against <strong>${money(c.target)}</strong> monthly outgoings</div><div class="progress"><div style="width:${c.pct}%"></div></div></div>`;
-    }
-    wirePageActions();
-  };
-
   const style=document.createElement('style');style.textContent=`
     .outgoing-cover16{margin-top:14px;padding:14px 16px;border:1px solid var(--line);border-radius:12px;background:#fff}.outgoing-cover16>.progress{margin-top:10px}
     .outgoing-paused16{opacity:.58}.outgoing-group-title16{margin-top:22px}.outgoing-groups16 .value{font-size:22px}.outgoings-table16{width:100%;table-layout:fixed}.outgoings-table16 .out-name16{width:42%}.outgoings-table16 .out-due16{width:12%}.outgoings-table16 .out-status16{width:14%}.outgoings-table16 .out-amount16{width:18%}.outgoings-table16 .out-actions16{width:14%}.outgoings-table16 th,.outgoings-table16 td{vertical-align:top}
