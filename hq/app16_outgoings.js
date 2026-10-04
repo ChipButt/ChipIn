@@ -197,7 +197,14 @@
   renderDashboard=function(){
     const changedCurrent16=syncCurrentMonthlyRecord16(),changedBackfill16=backfillRecentMonthlyRecords16();if(changedCurrent16||changedBackfill16)saveState().catch(console.error);
     baseRenderDashboard16();
-    const month=TODAY().slice(0,7),c=coverage16(month),slot=document.getElementById('dashboardOutgoingsSlot16');
+    const month=TODAY().slice(0,7),c=coverage16(month);
+    let slot=document.getElementById('dashboardOutgoingsSlot16');
+    if(!slot){
+      slot=document.createElement('div');
+      slot.id='dashboardOutgoingsSlot16';
+      const split=document.querySelector('#content .split');
+      if(split)split.appendChild(slot);else document.getElementById('content')?.appendChild(slot);
+    }
     if(!slot)return;
     if(!outgoings16().length){
       if(ghUnlocked&&!state.settings.outgoingsSeedVersion&&!outgoingsSeedLoading16)ensurePrivateOutgoings16();
