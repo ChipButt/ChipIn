@@ -193,6 +193,17 @@
     renderNav();const meta=PAGE_META.outgoings||['Outgoings','Monthly commitments'];$('#pageTitle').textContent=meta[0];$('#pageSubtitle').textContent=meta[1];renderTopActions();renderOutgoings16();wirePageActions();
   };
 
+  function renderDashboardPosition16(){
+    const month=TODAY().slice(0,7),c=coverage16(month),slot=document.getElementById('dashboardOutgoingsSlot16');
+    if(!slot)return;
+    if(!outgoings16().length){
+      if(ghUnlocked&&!state.settings.outgoingsSeedVersion&&!outgoingsSeedLoading16)ensurePrivateOutgoings16();
+      slot.innerHTML=`<div class="section-title"><div><h2>Monthly position</h2></div></div><div class="card"><p class="muted">${outgoingsSeedLoading16?'Loading your saved outgoings from private storage…':(!ghUnlocked?'Unlock private storage to load your saved outgoings.':'Your private outgoings are ready to be loaded.')}</p><button class="btn" data-action="go-outgoings">Open outgoings</button></div>`;
+    }else{
+      slot.innerHTML=`<div class="grid cards outgoing-summary16 dashboard-summary16" style="grid-template-columns:repeat(3,minmax(0,1fr));margin-top:14px"><div class="card stat"><div class="accent-bar"></div><div class="label">Monthly outgoings</div><div class="value">${money(c.target)}</div><div class="hint">${activeOutgoings16().length} active commitments</div></div><div class="card stat"><div class="accent-bar"></div><div class="label">Usable Chip In income · ${monthLabel16(month)}</div><div class="value">${money(c.usable)}</div><div class="hint">After linked job costs + ${c.rate}% Tax pot</div></div><div class="card stat"><div class="accent-bar"></div><div class="label">${c.gap>0?'Still to cover':'Surplus after outgoings'}</div><div class="value">${money(c.gap>0?c.gap:c.surplus)}</div><div class="hint">${c.gap>0?(Number.isFinite(c.profitNeeded)?`${money(c.profitNeeded)} more job profit at ${c.rate}% reserve`:'No usable share at the current reserve rate'):'This month is covered by usable income'}</div></div></div><div class="outgoing-cover16 dashboard-cover16"><div><strong>${money(c.usable)}</strong> usable income against <strong>${money(c.target)}</strong> monthly outgoings</div><div class="progress"><div style="width:${c.pct}%"></div></div></div>`;
+    }
+  }
+
   const baseRenderDashboard16=renderDashboard;
   renderDashboard=function(){
     const changedCurrent16=syncCurrentMonthlyRecord16(),changedBackfill16=backfillRecentMonthlyRecords16();if(changedCurrent16||changedBackfill16)saveState().catch(console.error);
@@ -219,6 +230,8 @@
     }
     wirePageActions();
   };
+
+  document.addEventListener('chipin:dashboard-rendered',renderDashboardPosition16);
 
   const style=document.createElement('style');style.textContent=`
     .outgoing-cover16{margin-top:14px;padding:14px 16px;border:1px solid var(--line);border-radius:12px;background:#fff}.outgoing-cover16>.progress{margin-top:10px}
