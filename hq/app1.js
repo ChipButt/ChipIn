@@ -37,7 +37,7 @@ async function saveState(){state.updatedAt=new Date().toISOString();await dbPut(
 async function loadState(){const s=await dbGet('app','state');if(s)state=mergeDefaults(s,DEFAULT_STATE);}
 function mergeDefaults(obj,def){if(Array.isArray(def))return Array.isArray(obj)?obj:def;if(def&&typeof def==='object'){const out={...def};for(const k of Object.keys(obj||{}))out[k]=k in def?mergeDefaults(obj[k],def[k]):obj[k];return out}return obj===undefined?def:obj;}
 
-const $ = (s,r=document)=>r.querySelector(s); const $$=(s,r=document)=>[...r.querySelectorAll(s)];
+const $ = (s,r=document)=>(r||document).querySelector(s); const $=(s,r=document)=>[...(r||document).querySelectorAll(s)];
 function uid(prefix='id'){return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2,7)}`}
 function esc(v=''){return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
 function money(v){return new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP'}).format(Number(v)||0)}
