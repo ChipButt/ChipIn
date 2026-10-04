@@ -197,15 +197,20 @@
   renderDashboard=function(){
     const changedCurrent16=syncCurrentMonthlyRecord16(),changedBackfill16=backfillRecentMonthlyRecords16();if(changedCurrent16||changedBackfill16)saveState().catch(console.error);
     baseRenderDashboard16();
-    const month=TODAY().slice(0,7),c=coverage16(month),panel=document.createElement('div');panel.id='dashboardOutgoings16';panel.className='card dashboard-outgoings16';
+    const month=TODAY().slice(0,7),c=coverage16(month),slot=document.getElementById('dashboardOutgoingsSlot16');
+    if(!slot)return;
     if(!outgoings16().length){
       if(ghUnlocked&&!state.settings.outgoingsSeedVersion&&!outgoingsSeedLoading16)ensurePrivateOutgoings16();
-      panel.innerHTML=`<div class="section-title" style="margin:0"><div><h2>Monthly outgoings</h2><p>${outgoingsSeedLoading16?'Loading your saved outgoings from private storage…':(!ghUnlocked?'Unlock private storage to load your saved outgoings.':'Your private outgoings are ready to be loaded.')}</p></div><button class="btn" data-action="go-outgoings">Open outgoings</button></div>`;
+      slot.innerHTML=`<div class="section-title"><div><h2>Monthly position</h2></div></div><div class="card"><p class="muted">${outgoingsSeedLoading16?'Loading your saved outgoings from private storage…':(!ghUnlocked?'Unlock private storage to load your saved outgoings.':'Your private outgoings are ready to be loaded.')}</p><button class="btn" data-action="go-outgoings">Open outgoings</button></div>`;
     }else{
-      const headline=c.gap>0?`${money(c.gap)} usable income still to cover`:`Covered · ${money(c.surplus)} spare`,needed=c.gap>0&&Number.isFinite(c.profitNeeded)?`${money(c.profitNeeded)} additional job profit would create the remaining usable income at a ${c.rate}% reserve.`:'Your monthly outgoings are covered by usable income received so far.';
-      panel.innerHTML=`<div class="outgoing-dashboard-grid16"><div><div class="label muted">${monthLabel16(month).toUpperCase()} OUTGOINGS</div><div class="outgoing-dashboard-big16">${money(c.target)}</div><div class="muted">Usable income received: <strong>${money(c.usable)}</strong></div></div><div><div class="label muted">MONTHLY POSITION</div><div class="outgoing-dashboard-big16 ${c.gap>0?'need16':'covered16'}">${headline}</div><div class="muted">${needed}</div></div></div><div class="progress" style="margin-top:14px"><div style="width:${c.pct}%"></div></div><div class="row-actions" style="justify-content:flex-end;margin-top:10px"><button class="btn small secondary" data-action="go-outgoings">Open outgoings</button></div>`;
+      slot.innerHTML=`<div class="grid cards outgoing-summary16 dashboard-summary16" style="grid-template-columns:repeat(3,minmax(0,1fr))">
+        <div class="card stat"><div class="accent-bar"></div><div class="label">Monthly outgoings</div><div class="value">${money(c.target)}</div><div class="hint">${activeOutgoings16().length} active commitments</div></div>
+        <div class="card stat"><div class="accent-bar"></div><div class="label">Usable Chip In income · ${monthLabel16(month)}</div><div class="value">${money(c.usable)}</div><div class="hint">After linked job costs + ${c.rate}% Tax pot</div></div>
+        <div class="card stat"><div class="accent-bar"></div><div class="label">${c.gap>0?'Still to cover':'Surplus after outgoings'}</div><div class="value">${money(c.gap>0?c.gap:c.surplus)}</div><div class="hint">${c.gap>0?(Number.isFinite(c.profitNeeded)?`${money(c.profitNeeded)} more job profit at ${c.rate}% reserve`:'No usable share at the current reserve rate'):'This month is covered by usable income'}</div></div>
+      </div>
+      <div class="outgoing-cover16 dashboard-cover16"><div><strong>${money(c.usable)}</strong> usable income against <strong>${money(c.target)}</strong> monthly outgoings</div><div class="progress"><div style="width:${c.pct}%"></div></div></div>`;
     }
-    const firstStats=$('#content .grid.cards');if(firstStats)firstStats.insertAdjacentElement('afterend',panel);else $('#content').prepend(panel);wirePageActions();
+    wirePageActions();
   };
 
   const style=document.createElement('style');style.textContent=`
