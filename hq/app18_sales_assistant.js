@@ -371,12 +371,6 @@
       </div>
       <div class="sales-action-list">${due.length?renderTodayGroups(due):`<div class="card"><div class="empty-state"><div class="empty-icon">✓</div><h3>You’re clear for now</h3><p>Add prospects or set follow-up dates and they will appear here automatically.</p></div></div>`}</div>
 
-      <div class="section-title"><div><h2>Sourced prospects</h2><p>Prospects researched by ChatGPT appear here before they enter your live pipeline.</p></div><div class="row-actions"><button class="btn gold small" data-sales-action="sales-now">NOW</button><button class="btn secondary small" data-sales-action="refresh-inbox">Refresh</button></div></div>
-      <div id="salesProspectInbox" class="card"><p class="muted">Loading sourced prospects…</p></div>
-
-      <div class="section-title"><div><h2>Automation queue</h2><p>Live status from the private Sales Assistant worker files.</p></div><button class="btn secondary small" data-sales-action="refresh-workers">Refresh status</button></div>
-      <div id="salesWorkerStatus" class="card"><p class="muted">Loading automation status…</p></div>
-
       <div class="section-title"><div><h2>Pipeline</h2><p>Move every prospect forward or deliberately close it.</p></div><button class="btn secondary small" data-sales-action="targets">Targets</button></div>
       <div class="sales-pipeline">${stageOrder.map(stage=>pipelineColumn(stage)).join('')}</div>
 
@@ -390,8 +384,6 @@
         <div class="hint-box"><strong>End result:</strong> ask “What do I need to do today?” and ChatGPT reads the verified Firestore feed, then returns EMAIL / CALL / VISIT, the exact contact detail, the factual reason and suggested wording.</div>
       </div>`;
     wireSalesActions();
-    loadProspectInbox().catch(e=>{const el=document.getElementById('salesProspectInbox');if(el)el.innerHTML=`<p class="muted">${esc(e.message)}</p>`;});
-    loadWorkerStatus().catch(e=>{const el=document.getElementById('salesWorkerStatus');if(el)el.innerHTML=`<p class="muted">${esc(e.message)}</p>`;});
     reconcileAutomaticResearch().then(changed=>{if(changed)setTimeout(()=>render(),0)}).catch(e=>console.warn('Automatic research reconcile failed',e));
   };
 
