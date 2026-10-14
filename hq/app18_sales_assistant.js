@@ -103,7 +103,7 @@
         : `<div class="sales-script"><div class="sales-script-label">You should say</div><p>“${esc(script)}”</p></div>`
       }
       ${l.aiReply?'<div class="sales-ai-flag">AI research/wording saved for this action</div>':''}
-      ${!isResearch&&l.websiteStatus==='no_functioning_site'?`<div class="hint-box" style="margin-top:10px"><strong>Website opportunity</strong><div style="margin-top:4px">${esc(l.websiteEvidence||'Research did not verify a functioning standalone website.')}</div><div class="row-actions" style="margin-top:8px;justify-content:flex-start;flex-wrap:wrap">${l.demoUrl?`<button class="btn small gold" data-sales-action="open-demo" data-id="${l.id}">Open demo website</button>`:l.demoStatus==='queued'?'<span class="badge warn">Demo website queued</span>':`<button class="btn small gold" data-sales-action="generate-demo" data-id="${l.id}">Generate Demo Website</button>`}</div></div>`:''}
+      ${!isResearch&&l.websiteStatus==='no_functioning_site'?`<div class="hint-box" style="margin-top:10px"><strong>Website opportunity</strong><div style="margin-top:4px">${esc(l.websiteEvidence||'Research did not verify a functioning standalone website.')}</div><div class="row-actions" style="margin-top:8px;justify-content:flex-start;flex-wrap:wrap">${publishedDemoUrl(l)?`<button class="btn small gold" data-sales-action="open-demo" data-id="${l.id}">Open HospoLP demo</button>`:l.demoStatus==='queued'?'<span class="badge warn">Queued for HospoLP</span>':l.demoStatus==='needs_review'?`<button class="btn small gold" data-sales-action="generate-demo" data-id="${l.id}">Retry HospoLP demo</button>`:`<button class="btn small gold" data-sales-action="generate-demo" data-id="${l.id}">Generate HospoLP Demo</button>`}</div></div>`:''}
       <div class="row-actions sales-card-actions">
         ${isResearch
           ? (l.researchStatus==='queued'
@@ -120,32 +120,7 @@
     </article>`;
   }
 
-  function demoPayload(l){
-    return {
-      businessName:l.businessName||'Business',
-      category:l.category||l.demoProfile?.businessType||'',
-      service:l.service||'',
-      address:l.address||'',
-      phone:l.phone||'',
-      email:l.email||'',
-      researchSummary:l.researchSummary||'',
-      opportunity:l.problem||'',
-      websiteEvidence:l.websiteEvidence||'',
-      demoProfile:l.demoProfile||null,
-      images:Array.isArray(l.demoImages)?l.demoImages:[],
-      openingHours:Array.isArray(l.openingHours)?l.openingHours:[],
-      openingHoursSource:l.openingHoursSource||'',
-      openingHoursVerified:l.openingHoursVerified===true,
-      generatedAt:new Date().toISOString()
-    };
-  }
-  function encodeDemoPayload(payload){
-    const bytes=new TextEncoder().encode(JSON.stringify(payload));
-    let raw='';for(let i=0;i<bytes.length;i++)raw+=String.fromCharCode(bytes[i]);
-    return btoa(raw).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
-  }
-  // Keep all published HospoLP demos as the authoritative versions.
-  // Use the separate HQ concept generator only for genuinely unpublished prospects.
+  // HospoLP is the only site builder and published demo host.
   const HOSPOLP_PUBLISHED_DEMOS={
     'lead_muqqpcwu_qg9lk':'bulls-head-bidford',
     'lead_muqqzmx9_4iubt':'finishing-touch-bidford',
@@ -155,90 +130,86 @@
     'lead_murtu10e_b2z7a':'lillys-dog-grooming',
     'lead_muqsooy8_ba5is':'village-cafe-bidford'
   };
+  const HOSPOLP_SAMPLE_PREFIX='https://chipbutt.github.io/HospoLP/samples/';
   function publishedDemoUrl(l){
+    if(!l)return '';
     const slug=HOSPOLP_PUBLISHED_DEMOS[l.id];
-    if(slug)return 'https://chipbutt.github.io/HospoLP/samples/'+slug+'/';
-    // Old published links used renderer=hospolp-data-driven instead of hospolp-published.
-    if(/^https:\/\/chipbutt\.github\.io\/HospoLP\/samples\/[a-z0-9-]+\/?(?:[?#].*)?$/i.test(l.demoUrl||''))return l.demoUrl;
-    return '';
+    if(slug)return HOSPOLP_SAMPLE_PREFIX+slug+'/';
+    // Never open the retired HQ demo-site renderer, including saved legacy URLs.
+    const url=String(l.demoUrl||'');
+    return /^https:\/\/chipbutt\.github\.io\/HospoLP\/samples\/[a-z0-9-]+\/?(?:[?#].*)?$/i.test(url)?url:'';
   }
-  function buildLocalDemo(l){
-    const published=publishedDemoUrl(l);
-    if(published){
-      l.demoUrl=published;
-      l.demoSlug=published.split('/').filter(Boolean).pop();
-      l.demoRenderer='hospolp-published';
-      l.demoStatus='ready';
-      l.updatedAt=new Date().toISOString();
-      return published;
-    }
+  function publishedDemoLead(l){
+    const url=publishedDemoUrl(l);
+    if(!url)return '';
+    l.demoUrl=url;
+    l.demoSlug=url.split('/').filter(Boolean).pop();
+    l.demoRenderer='hospolp-standard';
     l.demoStatus='ready';
-    l.demoBuiltAt=new Date().toISOString();
-    l.demoSlug=l.demoSlug&&l.demoSlug!=='hq-concept-preview'&&l.demoSlug!=='hq-multipage-demo'?l.demoSlug:'hq-multipage-demo';
-    l.demoRenderer='hq-multipage-draft';
-    l.demoUrl=new URL('demo-site/',location.href).href+'#'+encodeDemoPayload(demoPayload(l));
-    l.updatedAt=new Date().toISOString();
-    return l.demoUrl;
+    return url;
   }
-  async function syncLocalDemoRecord(l){
-    if(typeof ghUnlocked==='undefined'||!ghUnlocked||typeof getFile!=='function'||typeof putFile!=='function')return;
-    try{
-      const path='sales-assistant/demo-website-queue.json';
-      const qf=await getFile(path);
-      const q=qf?JSON.parse(qf.text):{version:1,requests:[]};
-      q.requests=Array.isArray(q.requests)?q.requests:[];
-      let req=q.requests.find(x=>x.leadId===l.id);
-      if(!req){
-        req={leadId:l.id,businessName:l.businessName||'',websiteStatus:l.websiteStatus||'',queuedAt:l.demoBuiltAt,status:'built_local'};
-        q.requests.push(req);
-      }
-      Object.assign(req,{status:'built_local',builtAt:l.demoBuiltAt,demoUrl:l.demoUrl,renderer:'hq-multipage-demo'});
-      await putFile(path,JSON.stringify(q,null,2),'Record HQ-generated demo website',qf?.sha||'');
-
-      const resultPath='sales-assistant/demo-website-results.json';
-      const rf=await getFile(resultPath);
-      const data=rf?JSON.parse(rf.text):{version:1,results:[]};
-      data.results=Array.isArray(data.results)?data.results:[];
-      const result={leadId:l.id,businessName:l.businessName||'',slug:l.demoSlug||'',demoUrl:l.demoUrl,builtAt:l.demoBuiltAt,summary:'Multi-page HospoLP-style concept website generated directly by Chip In HQ from verified research data.',renderer:'hq-multipage-demo',status:'ready'};
-      const i=data.results.findIndex(x=>x.leadId===l.id);
-      if(i>=0)data.results[i]={...data.results[i],...result};else data.results.push(result);
-      await putFile(resultPath,JSON.stringify(data,null,2),'Record HQ demo website result',rf?.sha||'');
-    }catch(e){console.warn('Demo record sync failed; local demo remains available',e)}
+  function demoSlug(l){
+    return (l.demoSlug&&!['hq-concept-preview','hq-multipage-demo'].includes(l.demoSlug)?l.demoSlug:
+      String(l.businessName||'demo').toLowerCase().replace(/&/g,' and ').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,60))||'demo';
   }
-  async function processLocalDemoQueue(){
-    if(typeof ghUnlocked==='undefined'||!ghUnlocked||typeof getFile!=='function'||typeof putFile!=='function')return false;
+  function demoInput(l){
+    const images=(Array.isArray(l.demoImages)?l.demoImages:[]).filter(x=>x&&typeof x==='object'&&/^https:\/\//i.test(x.url||x.src||'')).slice(0,15).map(x=>({url:x.url||x.src,alt:x.alt||''}));
+    const profile=l.demoProfile&&typeof l.demoProfile==='object'?l.demoProfile:null;
+    return {
+      businessName:l.businessName||'',category:l.category||'',address:l.address||'',phone:l.phone||'',email:l.email||'',
+      websiteStatus:l.websiteStatus||'',websiteEvidence:l.websiteEvidence||'',
+      openingHoursVerified:l.openingHoursVerified===true,
+      openingHours:Array.isArray(l.openingHours)?l.openingHours:[],
+      openingHoursSource:l.openingHoursSource||'',
+      images,demoProfile:profile
+    };
+  }
+  async function queueHospoDemo(l){
+    if(typeof ghUnlocked==='undefined'||!ghUnlocked||typeof getFile!=='function'||typeof putFile!=='function')
+      throw Error('Unlock Chip In private storage to queue the HospoLP website.');
     const path='sales-assistant/demo-website-queue.json';
-    const qf=await getFile(path);if(!qf)return false;
-    const q=JSON.parse(qf.text);q.requests=Array.isArray(q.requests)?q.requests:[];
-    const pending=q.requests.filter(x=>['queued','building'].includes(x.status));
-    if(!pending.length)return false;
-    let changed=false,stateChanged=false;
-    const built=[];
-    for(const req of pending){
-      let l=leadById(req.leadId)||sales().leads.find(x=>(x.businessName||'').toLowerCase()===(req.businessName||'').toLowerCase());
-      if(!l&&req.leadId){
-        l={id:req.leadId,createdAt:req.queuedAt||new Date().toISOString(),updatedAt:new Date().toISOString(),businessName:req.businessName||'',contactName:req.contactName||'',email:req.email||'',phone:req.phone||'',website:req.website||'',address:req.address||'',service:req.service||'Website Design',problem:req.opportunity||'',researchSummary:req.researchSummary||'',websiteStatus:req.websiteStatus||'',websiteEvidence:req.websiteEvidence||'',researchSources:req.sources||[],estimatedValue:'',stage:'Contact',nextActionMethod:req.email?'email':req.phone?'call':req.address?'visit':'research',nextActionDate:TODAY(),nextActionReason:req.opportunity||'Demo website ready; make contact.',notes:'',researchStatus:'complete'};
-        sales().leads.push(l);stateChanged=true;
-      }
-      if(!l)continue;
-      if((l.websiteStatus||req.websiteStatus)!=='no_functioning_site'){
-        req.status='needs_review';req.reason='HQ will only generate a prospect demo after Research confirms no functioning standalone website.';changed=true;continue;
-      }
-      if(!l.websiteStatus)l.websiteStatus=req.websiteStatus;
-      if(!l.websiteEvidence)l.websiteEvidence=req.websiteEvidence||'';
-      buildLocalDemo(l);
-      Object.assign(req,l.demoRenderer==='hospolp-published'?{status:'published',demoUrl:l.demoUrl,renderer:'hospolp-published'}:{status:'built_local',builtAt:l.demoBuiltAt,demoUrl:l.demoUrl,renderer:'hq-multipage-demo'});
-      if(l.demoRenderer!=='hospolp-published')built.push(l);
-      changed=true;stateChanged=true;
+    const f=await getFile(path),q=f?JSON.parse(f.text):{version:1,requests:[]};
+    q.requests=Array.isArray(q.requests)?q.requests:[];
+    let item=q.requests.find(x=>x.leadId===l.id);
+    if(!item){item={leadId:l.id};q.requests.push(item)}
+    // Published websites must never be rebuilt just because someone clicks Generate.
+    if(item.status==='published'&&item.demoUrl&&item.demoUrl.startsWith(HOSPOLP_SAMPLE_PREFIX)){
+      l.demoUrl=item.demoUrl;publishedDemoLead(l);return 'published';
     }
-    if(stateChanged)await saveState();
-    if(changed){
-      try{await putFile(path,JSON.stringify(q,null,2),'Convert queued demos to HQ concept previews',qf.sha)}catch(e){console.warn('Demo queue status sync failed',e)}
-      for(const l of built)await syncLocalDemoRecord(l);
-    }
-    return stateChanged||changed;
+    if(item.status==='queued'&&item.demoInput)return 'queued';
+    Object.assign(item,{
+      businessName:l.businessName,slug:demoSlug(l),status:'queued',queuedAt:new Date().toISOString(),
+      demoInput:demoInput(l)
+    });
+    delete item.reason;
+    await putFile(path,JSON.stringify(q,null,2),'Queue standard HospoLP demo website for '+l.businessName,f?.sha||'');
+    l.demoStatus='queued';l.demoSlug=item.slug;l.demoUrl='';
+    l.demoRenderer='hospolp-standard';
+    await saveState();
+    return 'queued';
   }
-
+  // Reflect publication states from the private queue, never build a second
+  // preview locally and never mark a queued request as published.
+  async function processLocalDemoQueue(){
+    if(typeof ghUnlocked==='undefined'||!ghUnlocked||typeof getFile!=='function')return false;
+    const f=await getFile('sales-assistant/demo-website-queue.json');if(!f)return false;
+    const q=JSON.parse(f.text),reqs=Array.isArray(q.requests)?q.requests:[];
+    let changed=false;
+    for(const req of reqs){
+      const l=leadById(req.leadId);if(!l)continue;
+      if(req.status==='published'&&req.demoUrl&&req.demoUrl.startsWith(HOSPOLP_SAMPLE_PREFIX)){
+        if(l.demoUrl!==req.demoUrl||l.demoStatus!=='ready'){
+          l.demoUrl=req.demoUrl;l.demoSlug=req.slug||l.demoSlug;l.demoStatus='ready';l.demoRenderer='hospolp-standard';changed=true;
+        }
+      }else if(['queued','needs_review','building'].includes(req.status)&&!publishedDemoUrl(l)){
+        if(l.demoStatus!==req.status||l.demoUrl){
+          l.demoStatus=req.status;l.demoUrl='';l.demoSlug=req.slug||l.demoSlug;changed=true;
+        }
+      }
+    }
+    if(changed)await saveState();
+    return changed;
+  }
   async function applyResearchResults(){
     if(typeof ghUnlocked==='undefined'||!ghUnlocked||typeof getFile!=='function')return false;
     const rf=await getFile('sales-assistant/research-results.json');
@@ -356,7 +327,7 @@
       l.demoSlug=r.slug||l.demoSlug||'';
       l.demoBuiltAt=r.builtAt||l.demoBuiltAt||'';
       l.demoRenderer=r.renderer||l.demoRenderer||'';
-      if(publishedDemoUrl(l))buildLocalDemo(l);
+      if(publishedDemoUrl(l))publishedDemoLead(l);
       r.status='applied';r.appliedAt=new Date().toISOString();
       changed=true;
     }
@@ -468,14 +439,14 @@
     if(action==='generate-demo')return generateDemoWebsite(id);
     if(action==='open-demo'){
       const l=leadById(id);if(!l)return;
-      const url=buildLocalDemo(l);
-      saveState().catch(()=>{});
+      const url=publishedDemoLead(l);
+      if(!url)return toast('This demo has not been published to HospoLP yet.');
       window.open(url,'_blank','noopener');
       return;
     }
     if(action==='sales-now'){
       try{await reconcileAutomaticResearch();await processLocalDemoQueue()}catch(e){console.warn('NOW local reconcile failed',e)}
-      const prompt='Do the Chip In Sales Assistant NOW actions. HQ has already handled website-demo generation locally. Please immediately: (1) research every prospect still genuinely queued/in Research and write verified results back to sales-assistant/research-results.json, marking those research queue entries researched; and (2) check Sourced Prospects and top the pool back up to exactly 10 fresh verified prospects, avoiding anything already in the pipeline or inbox with any status. Use current web/local-business sources and do not invent facts. Do not build or publish prospect websites: HQ now generates those previews itself.';
+      const prompt='Do the Chip In Sales Assistant NOW actions. Please immediately: (1) research prospects queued/in Research and write verified results to sales-assistant/research-results.json; and (2) top the prospect inbox back up to 10 fresh verified local prospects, avoiding duplicates. Do not invent facts. Website demo requests are queued by HQ for publication in HospoLP; do not generate separate HQ previews.';
       let copied=false;
       try{await navigator.clipboard.writeText(prompt);copied=true;}catch(e){console.warn('Clipboard copy failed',e);}
       const w=window.open('https://chatgpt.com/','_blank','noopener');
@@ -489,13 +460,15 @@
 
   async function generateDemoWebsite(id){
     const l=leadById(id);if(!l)return;
-    if(l.websiteStatus!=='no_functioning_site')return toast('A demo is only offered when Research confirms no functioning website.');
-    const url=buildLocalDemo(l);
-    await saveState();
-    if(l.demoRenderer!=='hospolp-published')syncLocalDemoRecord(l).catch(e=>console.warn('Demo record sync failed',e));
-    render();
-    window.open(url,'_blank','noopener');
-    toast('Demo website generated immediately');
+    const published=publishedDemoLead(l);
+    if(published){window.open(published,'_blank','noopener');return}
+    if(l.websiteStatus!=='no_functioning_site')return toast('A demo requires verified research that the business has no functioning site.');
+    try{
+      const result=await queueHospoDemo(l);
+      render();
+      if(result==='published')window.open(l.demoUrl,'_blank','noopener');
+      else toast('HospoLP demo queued. The published link will appear once the build finishes.');
+    }catch(e){toast(e.message);console.error('HospoLP queue failed',e)}
   }
   let sourcedInboxCache=null, sourcedInboxSha='';
   function workerWhen(v){
