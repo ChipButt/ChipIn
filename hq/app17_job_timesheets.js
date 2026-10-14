@@ -134,11 +134,42 @@
     $$('.hourly-timesheet',form).forEach(x=>x.style.display=type?.value==='hourly'?'flex':'none');
   };
 
-  openJobForm=function(id){
+  // Build an unsaved copy, not another reference to the original job.
+  // Actual dated work logs, invoice/payment records, and linked prep remain with the original.
+  const duplicateJobFields17=['clientId','category','customerReference','title','startDate','endDate','startTime','endTime','rateType','rate','hours','minutes','days','hourlyDiscount','discount','overrideAmount','description','notes'];
+  function duplicateJobDraft17(source){
+    const draft={status:source.status==='Quote'?'Quote':'Booked',rateType:'day',days:1,workDays:[]};
+    for(const key of duplicateJobFields17)if(source[key]!==undefined)draft[key]=source[key];
+    return draft;
+  }
+  openJobForm=function(id,duplicateFromId){
+    const source=duplicateFromId?jobById(duplicateFromId):null;
+    if(duplicateFromId&&!source){toast('The job to duplicate was not found.');return}
     if(!state.clients.length){openModal(`<h2>Add a client first</h2><p class="sub">A job needs somebody to invoice.</p><div class="form-actions"><button class="btn" id="addClientFromJob">Add client</button></div>`);$('#addClientFromJob').onclick=()=>openClientForm();return}
     chipInEnsureJobReferences();
-    const j=id?jobById(id):{status:'Booked',rateType:'day',days:1,workDays:[]};
-    openModal(jobForm(j),true);chipInBindJobPricing(j);
+    const j=id?jobById(id):source?duplicateJobDraft17(source):{status:'Booked',rateType:'day',days:1,workDays:[]};
+    openModal(jobForm(j),true);
+    // A duplicate is a new job, but its copied rate must not be replaced by client defaults.
+    chipInBindJobPricing(source?{...j,id:'unsaved-duplicate'}:j);
+    if(source){
+      const form=$('#jobForm');
+      const heading=$('#modalBody h2');
+      if(heading)heading.textContent='Duplicate job';
+      const sub=$('#modalBody .sub');
+      if(sub)sub.textContent='This is a new, separate job. Change the dates or other details before saving. Check the customer PO/reference. Previous dated work logs, prep entries, invoices and payments are not copied.';
+      const paidDate=$('[name="paidDate"]',form);if(paidDate)paidDate.value='';
+      const start=$('[name="startDate"]',form),end=$('[name="endDate"]',form);
+      if(start&&end&&start.value&&end.value){
+        const originalStart=start.value,originalEnd=end.value;
+        let lastAutoEnd=originalEnd;
+        const dayNumber=value=>{const [y,m,d]=value.split('-').map(Number);return Date.UTC(y,m-1,d)/86400000};
+        start.addEventListener('change',()=>{
+          if(!start.value||end.value!==lastAutoEnd)return;
+          lastAutoEnd=addDays(originalEnd,dayNumber(start.value)-dayNumber(originalStart));
+          end.value=lastAutoEnd;
+        });
+      }
+    }
     $('#jobForm').onsubmit=async e=>{
       e.preventDefault();const v=Object.fromEntries(new FormData(e.target).entries());
       v.rate=Number(v.rate||0);v.hours=Number(v.hours||0);v.minutes=Number(v.minutes||0);v.days=Number(v.days||0);v.hourlyDiscount=Number(v.hourlyDiscount||0);v.discount=Number(v.discount||0);v.overrideAmount=v.overrideAmount===''?null:Number(v.overrideAmount);v.workDays=readWorkDays17(e.target);
@@ -152,6 +183,12 @@
       if(j.id)Object.assign(j,v);else state.jobs.push({id:uid('job'),...v,createdAt:new Date().toISOString()});
       await saveState();closeModal();render();
     };
+  };
+
+  const previousHandleAction17=handleAction;
+  handleAction=async function(action,id){
+    if(action==='duplicate-job'){openJobForm(null,id);return}
+    return previousHandleAction17(action,id);
   };
 
   chipInHoursQty=function(j){const days=workDays17(j);return days.length?totalMinutes17(days)/60:(Math.max(0,Number(j?.hours||0))+Math.max(0,Number(j?.minutes||0))/60)};
