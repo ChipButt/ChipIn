@@ -103,7 +103,7 @@
         : `<div class="sales-script"><div class="sales-script-label">You should say</div><p>“${esc(script)}”</p></div>`
       }
       ${l.aiReply?'<div class="sales-ai-flag">AI research/wording saved for this action</div>':''}
-      ${!isResearch&&(l.websiteStatus==='no_functioning_site'||publishedDemoUrl(l))?`<div class="hint-box" style="margin-top:10px"><strong>Website opportunity</strong><div style="margin-top:4px">${esc(l.websiteEvidence||'Research did not verify a functioning standalone website.')}</div><div class="row-actions" style="margin-top:8px;justify-content:flex-start;flex-wrap:wrap">${publishedDemoUrl(l)?`<button class="btn small gold" data-sales-action="open-demo" data-id="${l.id}">Open HospoLP demo</button>`:l.demoStatus==='queued'?'<span class="badge warn">Queued for HospoLP</span>':l.demoStatus==='needs_review'?`<button class="btn small gold" data-sales-action="generate-demo" data-id="${l.id}">Retry HospoLP demo</button>`:`<button class="btn small gold" data-sales-action="generate-demo" data-id="${l.id}">Generate HospoLP Demo</button>`}</div></div>`:''}
+      ${!isResearch&&(l.websiteStatus==='no_functioning_site'||publishedDemoUrl(l))?`<div class="hint-box" style="margin-top:10px"><strong>Website opportunity</strong><div style="margin-top:4px">${esc(l.websiteEvidence||'Research did not verify a functioning standalone website.')}</div><div class="row-actions" style="margin-top:8px;justify-content:flex-start;flex-wrap:wrap">${publishedDemoUrl(l)?`<button class="btn small gold" data-sales-action="open-demo" data-id="${l.id}">Open HospoLP demo</button>`:l.demoStatus==='queued'?`<button class="btn small gold" data-sales-action="generate-demo" data-id="${l.id}">Continue in ChatGPT</button>`:l.demoStatus==='needs_review'?`<button class="btn small gold" data-sales-action="generate-demo" data-id="${l.id}">Retry in ChatGPT</button>`:`<button class="btn small gold" data-sales-action="generate-demo" data-id="${l.id}">Build in ChatGPT</button>`}</div></div>`:''}
       <div class="row-actions sales-card-actions">
         ${isResearch
           ? (l.researchStatus==='queued'
@@ -458,17 +458,56 @@
     if(action==='reject-sourced')return rejectSourcedProspect(id);
   }
 
+  // The ChatGPT GitHub connector is the builder. HQ only stores a request and
+  // links to the final published HospoLP sample; no automatic template generator.
+  function chatGPTDemoBrief(l){
+    return [
+      'Build my Chip In HQ website demo in HospoLP now.',
+      'Business: '+(l.businessName||''),
+      'Lead ID: '+l.id,
+      'Proposed slug: '+demoSlug(l),
+      '',
+      'Read the queued request for this lead from GitHub ChipButt/ChipIn-Data, sales-assistant/demo-website-queue.json. Review sales-assistant/research-results.json and current.json for its verified business details.',
+      'Research the business thoroughly, including real imagery, opening hours, services, prices or menus only where supported by public sources. Do not invent facts, stock assets, or fake content.',
+      'Inspect the existing polished demo websites in ChipButt/HospoLP/samples/ and build a complete, genuinely personalised, responsive multi-page site at samples/'+demoSlug(l)+'/ with that quality and visual standard. Use HospoLP assets and structures, not a second generic template in Chip In HQ.',
+      'Update ChipButt/HospoLP/samples/manifest.json. Verify the site works. Once published, update the lead in ChipButt/ChipIn-Data/sales-assistant/current.json plus demo-website-queue.json (status published) and demo-website-results.json (status ready, leadId, demoUrl, renderer hospolp-published). HQ must link to the actual HospoLP site.',
+      'Do the GitHub changes yourself with connected tools; report what was completed and any genuine blockers. Do not just describe a plan.'
+    ].join('\n');
+  }
+  function showChatGPTDemoBrief(l,prompt,link,error){
+    openModal('<h2>Continue demo in ChatGPT</h2>'+
+      '<p class="sub">'+esc(l.businessName)+': '+(error?'The private queue could not be saved; the brief can still be sent manually.':'The build request is queued in ChipIn-Data.')+' ChatGPT needs you to send the prefilled message before it can build the site.</p>'+
+      '<div class="field full"><label>Build brief</label><textarea id="chatGptDemoPrompt" rows="8" readonly>'+esc(prompt)+'</textarea></div>'+
+      '<div class="form-actions"><button class="btn secondary" id="copyChatGptDemoBrief" type="button">Copy brief</button>'+
+      '<a class="btn gold" id="openChatGptDemoLink" href="'+esc(link)+'" target="_blank" rel="noopener noreferrer">Open ChatGPT</a>'+
+      '<button class="btn secondary" data-close-modal type="button">Close</button></div>',true);
+    $('#copyChatGptDemoBrief').onclick=async()=>{
+      try{await navigator.clipboard.writeText(prompt);toast('ChatGPT build brief copied')}
+      catch(e){$('#chatGptDemoPrompt').select();toast('Select and copy the brief above')}
+    };
+  }
   async function generateDemoWebsite(id){
     const l=leadById(id);if(!l)return;
     const published=publishedDemoLead(l);
     if(published){window.open(published,'_blank','noopener');return}
     if(l.websiteStatus!=='no_functioning_site')return toast('A demo requires verified research that the business has no functioning site.');
+    const prompt=chatGPTDemoBrief(l);
+    const url='https://chatgpt.com/?prompt='+encodeURIComponent(prompt);
+    // Open immediately from the click to avoid browser popup blockers, then
+    // navigate only after the queue is safely written.
+    const tab=window.open('about:blank','_blank');
+    if(tab)tab.opener=null;
     try{
-      const result=await queueHospoDemo(l);
+      await queueHospoDemo(l);
       render();
-      if(result==='published')window.open(l.demoUrl,'_blank','noopener');
-      else toast('HospoLP demo queued. The published link will appear once the build finishes.');
-    }catch(e){toast(e.message);console.error('HospoLP queue failed',e)}
+      if(tab)tab.location.replace(url);
+      else showChatGPTDemoBrief(l,prompt,url,false);
+    }catch(e){
+      if(tab)tab.close();
+      console.error('Unable to queue HospoLP demo',e);
+      showChatGPTDemoBrief(l,prompt,url,true);
+      toast('The GitHub queue did not save. Check your private storage connection.');
+    }
   }
   let sourcedInboxCache=null, sourcedInboxSha='';
   function workerWhen(v){
@@ -502,12 +541,12 @@
     const dq=dqf?JSON.parse(dqf.text):{requests:[]};
     const pi=pif?JSON.parse(pif.text):{candidates:[]};
     const researchQueued=(rq.requests||[]).filter(x=>x.status==='queued').length;
-    const demosQueued=(dq.requests||[]).filter(x=>['queued','built_local','publish_pending','needs_rebuild'].includes(x.status)).length;
+    const demosQueued=(dq.requests||[]).filter(x=>['queued','needs_review'].includes(x.status)).length;
     const newProspects=(pi.candidates||[]).filter(x=>(x.status||'new')==='new').length;
     const d=status.demoBuilder||{},r=status.researchWorker||{},p=status.prospectRefill||{};
     const lastTime=w=>w.lastCompletedAt||w.lastFailedAt||w.lastCheckedAt||w.lastStartedAt||'';
     host.innerHTML=`<div class="stack">
-      <div class="action-item"><div><div class="title">Website builder</div><div class="meta">${demosQueued} waiting · ${esc(workerOutcome(d))}</div><div class="meta">Last activity: ${workerWhen(lastTime(d))}</div></div><span class="badge ${d.state==='error'?'bad':d.state==='running'?'warn':'ok'}">${esc(d.state||'idle')}</span></div>
+      <div class="action-item"><div><div class="title">HospoLP demos</div><div class="meta">${demosQueued} request${demosQueued===1?'':'s'} awaiting ChatGPT build</div></div><span class="badge warn">ChatGPT handoff</span></div>
       <div class="action-item"><div><div class="title">Prospect research</div><div class="meta">${researchQueued} waiting · ${esc(workerOutcome(r))}</div><div class="meta">Last activity: ${workerWhen(lastTime(r))}</div></div><span class="badge ${r.state==='error'?'bad':r.state==='running'?'warn':'ok'}">${esc(r.state||'idle')}</span></div>
       <div class="action-item"><div><div class="title">Sourced prospect refill</div><div class="meta">${newProspects} fresh prospects · ${esc(workerOutcome(p))}</div><div class="meta">Last activity: ${workerWhen(lastTime(p))}</div></div><span class="badge ${p.state==='error'?'bad':p.state==='running'?'warn':'ok'}">${esc(p.state||'idle')}</span></div>
     </div>`;
