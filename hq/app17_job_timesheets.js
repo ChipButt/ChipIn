@@ -180,7 +180,7 @@
           if(!shift)return;
           // Shift the copied workday dates by the same number of days as the job.
           // Keep each row's start/finish, break times and duration intact.
-          $('[data-workday="date"]',form).forEach(input=>{
+          $$('[data-workday="date"]',form).forEach(input=>{
             if(input.value)input.value=addDays(input.value,shift);
           });
           // Automatically move the end date unless it was separately edited.
