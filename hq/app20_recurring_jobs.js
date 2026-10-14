@@ -225,10 +225,41 @@
   var baseOpenJobForm20=openJobForm;
   openJobForm=function(id,duplicateFromId){
     baseOpenJobForm20(id,duplicateFromId);
-    var form=$('#jobForm'),box=$('#jobRecurrence20',form);
-    if(!form||!box)return;
+    var form=$('#jobForm');
+    if(!form)return;
+    // Moving a single recurring occurrence should move its detailed shift dates as well.
+    var original=id?jobById(id):null;
+    if(original&&original.recurrenceSeriesId){
+      var startEdit=$('[name="startDate"]',form),endEdit=$('[name="endDate"]',form);
+      if(startEdit&&endEdit){
+        var previous=startEdit.value,lastAutoEnd=endEdit.value;
+        startEdit.addEventListener('change',function(){
+          var delta=dayNumber20(startEdit.value)-dayNumber20(previous);
+          previous=startEdit.value;
+          if(!Number.isFinite(delta)||!delta)return;
+          $('[data-workday="date"]',form).forEach(function(input){
+            if(input.value)input.value=shiftDate20(input.value,delta);
+          });
+          if(endEdit.value===lastAutoEnd&&lastAutoEnd){
+            lastAutoEnd=shiftDate20(lastAutoEnd,delta);
+            endEdit.value=lastAutoEnd;
+          }
+          var hours=$('[name="hours"]',form);
+          if(hours)hours.dispatchEvent(new Event('input',{bubbles:true}));
+        });
+      }
+    }
+    var box=$('#jobRecurrence20',form);
+    if(!box)return;
     var enabled=$('[data-rec20="enabled"]',box),details=$('#jobRecurrenceDetails20',box),start=$('[name="startDate"]',form),end=$('[name="endDate"]',form);
-    var viewSource=function(){return {startDate:start.value,endDate:end.value}};
+    var viewSource=function(){
+      return {
+        startDate:start.value,endDate:end.value,
+        clientId:$('[name="clientId"]',form).value,
+        category:$('[name="category"]',form).value,
+        title:$('[name="title"]',form).value
+      };
+    };
     var update=bindControls20(box,viewSource);
     enabled.addEventListener('change',function(){details.style.display=enabled.checked?'block':'none';update()});
     var dayControlsTouched=false;
@@ -242,6 +273,10 @@
       update();
     });
     end.addEventListener('change',update);
+    ['clientId','category','title'].forEach(function(field){
+      var control=$('[name="'+field+'"]',form);
+      if(control){control.addEventListener('change',update);control.addEventListener('input',update)}
+    });
     var baseSubmit=form.onsubmit;
     form.onsubmit=async function(e){
       if(!enabled.checked)return baseSubmit(e);
