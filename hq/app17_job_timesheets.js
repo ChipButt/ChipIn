@@ -135,10 +135,20 @@
   };
 
   // Build an unsaved copy, not another reference to the original job.
-  // Actual dated work logs, invoice/payment records, and linked prep remain with the original.
+  // Copy timesheets as a reusable shift template, without sharing workday/break identities.
+  // Invoice/payment records and linked prep remain with the original.
   const duplicateJobFields17=['clientId','category','customerReference','title','startDate','endDate','startTime','endTime','rateType','rate','hours','minutes','days','hourlyDiscount','discount','overrideAmount','description','notes'];
   function duplicateJobDraft17(source){
-    const draft={status:source.status==='Quote'?'Quote':'Booked',rateType:'day',days:1,workDays:[]};
+    const draft={
+      status:source.status==='Quote'?'Quote':'Booked',
+      rateType:'day',
+      days:1,
+      workDays:workDays17(source).map(day=>({
+        ...day,
+        id:uid('workday'),
+        breaks:(Array.isArray(day.breaks)?day.breaks:[]).map(br=>({...br,id:uid('break')}))
+      }))
+    };
     for(const key of duplicateJobFields17)if(source[key]!==undefined)draft[key]=source[key];
     return draft;
   }
@@ -156,17 +166,29 @@
       const heading=$('#modalBody h2');
       if(heading)heading.textContent='Duplicate job';
       const sub=$('#modalBody .sub');
-      if(sub)sub.textContent='This is a new, separate job. Change the dates or other details before saving. Check the customer PO/reference. Previous dated work logs, prep entries, invoices and payments are not copied.';
+      if(sub)sub.textContent='Your shift times, worked hours and breaks are copied. Changing the start date also shifts the workday dates. Check the customer PO/reference. Prep entries, invoices and payments are not copied.';
       const paidDate=$('[name="paidDate"]',form);if(paidDate)paidDate.value='';
       const start=$('[name="startDate"]',form),end=$('[name="endDate"]',form);
-      if(start&&end&&start.value&&end.value){
-        const originalStart=start.value,originalEnd=end.value;
-        let lastAutoEnd=originalEnd;
+      if(start&&end&&start.value){
+        let previousStart=start.value;
+        let lastAutoEnd=end.value;
         const dayNumber=value=>{const [y,m,d]=value.split('-').map(Number);return Date.UTC(y,m-1,d)/86400000};
         start.addEventListener('change',()=>{
-          if(!start.value||end.value!==lastAutoEnd)return;
-          lastAutoEnd=addDays(originalEnd,dayNumber(start.value)-dayNumber(originalStart));
-          end.value=lastAutoEnd;
+          if(!start.value||!previousStart)return;
+          const shift=dayNumber(start.value)-dayNumber(previousStart);
+          previousStart=start.value;
+          if(!shift)return;
+          // Shift the copied workday dates by the same number of days as the job.
+          // Keep each row's start/finish, break times and duration intact.
+          $('[data-workday="date"]',form).forEach(input=>{
+            if(input.value)input.value=addDays(input.value,shift);
+          });
+          // Automatically move the end date unless it was separately edited.
+          if(end.value===lastAutoEnd&&lastAutoEnd){
+            lastAutoEnd=addDays(lastAutoEnd,shift);
+            end.value=lastAutoEnd;
+          }
+          syncTimes17(form);
         });
       }
     }
