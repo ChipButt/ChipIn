@@ -144,8 +144,34 @@
     let raw='';for(let i=0;i<bytes.length;i++)raw+=String.fromCharCode(bytes[i]);
     return btoa(raw).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
   }
+  // Keep all published HospoLP demos as the authoritative versions.
+  // Use the separate HQ concept generator only for genuinely unpublished prospects.
+  const HOSPOLP_PUBLISHED_DEMOS={
+    'lead_muqqpcwu_qg9lk':'bulls-head-bidford',
+    'lead_muqqzmx9_4iubt':'finishing-touch-bidford',
+    'lead_muqr03eu_ihpqg':'cienna-riverside-florist',
+    'lead_muqspgpd_pw1ys':'billy-shears-bidford',
+    'lead_muqsq0yk_xeogw':'georges-cafe-bidford',
+    'lead_murtu10e_b2z7a':'lillys-dog-grooming',
+    'lead_muqsooy8_ba5is':'village-cafe-bidford'
+  };
+  function publishedDemoUrl(l){
+    const slug=HOSPOLP_PUBLISHED_DEMOS[l.id];
+    if(slug)return 'https://chipbutt.github.io/HospoLP/samples/'+slug+'/';
+    // Old published links used renderer=hospolp-data-driven instead of hospolp-published.
+    if(/^https:\/\/chipbutt\.github\.io\/HospoLP\/samples\/[a-z0-9-]+\/?(?:[?#].*)?$/i.test(l.demoUrl||''))return l.demoUrl;
+    return '';
+  }
   function buildLocalDemo(l){
-    if(l.demoRenderer==='hospolp-published'&&/^https:\/\/chipbutt\.github\.io\/HospoLP\/samples\//.test(l.demoUrl||''))return l.demoUrl;
+    const published=publishedDemoUrl(l);
+    if(published){
+      l.demoUrl=published;
+      l.demoSlug=published.split('/').filter(Boolean).pop();
+      l.demoRenderer='hospolp-published';
+      l.demoStatus='ready';
+      l.updatedAt=new Date().toISOString();
+      return published;
+    }
     l.demoStatus='ready';
     l.demoBuiltAt=new Date().toISOString();
     l.demoSlug=l.demoSlug&&l.demoSlug!=='hq-concept-preview'&&l.demoSlug!=='hq-multipage-demo'?l.demoSlug:'hq-multipage-demo';
@@ -201,8 +227,9 @@
       if(!l.websiteStatus)l.websiteStatus=req.websiteStatus;
       if(!l.websiteEvidence)l.websiteEvidence=req.websiteEvidence||'';
       buildLocalDemo(l);
-      Object.assign(req,{status:'built_local',builtAt:l.demoBuiltAt,demoUrl:l.demoUrl,renderer:'hq-multipage-demo'});
-      built.push(l);changed=true;stateChanged=true;
+      Object.assign(req,l.demoRenderer==='hospolp-published'?{status:'published',demoUrl:l.demoUrl,renderer:'hospolp-published'}:{status:'built_local',builtAt:l.demoBuiltAt,demoUrl:l.demoUrl,renderer:'hq-multipage-demo'});
+      if(l.demoRenderer!=='hospolp-published')built.push(l);
+      changed=true;stateChanged=true;
     }
     if(stateChanged)await saveState();
     if(changed){
@@ -329,6 +356,7 @@
       l.demoSlug=r.slug||l.demoSlug||'';
       l.demoBuiltAt=r.builtAt||l.demoBuiltAt||'';
       l.demoRenderer=r.renderer||l.demoRenderer||'';
+      if(publishedDemoUrl(l))buildLocalDemo(l);
       r.status='applied';r.appliedAt=new Date().toISOString();
       changed=true;
     }
@@ -464,7 +492,7 @@
     if(l.websiteStatus!=='no_functioning_site')return toast('A demo is only offered when Research confirms no functioning website.');
     const url=buildLocalDemo(l);
     await saveState();
-    syncLocalDemoRecord(l).catch(e=>console.warn('Demo record sync failed',e));
+    if(l.demoRenderer!=='hospolp-published')syncLocalDemoRecord(l).catch(e=>console.warn('Demo record sync failed',e));
     render();
     window.open(url,'_blank','noopener');
     toast('Demo website generated immediately');
