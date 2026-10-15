@@ -31,3 +31,36 @@
 @media(max-width:820px){.service-process-panel{grid-template-columns:1fr}.service-process-intro{padding:29px 26px 27px}.service-process-steps{padding:10px 24px 12px}}
 @media(max-width:560px){.service-process-section{padding-bottom:28px}.service-process-panel{border-radius:24px}.service-process-intro{padding:25px 21px 23px}.service-process-steps{padding:8px 18px 10px}.service-process-steps article{grid-template-columns:48px minmax(0,1fr);gap:12px;padding:18px 2px}.service-process-number{width:44px;height:44px;border-radius:14px}}
 .video-guide-builder .guide-builder-head>div{width:100%}.video-guide-builder .guide-builder-head p{max-width:none}
+/* Optional Website Care packages */
+.website-care-section{padding:12px 0 44px}
+.website-care-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;align-items:stretch}
+.website-care-plan{position:relative;padding:27px 23px 23px;border:1px solid var(--line);border-radius:24px;background:#fff;box-shadow:var(--shadow);color:var(--ink);display:flex;flex-direction:column}
+.website-care-plan.featured{border:2px solid var(--gold);background:linear-gradient(165deg,#fffdf2,#fff 55%);padding-top:43px}
+.website-care-tag{position:absolute;top:14px;right:17px;font-size:.67rem;letter-spacing:.1em;font-weight:850;color:var(--navy)}
+.website-care-name{color:var(--navy);font-family:Fredoka,Inter,sans-serif;font-size:1.55rem;font-weight:750}
+.website-care-price{font-family:Fredoka,Inter,sans-serif;color:var(--navy);font-size:2.7rem;font-weight:750;margin:8px 0;line-height:1.06}
+.website-care-price span{font-family:Inter,sans-serif;font-size:.92rem;color:var(--muted);font-weight:550;white-space:nowrap}
+.website-care-plan>p:not(.website-care-price){margin:8px 0 14px;color:var(--muted);line-height:1.6}
+.website-care-plan ul{list-style:none;margin:4px 0 0;padding:0;display:grid;gap:12px}
+.website-care-plan li{position:relative;padding-left:23px;line-height:1.48;color:var(--ink)}
+.website-care-plan li:before{content:"✓";position:absolute;left:0;top:0;color:#08734b;font-weight:850}
+.website-care-terms{margin-top:18px;display:grid;grid-template-columns:1fr 1fr;gap:22px;padding:22px 24px;border-radius:21px;background:#f5fbf9;border:1px solid var(--line)}
+.website-care-terms h3{color:var(--navy);margin:0 0 7px;font-size:1.12rem}
+.website-care-terms p{color:var(--muted);line-height:1.6;margin:0}
+.website-care-terms strong{color:var(--navy)}
+.builder-monthly-result{border-top:1px solid rgba(255,255,255,.22);margin-top:15px;padding-top:14px}
+.builder-monthly-result .monthly-price{font-family:Fredoka,Inter,sans-serif;color:#fff;font-weight:750;font-size:clamp(1.35rem,2.2vw,1.75rem);margin-top:4px}
+@media(max-width:900px){.website-care-grid{grid-template-columns:1fr;max-width:660px;margin:0 auto}.website-care-terms{grid-template-columns:1fr}}
+@media(max-width:560px){.website-care-plan{padding:23px 19px}.website-care-plan.featured{padding-top:43px}.website-care-terms{padding:19px}.website-care-price{font-size:2.3rem}}
+/* Friendly pub bingo rules */
+.bingo-rules-section{padding:12px 0 40px}
+.bingo-rules-panel{border:1px solid var(--line);border-radius:26px;padding:30px;background:linear-gradient(140deg,#f7fbff,#effaf5);box-shadow:var(--shadow)}
+.bingo-rules-panel h2{font-size:clamp(1.75rem,3.4vw,2.45rem);color:var(--navy);margin:0 0 10px}
+.bingo-rules-panel>p{line-height:1.6;color:var(--muted);max-width:860px;margin:0 0 20px}
+.bingo-rules-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.bingo-rules-grid article{background:#fff;border:1px solid var(--line);border-radius:17px;padding:18px}
+.bingo-rules-grid h3{margin:0 0 5px;color:var(--navy);font-size:1.06rem}
+.bingo-rules-grid p{margin:0;color:var(--muted);line-height:1.55}
+.bingo-rules-panel .bingo-rules-fine{margin:20px 0 0;font-size:.95rem;max-width:none}
+.bingo-rules-panel a{color:var(--navy);font-weight:750}
+@media(max-width:680px){.bingo-rules-grid{grid-template-columns:1fr}.bingo-rules-panel{padding:22px 19px}}
