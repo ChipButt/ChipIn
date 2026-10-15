@@ -38,12 +38,8 @@
 .website-care-section{padding:25px 0 30px}
 .website-care-section .section-title-block{max-width:760px;margin:0 auto 26px}
 .website-care-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;align-items:stretch}
-.website-care-plan{position:relative;isolation:isolate;min-width:0;display:flex;flex-direction:column;padding:24px 22px 20px;border:1px solid #cadfd9;border-radius:23px;background:#fff;color:var(--ink);box-shadow:0 12px 34px rgba(8,47,104,.06);transition:border-color .18s,box-shadow .18s,transform .18s,background .18s}
+.website-care-plan{position:relative;min-width:0;display:flex;flex-direction:column;padding:24px 22px 22px;border:1px solid #cadfd9;border-radius:23px;background:#fff;color:var(--ink);box-shadow:0 12px 34px rgba(8,47,104,.06)}
 .website-care-plan.featured{border:1px solid #e9b621;padding:24px 22px 20px;background:linear-gradient(155deg,#fffefa 0%,#fff 55%)}
-.website-care-plan:hover{transform:translateY(-3px);box-shadow:0 20px 43px rgba(8,47,104,.11);border-color:#88b6cf}
-.website-care-plan.is-selected,.website-care-plan.featured.is-selected{border-color:var(--navy);box-shadow:0 0 0 2px var(--navy),0 20px 44px rgba(8,47,104,.15);background:#f7fbff}
-.website-care-plan:focus-within{outline:3px solid #e0aa13;outline-offset:4px}
-.website-care-pick{position:absolute;inset:0;z-index:3;width:100%;height:100%;padding:0;margin:0;opacity:0;cursor:pointer;appearance:none}
 .website-care-card-top{display:flex;justify-content:space-between;align-items:center;min-height:24px;gap:8px;margin-bottom:12px}
 .website-care-eyebrow{font-size:.67rem;line-height:1.25;letter-spacing:.13em;color:#6e8192;font-weight:800}
 .website-care-tag{position:static;display:inline-flex;align-items:center;white-space:nowrap;border-radius:999px;background:#fff4c9;border:1px solid #f4d36c;padding:5px 8px;color:var(--navy);font-size:.61rem;font-weight:850;letter-spacing:.075em}
@@ -54,14 +50,7 @@
 .website-care-plan ul{list-style:none;margin:0 0 17px;padding:0;display:grid;gap:11px}
 .website-care-plan li{position:relative;padding-left:22px;line-height:1.48;color:var(--ink);font-size:.92rem}
 .website-care-plan li:before{content:"✓";position:absolute;left:0;top:0;color:#09794a;font-weight:850}
-.website-care-choice{margin-top:auto;display:flex;gap:9px;align-items:center;border-top:1px solid rgba(8,47,104,.10);padding:15px 0 1px;color:var(--navy);font-family:Fredoka,Inter,sans-serif;font-weight:700;font-size:.97rem}
-.website-care-choice-dot{width:19px;height:19px;flex:0 0 auto;border:2px solid #a7c2c8;border-radius:100%;background:#fff;transition:background .18s,border .18s}
-.website-care-choice-arrow{margin-left:auto;transition:transform .18s}
-.website-care-plan:hover .website-care-choice-arrow{transform:translateX(3px)}
-.website-care-plan.is-selected .website-care-choice-dot{border-color:var(--navy);background:var(--navy);box-shadow:inset 0 0 0 4px #fff}
-.website-care-selection-status{margin:16px 0 0;display:flex;gap:12px;justify-content:space-between;align-items:center;padding:12px 18px;border:1px solid #d2e6df;background:#f7fcfa;border-radius:15px;color:var(--muted);font-size:.9rem;line-height:1.5}
-.website-care-selection-status a{color:var(--navy);font-weight:800;white-space:nowrap}
-.website-care-selection-status a:hover{text-decoration:underline}
+.website-care-next-step{max-width:760px;margin:19px auto 0;text-align:center;color:var(--muted);font-size:.94rem;line-height:1.6}
 .website-calculator-section{padding:21px 0 22px;scroll-margin-top:98px}
 .website-calculator-section .guide-builder{padding:clamp(22px,3vw,35px)}
 .website-calculator-section .builder-result{margin-top:23px}
@@ -75,9 +64,8 @@
 .website-care-bottom-cta p{color:var(--muted);line-height:1.55;margin:0;font-size:.97rem}
 .builder-monthly-result{border-top:1px solid rgba(255,255,255,.22);margin-top:15px;padding-top:14px}
 .builder-monthly-result .monthly-price{font-family:Fredoka,Inter,sans-serif;color:#fff;font-weight:750;font-size:clamp(1.35rem,2.2vw,1.75rem);margin-top:4px}
-@media(max-width:900px){.website-care-grid{grid-template-columns:1fr;max-width:680px;margin:auto}.website-care-plan .website-care-description{min-height:0}.website-care-terms{grid-template-columns:1fr}.website-care-selection-status{max-width:680px;margin:16px auto 0}}
-@media(max-width:650px){.website-care-card-top{margin-bottom:10px}.website-care-plan,.website-care-plan.featured{padding:22px 19px 18px}.website-care-selection-status{align-items:flex-start;flex-direction:column}.website-care-terms{padding:20px 19px;gap:19px}.website-care-bottom-cta{align-items:flex-start;flex-direction:column}.website-calculator-section{padding-top:12px}.website-care-price{font-size:2.35rem}}
-@media(prefers-reduced-motion:reduce){.website-care-plan,.website-care-choice-arrow{transition:none}}
+@media(max-width:900px){.website-care-grid{grid-template-columns:1fr;max-width:680px;margin:auto}.website-care-plan .website-care-description{min-height:0}.website-care-terms{grid-template-columns:1fr}}
+@media(max-width:650px){.website-care-card-top{margin-bottom:10px}.website-care-plan,.website-care-plan.featured{padding:22px 19px 20px}.website-care-terms{padding:20px 19px;gap:19px}.website-care-bottom-cta{align-items:flex-start;flex-direction:column}.website-calculator-section{padding-top:12px}.website-care-price{font-size:2.35rem}}
 
 /* Friendly pub bingo rules */
 .bingo-rules-section{padding:12px 0 40px}
