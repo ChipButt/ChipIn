@@ -43,6 +43,8 @@
         lines.push(fieldLine(el));
       });
       total=round5(total);
+      const minPrice=Math.max(0,Number(form.dataset.minPrice||0));
+      total=Math.max(minPrice,total);
       result.textContent='Around £'+total;
       if(monthlyResult)monthlyResult.textContent='£'+monthly+'/month';
       if(summary)summary.textContent=lines.filter(Boolean).join(' · ');
