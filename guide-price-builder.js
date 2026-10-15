@@ -4,6 +4,7 @@
     const result=form.querySelector('[data-guide-price]');
     const email=form.querySelector('[data-guide-email]');
     const summary=form.querySelector('[data-guide-summary]');
+    const monthlyResult=form.querySelector('[data-guide-monthly-price]');
     if(!result||!email)return;
     const recipient=(email.getAttribute('href')||'').match(/^mailto:([^?]+)/i)?.[1]||'jamesbutt.chipin@gmail.com';
 
@@ -35,8 +36,15 @@
           if(line)lines.push(line);
         }
       });
+      let monthly=0;
+      form.querySelectorAll('select[data-monthly-price-field]').forEach(el=>{
+        const option=el.selectedOptions[0];
+        monthly+=Number(option?.dataset?.price||0);
+        lines.push(fieldLine(el));
+      });
       total=round5(total);
       result.textContent='Around £'+total;
+      if(monthlyResult)monthlyResult.textContent='£'+monthly+'/month';
       if(summary)summary.textContent=lines.filter(Boolean).join(' · ');
 
       const title=form.dataset.title||'Service';
@@ -45,6 +53,7 @@
         'Hi Chip,\n\nI used the '+title+' guide-price builder:\n\n'+
         lines.filter(Boolean).join('\n')+
         '\n\nBallpark guide shown: around £'+total+
+        (monthlyResult?'\nOptional monthly website care: £'+monthly+'/month':'')+
         '\n\nI understand this is only a rough guide and not a fixed quote. Please could we discuss the exact requirements and a bespoke price?'
       );
       email.href='mailto:'+recipient+'?subject='+subject+'&body='+body;
