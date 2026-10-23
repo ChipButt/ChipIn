@@ -3,13 +3,15 @@
 const form=document.getElementById('meetingForm');
 const panes=Array.from(document.querySelectorAll('.pane'));
 const stepButtons=Array.from(document.querySelectorAll('[data-jump]'));
-const storageKey='chipin-client-meeting-bulls-head-v1';
+const libraryKey='chipin-client-meetings-v2';
+const legacyKey='chipin-client-meeting-bulls-head-v1';
+let library={activeId:null,projects:{}};
 const assetNames=[
  ['assetLogo','Logo / brand assets'],
  ['assetPhotos','Approved photographs'],
- ['assetFood','Food menu, prices and allergen information'],
- ['assetDrinks','Drinks and promotional information'],
- ['assetHours','Confirmed opening hours (including seasonal)'],
+ ['assetFood','Food menu, prices and relevant allergen information'],
+ ['assetDrinks','Products, services, drinks and promotional details'],
+ ['assetHours','Confirmed opening hours (if relevant)'],
  ['assetEvents','Events and special offers'],
  ['assetContact','Contact, social, address and facilities'],
  ['assetDomain','Existing domain / access details']
@@ -33,6 +35,39 @@ function positive(n){const x=Number(n);return Number.isFinite(x)&&x>=0?x:0;}
 function safeText(s){return esc(s||'Not yet recorded');}
 function dateText(s){if(!s)return 'To be agreed';const a=String(s).split('-');if(a.length!==3)return esc(s);return esc(a[2]+'/'+a[1]+'/'+a[0]);}
 function unique(arr){return [...new Set(arr)];}
+function deliveryInstructions(){
+ const kind=val('deliveryMethod')||'email';
+ if(kind==='folder')return val('uploadFolder')?'Upload approved files to the private shared folder: '+val('uploadFolder'):'Chip In will send a private upload-folder invitation to the client email. Do not use public anonymous uploads.';
+ if(kind==='other')return val('deliveryNotes')||'Delivery method to be agreed';
+ return 'Email documents and approved photographs to '+(val('receivingEmail')||'jamesbutt.chipin+websites@gmail.com');
+}
+function syncAssetToPages(){
+ const map=[['Food / Menu','assetFood'],['Products / Services / Drinks','assetDrinks'],['Opening Hours','assetHours'],["What's On / Events",'assetEvents']];
+ for(const [page,asset]of map){
+  const activePage=checkedValues('includedPages').includes(page);
+  const status=field(asset);
+  if(status&&(!activePage||status.value==='Not needed'))status.value=activePage?'To supply':'Not needed';
+ }
+}
+function refreshHeader(){
+ document.getElementById('heroBusiness').textContent=val('business')||'New client';
+ document.getElementById('heroLocation').textContent=val('location')||'Enter business details to begin';
+}
+function projectLabel(state){return (state&&state.fields&&state.fields.business||'Untitled client')+' — '+((state&&state.fields&&state.fields.meetingDate)||'undated');}
+function refreshPicker(){
+ const select=document.getElementById('projectPicker');
+ const pairs=Object.entries(library.projects);
+ select.replaceChildren();
+ for(const [id,state]of pairs){
+  const opt=document.createElement('option');opt.value=id;opt.textContent=projectLabel(state);select.appendChild(opt);
+ }
+ select.value=library.activeId||'';
+ refreshHeader();
+}
+function newId(){return 'client-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8);}
+function writeLibrary(){
+ try{localStorage.setItem(libraryKey,JSON.stringify(library));return true;}catch(e){document.getElementById('saveStatus').textContent='Unable to save locally — download a backup';return false;}
+}
 
 function getState(){
  const fields={};
@@ -44,10 +79,11 @@ function getState(){
      if(el.checked)fields[el.name].push(el.value);
    }else if(el.tagName==='INPUT'||el.tagName==='TEXTAREA'||el.tagName==='SELECT')fields[el.name]=el.value;
  });
- return {version:1,updatedAt:new Date().toISOString(),step:active,fields:fields};
+ return {version:2,updatedAt:new Date().toISOString(),step:active,fields:fields};
 }
 function applyState(state){
- if(!state||state.version!==1||!state.fields||typeof state.fields!=='object'||Array.isArray(state.fields))throw new Error('This is not a valid Chip In meeting backup.');
+ if(!state||![1,2].includes(state.version)||!state.fields||typeof state.fields!=='object'||Array.isArray(state.fields))throw new Error('This is not a valid Chip In meeting backup.');
+ form.reset();
  for(const el of Array.from(form.elements)){
   if(!el.name||!Object.prototype.hasOwnProperty.call(state.fields,el.name))continue;
   const x=state.fields[el.name];
@@ -55,12 +91,29 @@ function applyState(state){
   else if(el.type==='checkbox')el.checked=Array.isArray(x)&&x.includes(el.value);
   else if(typeof x==='string'||typeof x==='number')el.value=String(x);
  }
+ // An older single-client meeting stored no page selectors, so all standard pages remain on.
+ if(!Object.prototype.hasOwnProperty.call(state.fields,'includedPages'))form.querySelectorAll('[name="includedPages"]').forEach(el=>el.checked=true);
  goTo(Math.min(Math.max(Number(state.step)||0,0),steps-1));
- renderQuote();
+ renderQuote();refreshHeader();
 }
 function save(){
- try{localStorage.setItem(storageKey,JSON.stringify(getState()));document.getElementById('saveStatus').textContent='Saved on this device';clearTimeout(saveNoticeTimer);saveNoticeTimer=setTimeout(()=>document.getElementById('saveStatus').textContent='Changes save automatically in this browser',1900);}
- catch(e){document.getElementById('saveStatus').textContent='Local storage unavailable — download a backup';}
+ if(library.activeId)library.projects[library.activeId]=getState();
+ if(writeLibrary()){
+  document.getElementById('saveStatus').textContent='Saved on this device';
+  clearTimeout(saveNoticeTimer);
+  saveNoticeTimer=setTimeout(()=>document.getElementById('saveStatus').textContent='Changes save automatically in this browser',1900);
+ }
+ refreshPicker();
+}
+function loadProject(id){
+ const state=library.projects[id];if(!state)return;
+ library.activeId=id;applyState(state);refreshPicker();writeLibrary();
+}
+function createNewClient(){
+ if(library.activeId)library.projects[library.activeId]=getState();
+ form.reset();goTo(0);
+ library.activeId=newId();library.projects[library.activeId]=getState();
+ save();refreshHeader();
 }
 function goTo(i){
  active=Math.max(0,Math.min(steps-1,Number(i)||0));
