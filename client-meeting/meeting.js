@@ -41,13 +41,14 @@ function deliveryInstructions(){
  if(kind==='other')return val('deliveryNotes')||'Delivery method to be agreed';
  return 'Email documents and approved photographs to '+(val('receivingEmail')||'jamesbutt.chipin+websites@gmail.com');
 }
-function syncAssetToPages(){
+function syncAssetToPages(changedPage){
  const map=[['Food / Menu','assetFood'],['Products / Services / Drinks','assetDrinks'],['Opening Hours','assetHours'],["What's On / Events",'assetEvents']];
- for(const [page,asset]of map){
-  const activePage=checkedValues('includedPages').includes(page);
-  const status=field(asset);
-  if(status&&(!activePage||status.value==='Not needed'))status.value=activePage?'To supply':'Not needed';
- }
+ const match=map.find(([page])=>page===changedPage);
+ if(!match)return;
+ const status=field(match[1]);if(!status)return;
+ const pageOn=checkedValues('includedPages').includes(changedPage);
+ if(!pageOn)status.value='Not needed';
+ else if(status.value==='Not needed')status.value='To supply';
 }
 function refreshHeader(){
  document.getElementById('heroBusiness').textContent=val('business')||'New client';
@@ -434,7 +435,7 @@ document.getElementById('resetMeeting').addEventListener('click',()=>{
 form.addEventListener('submit',e=>e.preventDefault());
 form.addEventListener('input',()=>{save();renderQuote();});
 form.addEventListener('change',e=>{
- if(e.target.name==='includedPages')syncAssetToPages();
+ if(e.target.name==='includedPages')syncAssetToPages(e.target.value);
  save();renderQuote();
 });
 try{
