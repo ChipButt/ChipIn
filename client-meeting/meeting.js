@@ -160,7 +160,7 @@ function calc(){
  const outstanding=assetNames.filter(([id])=>val(id)==='To supply');
  if(outstanding.length&&!val('contentDue'))unresolved.push('Deadline for client to send content');
  if(outstanding.length&&val('deliveryMethod')==='folder'&&!val('uploadFolder'))unresolved.push('Send client their private upload-folder invitation');
- if(val('quoteApproved')==='on'&&val('deliveryMethod')==='portal'&&!val('clientPortalUrl'))unresolved.push('Activate the client upload workspace and record the link');
+ if(document.getElementById('quoteApproved').checked&&val('deliveryMethod')==='portal'&&!val('clientPortalUrl'))unresolved.push('Activate the client upload workspace and record the link');
  if(outstanding.length&&val('deliveryMethod')==='email'&&!val('receivingEmail'))unresolved.push('Email address for sending content');
  if(outstanding.length&&val('deliveryMethod')==='other'&&!val('deliveryNotes'))unresolved.push('How client will deliver content');
  return {base,pages,extras,oneOff,domain,domainYear,hosting,care,monthly,monthlyTotal,annualTotal,firstYear,selectedPages,unresolved:unique(unresolved)};
@@ -296,6 +296,10 @@ function summaryPlain(){
 }
 function openClientOnboarding(){
  const box=document.getElementById('activationStatus');
+ if(!document.getElementById('onboardingReady').checked){
+  box.textContent='One-time Google Apps Script setup is not confirmed yet. Open the Setup instructions, deploy and test the backend, then tick the setup box.';
+  return;
+ }
  if(!document.getElementById('quoteApproved').checked){
   box.textContent='First confirm that the client accepted the written quotation.';
   return;
@@ -442,6 +446,7 @@ document.getElementById('printPlans').addEventListener('click',()=>printMode('pl
 document.getElementById('copySummary').addEventListener('click',copySummary);
 document.getElementById('downloadBuildBrief').addEventListener('click',downloadBuildBrief);
 document.getElementById('activateAssets').addEventListener('click',openClientOnboarding);
+document.getElementById('onboardingReady').addEventListener('change',e=>{try{localStorage.setItem('chipin-onboarding-setup-confirmed-v1',e.target.checked?'yes':'no');}catch(err){};});
 document.getElementById('downloadNotes').addEventListener('click',backup);
 document.getElementById('newClient').addEventListener('click',()=>createNewClient());
 document.getElementById('projectPicker').addEventListener('change',e=>{
@@ -496,5 +501,6 @@ try{
  createNewClient();
  document.getElementById('saveStatus').textContent='Local save issue — download a backup before leaving';
 }
+try{document.getElementById('onboardingReady').checked=localStorage.getItem('chipin-onboarding-setup-confirmed-v1')==='yes';}catch(err){}
 renderQuote();refreshHeader();
 })();
