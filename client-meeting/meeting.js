@@ -36,7 +36,8 @@ function safeText(s){return esc(s||'Not yet recorded');}
 function dateText(s){if(!s)return 'To be agreed';const a=String(s).split('-');if(a.length!==3)return esc(s);return esc(a[2]+'/'+a[1]+'/'+a[0]);}
 function unique(arr){return [...new Set(arr)];}
 function deliveryInstructions(){
- const kind=val('deliveryMethod')||'email';
+ const kind=val('deliveryMethod')||'portal';
+ if(kind==='portal')return val('clientPortalUrl')?'Upload approved files here: '+val('clientPortalUrl'):'Chip In will send a private upload-page link after the quotation is approved. This is not a public Google Drive folder.';
  if(kind==='folder')return val('uploadFolder')?'Upload approved files to the private shared folder: '+val('uploadFolder'):'Chip In will send a private upload-folder invitation to the client email. Do not use public anonymous uploads.';
  if(kind==='other')return val('deliveryNotes')||'Delivery method to be agreed';
  return 'Email documents and approved photographs to '+(val('receivingEmail')||'jamesbutt.chipin+websites@gmail.com');
@@ -159,6 +160,7 @@ function calc(){
  const outstanding=assetNames.filter(([id])=>val(id)==='To supply');
  if(outstanding.length&&!val('contentDue'))unresolved.push('Deadline for client to send content');
  if(outstanding.length&&val('deliveryMethod')==='folder'&&!val('uploadFolder'))unresolved.push('Send client their private upload-folder invitation');
+ if(val('quoteApproved')==='on'&&val('deliveryMethod')==='portal'&&!val('clientPortalUrl'))unresolved.push('Activate the client upload workspace and record the link');
  if(outstanding.length&&val('deliveryMethod')==='email'&&!val('receivingEmail'))unresolved.push('Email address for sending content');
  if(outstanding.length&&val('deliveryMethod')==='other'&&!val('deliveryNotes'))unresolved.push('How client will deliver content');
  return {base,pages,extras,oneOff,domain,domainYear,hosting,care,monthly,monthlyTotal,annualTotal,firstYear,selectedPages,unresolved:unique(unresolved)};
@@ -292,6 +294,30 @@ function summaryPlain(){
  '\nOPEN ITEMS: '+(c.unresolved.join('; ')||'None flagged')+
  '\n\nMeeting summary, not an invoice. The client content files must still be supplied.';
 }
+function openClientOnboarding(){
+ const box=document.getElementById('activationStatus');
+ if(!document.getElementById('quoteApproved').checked){
+  box.textContent='First confirm that the client accepted the written quotation.';
+  return;
+ }
+ if(!val('business')||!val('email')){
+  box.textContent='Enter the business name and client email before activating.';
+  return;
+ }
+ const url='https://script.google.com/macros/s/AKfycbzz7FWTrjHkH8LUCrEElzr1MFCN9lN408-C_wC2o2FAU5j8HYXd43uUBgUHRDsiB78/exec?mode=onboard-admin';
+ const fields=getState().fields;
+ const payload={meetingId:library.activeId,business:val('business'),email:val('email'),contact:val('contact'),brief:{version:2,fields}};
+ let hash='';
+ try{
+  const bytes=new TextEncoder().encode(JSON.stringify(payload));
+  let binary='';bytes.forEach(byte=>binary+=String.fromCharCode(byte));
+  hash=btoa(binary).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/g,'');
+ }catch(err){box.textContent='Could not prepare the meeting specification: '+err.message;return;}
+ const fullUrl=url+(hash.length<16000?'#brief='+encodeURIComponent(hash):'');
+ if(hash.length>=16000)box.textContent='Brief is unusually long. Open the admin console and paste your exported meeting notes there.';
+ else box.textContent='Opening secure client workspace activation. Sign in with your owner key, verify their details and press Create. This requires the one-time Apps Script deployment.';
+ window.open(fullUrl,'_blank','noopener');
+}
 function buildBriefMarkdown(){
  const c=calc();
  const list=items=>items.length?items.map(item=>'- '+item).join('\n'):'- None';
@@ -415,6 +441,7 @@ document.getElementById('printHandover').addEventListener('click',()=>printMode(
 document.getElementById('printPlans').addEventListener('click',()=>printMode('plans'));
 document.getElementById('copySummary').addEventListener('click',copySummary);
 document.getElementById('downloadBuildBrief').addEventListener('click',downloadBuildBrief);
+document.getElementById('activateAssets').addEventListener('click',openClientOnboarding);
 document.getElementById('downloadNotes').addEventListener('click',backup);
 document.getElementById('newClient').addEventListener('click',()=>createNewClient());
 document.getElementById('projectPicker').addEventListener('change',e=>{
