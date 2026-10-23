@@ -106,7 +106,7 @@ const encoded=decodeURIComponent(w._lastOpened.split('#brief=')[1]).replace(/-/g
 const onboardingData=JSON.parse(Buffer.from(encoded,'base64').toString('utf8'));
 assert.equal(onboardingData.business,'Test Cafe');
 assert.equal(onboardingData.email,'contact@testcafe.example');
-assert.equal(onboardingData.brief.fields.quoteApproved,['on'][0]); // checkbox checked is represented in the structured brief
+assert.deepEqual(onboardingData.brief.fields.quoteApproved,['on']); // checkbox captured in structured brief
 input('clientPortalUrl','https://script.google.com/macros/s/EXAMPLE/exec?mode=onboard-upload&code=private');
 d.getElementById('printHandover').click();
 assert.match(d.getElementById('printArea').textContent,/mode=onboard-upload/);
