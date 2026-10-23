@@ -413,25 +413,60 @@ document.getElementById('printQuote').addEventListener('click',()=>printMode('qu
 document.getElementById('printHandover').addEventListener('click',()=>printMode('handover'));
 document.getElementById('printPlans').addEventListener('click',()=>printMode('plans'));
 document.getElementById('copySummary').addEventListener('click',copySummary);
+document.getElementById('downloadBuildBrief').addEventListener('click',downloadBuildBrief);
 document.getElementById('downloadNotes').addEventListener('click',backup);
+document.getElementById('newClient').addEventListener('click',()=>createNewClient());
+document.getElementById('projectPicker').addEventListener('change',e=>{
+ if(e.target.value===library.activeId)return;
+ if(library.activeId)library.projects[library.activeId]=getState();
+ loadProject(e.target.value);
+});
 document.getElementById('importNotes').addEventListener('change',async(e)=>{
  const file=e.target.files&&e.target.files[0];if(!file)return;
- try{const obj=JSON.parse(await file.text());applyState(obj);save();alert('Meeting notes restored on this device.');}
+ try{const obj=JSON.parse(await file.text());applyState(obj);save();alert('Meeting notes restored to this client on this device.');}
  catch(err){alert('Unable to restore these notes: '+err.message);}
  e.target.value='';
 });
 document.getElementById('resetMeeting').addEventListener('click',()=>{
- if(!confirm('Clear all saved meeting answers on this device? Download a backup first if you need one.'))return;
- try{localStorage.removeItem(storageKey);}catch(e){}
+ if(!confirm("Reset the current client's answers? Other client records remain saved. Download a backup first if needed."))return;
  form.reset();goTo(0);renderQuote();save();
 });
 form.addEventListener('submit',e=>e.preventDefault());
 form.addEventListener('input',()=>{save();renderQuote();});
-form.addEventListener('change',()=>{save();renderQuote();});
+form.addEventListener('change',e=>{
+ if(e.target.name==='includedPages')syncAssetToPages();
+ save();renderQuote();
+});
 try{
- const s=localStorage.getItem(storageKey);
- if(s){applyState(JSON.parse(s));document.getElementById('saveStatus').textContent='Restored locally saved meeting notes';}
- else goTo(0);
-}catch(e){goTo(0);document.getElementById('saveStatus').textContent='Save a downloadable backup to preserve notes';}
-renderQuote();
+ const saved=localStorage.getItem(libraryKey);
+ if(saved){
+  const data=JSON.parse(saved);
+  if(data&&data.projects&&typeof data.projects==='object'&&!Array.isArray(data.projects)&&Object.keys(data.projects).length)library=data;
+ }
+ if(!Object.keys(library.projects).length){
+  const legacy=localStorage.getItem(legacyKey);
+  if(legacy){
+   try{
+    const old=JSON.parse(legacy);
+    if(old&&old.version===1&&old.fields){
+     const id='previous-bulls-head-draft';
+     library.projects[id]=old;
+    }
+   }catch(e){}
+  }
+  const blankId=newId();
+  form.reset();goTo(0);
+  library.projects[blankId]=getState();
+  library.activeId=blankId;
+ }
+ if(!library.projects[library.activeId])library.activeId=Object.keys(library.projects)[0];
+ loadProject(library.activeId);
+ document.getElementById('saveStatus').textContent='Saved client meetings are available on this device';
+}catch(e){
+ form.reset();goTo(0);
+ library={activeId:null,projects:{}};
+ createNewClient();
+ document.getElementById('saveStatus').textContent='Local save issue — download a backup before leaving';
+}
+renderQuote();refreshHeader();
 })();
