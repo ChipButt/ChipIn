@@ -219,7 +219,9 @@ function handoverHTML(){
   ['Client contact',safeText(val('contact'))+' · '+safeText(val('email'))],
   ['Primary purpose',safeText(val('priority'))],
   ['Main visitors',safeText(val('audience'))],
-  ['Customer actions',esc(goals.join(' · ')||'Not chosen')],
+  ['Customer priorities',esc(goals.join(' · ')||'Not chosen')],
+  ['Pages to build',esc(c.selectedPages.join('; ')||'None chosen')],
+  ['Page-specific instructions',safeText(val('pageNotes'))],
   ['Visual direction',safeText(val('style'))+' · '+safeText(val('colours'))],
   ['Client likes',safeText(val('demoLikes'))],
   ['Changes requested',safeText(val('demoChanges'))],
@@ -235,7 +237,9 @@ function handoverHTML(){
  out+='<div class="print-cols"><div><h2>What the client needs to do</h2><ul>';
  out+=clientTodos.length?clientTodos.map(x=>'<li>Provide '+esc(x)+'</li>').join(''):'<li>Confirm all supplied content is accurate and approved for use</li>';
  out+='<li>Supply any outstanding items by '+tDate+'</li><li>Confirm ownership/access for domain and hosting</li><li>Approve final quote and arrange agreed payment</li><li>Review first draft and consolidate one amendment round</li><li>Provide written approval before launch</li></ul><p><strong>Content contact:</strong> '+safeText(val('contentOwner'))+'</p></div><div><h2>What Chip In will do</h2><ul><li>Send written scope and confirmed quotation</li><li>Clarify any unpriced or additional requests</li><li>Confirm hosting and domain arrangements before purchase</li><li>Organise supplied content and build agreed pages</li><li>Test mobile, desktop and primary contact routes</li><li>Send the draft for one review-amendment round</li><li>Publish only after sign-off and arrange handover</li></ul><p><strong>Proposed first draft:</strong> '+dateText(val('draftDate'))+'</p></div></div>';
- out+='<h2>Payment and approval process</h2><ol><li>Chip In sends the written quotation for approval.</li><li>The client accepts the agreed scope and receives an invoice with payment instructions.</li><li>Any new domain is purchased only after approval, with the annual domain charge confirmed.</li><li>Chip In sends the draft; the client has one consolidated review-amendment round and approves launch in writing.</li><li>After launch, optional care is billed monthly as agreed, with domain renewal billed annually. This tool does not collect payments.</li></ol>';
+ out+='<h2>How to send your website materials</h2><p><strong>'+esc(deliveryInstructions())+'</strong></p><p><strong>Deadline:</strong> '+tDate+' · <strong>Content contact:</strong> '+safeText(val('contentOwner'))+'</p>';
+ if(c.selectedPages.indexOf('Food / Menu')===-1)out+='<p class="print-note">Food / Menu is not requested for this website; no menu content is required.</p>';
+ out+='<h2>Payment and approval process</h2><ol><li>Chip In sends the written quotation for approval.</li><li>Client approves the scope and receives an invoice with payment instructions.</li><li>Any new domain is bought only after approval; its standard managed fee is £20 annually.</li><li>Chip In sends a first draft; the client consolidates one amendment round and gives written launch approval.</li><li>Any optional care plan is billed monthly as agreed, with domain renewal invoiced annually. This tool does not take payments.</li></ol>';
  out+='<h2>Files already supplied</h2><p>'+esc(supplied.join(' · ')||'None marked supplied yet')+'</p>';
  out+='<h2>Additional meeting notes</h2><p>'+safeText(val('contentNotes'))+' '+safeText(val('commercialNotes'))+'</p>';
  if(c.unresolved.length)out+='<h2>Unresolved decisions</h2><ul>'+c.unresolved.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>';
