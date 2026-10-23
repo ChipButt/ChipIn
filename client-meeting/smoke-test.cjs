@@ -10,6 +10,7 @@ function open(existing){
  w.print=()=>{w._prints=(w._prints||0)+1};
  w.alert=()=>{};
  w.confirm=()=>true;
+ w.TextEncoder=TextEncoder;
  w.open=(url,where,features)=>{w._lastOpened=url;return {closed:false};};
  if(existing)w.localStorage.setItem('chipin-client-meetings-v2',existing);
  w.eval(script);
