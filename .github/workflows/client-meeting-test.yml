@@ -1,0 +1,23 @@
+name: Verify Client Meeting Builder
+on:
+  push:
+    paths:
+      - 'client-meeting/**'
+      - '.github/workflows/client-meeting-test.yml'
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Validate JavaScript syntax
+        run: node --check client-meeting/meeting.js
+      - name: Install isolated browser DOM test dependency
+        run: npm install --no-save --ignore-scripts --no-audit --no-fund jsdom@26
+      - name: Test workflow, quotes, saving and printing
+        run: node client-meeting/smoke-test.cjs
