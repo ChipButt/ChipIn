@@ -75,51 +75,51 @@ function goTo(i){
 }
 function calc(){
  const extraPageBlocks=Math.min(3,Math.max(0,Number(val('extraPages'))||0));
- const base=250, pages=extraPageBlocks*50, extras=positive(val('extraCost'));
+ const base=250,pages=extraPageBlocks*50,extras=positive(val('extraCost'));
  const oneOff=base+pages+extras;
- const domain=val('domainChoice');
- const domainYear=domain==='chipin'?20:0;
+ const domain=val('domainChoice'),domainYear=domain==='chipin'?20:0;
  const hosting=val('hostingChoice');
- const hostEntered=val('hostingCost')!=='';
- const hostPrice=hosting==='chipin'&&hostEntered?positive(val('hostingCost')):0;
- const hostInterval=val('hostingInterval');
- const hostMonth=hosting==='chipin'&&hostInterval==='month'?hostPrice:0;
- const hostYear=hosting==='chipin'&&hostInterval==='year'?hostPrice:0;
- const care=val('care')||'pending';
- const monthly=planData[care]?planData[care].monthly:null;
- const monthlyTotal=(monthly||0)+hostMonth;
- const annualTotal=domainYear+hostYear;
+ const care=val('care')||'pending',monthly=planData[care]?planData[care].monthly:null;
+ const monthlyTotal=monthly||0,annualTotal=domainYear;
  const firstYear=oneOff+12*monthlyTotal+annualTotal;
+ const selectedPages=checkedValues('includedPages');
  const unresolved=[];
- if(!val('contact'))unresolved.push('Name of decision-maker / contact');
+ if(!val('business'))unresolved.push('Business name');
+ if(!val('contact'))unresolved.push('Client contact');
  if(!val('email'))unresolved.push('Contact email');
- if(!val('approver'))unresolved.push('Who signs off the website');
- if(domain==='pending')unresolved.push('Domain choice and access');
- if(domain==='chipin'&&!val('domainOwner'))unresolved.push('Domain registrant / owner');
- if(domain==='chipin'&&!val('domainBilling'))unresolved.push('How annual domain renewal is billed');
- if(hosting==='pending')unresolved.push('Hosting provider and cost');
- if(hosting==='chipin'&&!hostEntered)unresolved.push('Chip In hosting price');
- if(care==='pending')unresolved.push('Monthly care decision (including no plan)');
- if(!val('paymentSchedule'))unresolved.push('Build payment schedule');
- if(!val('paymentMethod'))unresolved.push('Invoice / payment method');
- if(care!=='pending'&&care!=='none'&&!val('monthlyMethod'))unresolved.push('How monthly payments will be arranged');
- if(extras>0&&!val('extraDescription'))unresolved.push('What the separately priced feature includes');
- if(extras===0&&val('extraDescription'))unresolved.push('Price for the additional feature described');
- if(val('logoStatus')==='Logo design required — quote separately'&&extras===0)unresolved.push('Logo design quotation, if it is part of the order');
- if(val('specialRequests'))unresolved.push('Confirm any special requests fit standard scope or have a separate quote');
- return {base,pages,extras,oneOff,domain,domainYear,hosting,hostPrice,hostMonth,hostYear,care,monthly,monthlyTotal,annualTotal,firstYear,unresolved:unique(unresolved)};
+ if(!val('approver'))unresolved.push('Who approves the site');
+ if(domain==='pending')unresolved.push('Domain arrangement');
+ if(domain==='chipin'&&!val('domainOwner'))unresolved.push('Who owns the domain');
+ if(domain==='chipin'&&!val('domainBilling'))unresolved.push('Annual domain invoice arrangement');
+ if(hosting==='pending')unresolved.push('Hosting provider');
+ if(hosting==='chipin')unresolved.push('Separate Chip In hosting scope and price (not included here)');
+ if(care==='pending')unresolved.push('Monthly care choice, including no plan');
+ if(!val('paymentSchedule'))unresolved.push('Build payment arrangement');
+ if(!val('paymentMethod'))unresolved.push('Invoice payment method');
+ if(care!=='pending'&&care!=='none'&&!val('monthlyMethod'))unresolved.push('How monthly care will be paid');
+ if(extras>0&&!val('extraDescription'))unresolved.push('Describe the separately priced additional work');
+ if(extras===0&&val('extraDescription'))unresolved.push('Agree a price for requested extra work');
+ if(val('logoStatus')==='Logo design required — quote separately'&&extras===0)unresolved.push('Separate logo design quote');
+ if(val('specialRequests'))unresolved.push('Check special requests against standard scope');
+ if(selectedPages.length===0)unresolved.push('Choose at least one website page');
+ const outstanding=assetNames.filter(([id])=>val(id)==='To supply');
+ if(outstanding.length&&!val('contentDue'))unresolved.push('Deadline for client to send content');
+ if(outstanding.length&&val('deliveryMethod')==='folder'&&!val('uploadFolder'))unresolved.push('Send client their private upload-folder invitation');
+ if(outstanding.length&&val('deliveryMethod')==='email'&&!val('receivingEmail'))unresolved.push('Email address for sending content');
+ if(outstanding.length&&val('deliveryMethod')==='other'&&!val('deliveryNotes'))unresolved.push('How client will deliver content');
+ return {base,pages,extras,oneOff,domain,domainYear,hosting,care,monthly,monthlyTotal,annualTotal,firstYear,selectedPages,unresolved:unique(unresolved)};
 }
 function table(rows){
  return '<table class="quote-table"><thead><tr><th>Item</th><th>Charge</th></tr></thead><tbody>'+rows.map(r=>'<tr><td>'+r[0]+'</td><td>'+r[1]+'</td></tr>').join('')+'</tbody></table>';
 }
 function quoteHTML(c){
  const list=[
-  ['Standard website build — seven page areas; one review round',money(250)+' once'],
+  ['Standard website build — up to seven standard page areas; one review round',money(250)+' once'],
   ...(c.pages?[['Additional page capacity ('+Number(val('extraPages'))+' block'+(Number(val('extraPages'))>1?'s':'')+')',money(c.pages)+' once']]:[]),
   ...(c.extras?[['Additional agreed feature: '+safeText(val('extraDescription')),money(c.extras)+' once']]:[]),
   ['Domain',c.domain==='chipin'?money(20)+'/year':c.domain==='pending'?'Not decided':'Client/existing domain — £0 from Chip In'],
   ['Monthly website support',c.monthly===null?'Not chosen':esc(planData[c.care].title)+' — '+money(c.monthly)+'/month'],
-  ['Hosting',c.hosting==='client'?'Client supplied (no Chip In fee)':c.hosting==='pending'?'Price / provider not agreed':money(c.hostPrice)+(val('hostingInterval')==='year'?'/year':'/month')]
+  ['Hosting',c.hosting==='client'?'Client / external provider (cost paid separately)':c.hosting==='pending'?'Arrangement to be confirmed':'Chip In to arrange — separate price not yet included']
  ];
  const clientTodos=assetNames.filter(([id])=>val(id)==='To supply').map(x=>x[1]);
  const starts=c.unresolved.length===0?'Ready for written confirmation':'Draft: some decisions are still open';
@@ -128,9 +128,9 @@ function quoteHTML(c){
  '<h3>Proposed website quotation</h3>'+
  '<p class="small">'+esc(starts)+' · Review all items before issuing a formal quotation or invoice.</p>'+
  table(list)+sum+
- '<p><strong>Illustrative first 12 months after launch:</strong> '+money(c.firstYear)+' <span class="small">(build + 12 months of selected care/hosting charges + annual charges; excludes any unpriced items and assumes a full 12 months of support)</span></p>'+
- '<h4>Website included</h4><p class="small">Home; About; Food/Menu; Drinks; Opening Hours; Events; Visit/Contact/Facilities. Mobile-friendly, clear contact routes, one review-amendment round, and an appropriate client editor.</p>'+
- '<h4>Content still required from client</h4><p class="small">'+(clientTodos.length?esc(clientTodos.join(' · ')):'None flagged as outstanding in the checklist')+'</p>'+
+ '<p><strong>Illustrative first 12 months after launch:</strong> '+money(c.firstYear)+' <span class="small">(build + 12 months of selected maintenance + annual domain; excludes unpriced hosting / third-party costs and assumes 12 months of care)</span></p>'+
+ '<h4>Website sections selected</h4><p class="small">'+(c.selectedPages.length?esc(c.selectedPages.join('; ')):'No sections selected')+'. <strong>Mobile-friendly design, contact routes, social links where supplied, one review amendment and editor where appropriate.</strong></p>'+
+ '<h4>Content still required from client</h4><p class="small">'+(clientTodos.length?esc(clientTodos.join(' · ')):'None flagged as outstanding in the checklist')+'</p><p class="small"><strong>Delivery:</strong> '+esc(deliveryInstructions())+' · Target '+dateText(val('contentDue'))+'</p>'+
  '<h4>Agreed payment arrangements</h4><p class="small">Build: '+safeText(val('paymentSchedule'))+'<br>Payment method: '+safeText(val('paymentMethod'))+'<br>Monthly care: '+safeText(val('monthlyMethod'))+'<br>Annual domain: '+safeText(val('domainBilling'))+'</p>'+
  '<h4>Timings &amp; approval</h4><p class="small">Target first draft: '+dateText(val('draftDate'))+' · Review: '+dateText(val('reviewDate'))+' · Target launch: '+dateText(val('launchDate'))+'<br>Client approval contact: '+safeText(val('approver'))+'</p>'+
  '<p class="small divide">Maintenance is optional and runs month to month with no long-term commitment. Unused update time does not carry forward. New pages, major redesigns, integrations, paid tools, domain fees and hosting are separate. Ad hoc updates: £40/hour, billed in 30-minute increments. Your site and any included editor remain usable without a maintenance subscription.</p>';
