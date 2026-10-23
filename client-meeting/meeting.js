@@ -269,21 +269,123 @@ function summaryPlain(){
  const c=calc();
  const outstanding=assetNames.filter(([id])=>val(id)==='To supply').map(x=>x[1]).join(', ');
  return 'CHIP IN — WEBSITE MEETING\n'+val('business')+' | '+val('location')+' | '+val('meetingDate')+
- '\n\nCONTACT: '+val('contact')+' | '+val('email')+'\nMAIN PRIORITY: '+val('priority')+
- '\nDESIGN: '+val('style')+' / '+val('colours')+'\nCHANGES REQUESTED: '+val('demoChanges')+
- '\n\nSTANDARD WEBSITE: £250 (7 included areas, one review-amendment round, appropriate editor)\nADDITIONAL PAGE CAPACITY: '+money(c.pages)+
- '\nAGREED EXTRA FEATURES: '+(val('extraDescription')||'None')+' — '+money(c.extras)+
- '\nDOMAIN: '+(c.domain==='chipin'?'Chip In managed £20/year':c.domain)+
- '\nHOSTING: '+(c.hosting==='chipin'?money(c.hostPrice)+' / '+val('hostingInterval'):c.hosting)+
+ '\nCONTACT: '+val('contact')+' | '+val('email')+
+ '\nWEBSITE PRIORITY: '+val('priority')+
+ '\nPAGES SELECTED: '+c.selectedPages.join('; ')+
+ '\nPAGE NOTES: '+val('pageNotes')+
+ '\nDESIGN: '+val('style')+' / '+val('colours')+
+ '\nCHANGES REQUESTED: '+val('demoChanges')+
+ '\n\nSTANDARD WEBSITE: £250 (up to 7 page areas; one review round; mobile-friendly; editor where appropriate)'+
+ '\nEXTRA PAGE CAPACITY: '+money(c.pages)+
+ '\nADDITIONAL AGREED FEATURES: '+(val('extraDescription')||'None')+' — '+money(c.extras)+
+ '\nDOMAIN: '+(c.domain==='chipin'?'Chip In-managed standard domain £20/year':c.domain)+
+ '\nHOSTING: '+(c.hosting==='chipin'?'Separate hosting quotation required':c.hosting)+
  '\nMAINTENANCE: '+planData[c.care].title+
- '\nBUILD TOTAL: '+money(c.oneOff)+'\nMONTHLY TOTAL: '+money(c.monthlyTotal)+
- '\nANNUAL TOTAL: '+money(c.annualTotal)+'\nFIRST YEAR (IF ALL PRICED): '+money(c.firstYear)+
+ '\nONE-OFF BUILD: '+money(c.oneOff)+'\nMONTHLY CARE: '+money(c.monthlyTotal)+
+ '\nANNUAL DOMAIN: '+money(c.annualTotal)+'\n12 MONTHS (excludes unpriced hosting): '+money(c.firstYear)+
  '\n\nCONTENT TO SUPPLY: '+outstanding+'\nCONTENT DUE: '+val('contentDue')+
- '\nPAYMENT SCHEDULE: '+val('paymentSchedule')+'\nPAYMENT METHOD: '+val('paymentMethod')+
- '\nMONTHLY ARRANGEMENT: '+val('monthlyMethod')+'\nDOMAIN RENEWAL ARRANGEMENT: '+val('domainBilling')+
- '\nDRAFT: '+val('draftDate')+'\nREVIEW: '+val('reviewDate')+'\nLAUNCH: '+val('launchDate')+
- '\n\nSTILL OPEN: '+(c.unresolved.join('; ')||'No core commercial decisions flagged')+
- '\n\nThis is meeting guidance, not an issued invoice or contract.';
+ '\nCONTENT DELIVERY: '+deliveryInstructions()+
+ '\nPAYMENT ARRANGEMENTS: '+val('paymentSchedule')+'; '+val('paymentMethod')+
+ '\nMONTHLY BILLING: '+val('monthlyMethod')+'\nANNUAL BILLING: '+val('domainBilling')+
+ '\nFIRST DRAFT: '+val('draftDate')+'\nREVIEW: '+val('reviewDate')+'\nLAUNCH: '+val('launchDate')+
+ '\nOPEN ITEMS: '+(c.unresolved.join('; ')||'None flagged')+
+ '\n\nMeeting summary, not an invoice. The client content files must still be supplied.';
+}
+function buildBriefMarkdown(){
+ const c=calc();
+ const list=items=>items.length?items.map(item=>'- '+item).join('\n'):'- None';
+ const fields=['business','location','contact','email','phone','approver','priority','audience','sellingPoint','specialRequests','style','colours','logoStatus','photos','demoLikes','demoChanges','references','pageNotes','contentOwner','contentDue','contentNotes','currentDomain','proposedDomain','domainOwner','hostingChoice','hostingNotes','care','paymentSchedule','paymentMethod','monthlyMethod','domainBilling','draftDate','reviewDate','launchDate','launchApprover','commercialNotes'];
+ const lines=[
+  '# Chip In — Website Build Specification',
+  '',
+  '> This is an internal build brief exported from the client meeting. Build only the chosen page areas. Treat special requests and additional features as pending until explicitly agreed and priced. Do not assume that assets have been supplied merely because they appear on this checklist.',
+  '',
+  '## Client',
+  '- Business: '+(val('business')||'Not provided'),
+  '- Location: '+(val('location')||'Not provided'),
+  '- Client contact: '+(val('contact')||'Not provided'),
+  '- Email: '+(val('email')||'Not provided'),
+  '- Phone: '+(val('phone')||'Not provided'),
+  '- Sign-off authority: '+(val('approver')||'Not specified'),
+  '- Meeting: '+(val('meetingDate')||'Not specified'),
+  '',
+  '## Package and exact scope',
+  '- Base price: £250 one-off, with up to seven standard page areas and one review-amendment round.',
+  '- Fully built, mobile-friendly site; clear contact routes; social links where supplied; editor where appropriate; launch and handover.',
+  '- Pages/sections SELECTED:',
+  list(c.selectedPages),
+  '- Pages/sections NOT REQUIRED:',
+  list(Array.from(form.querySelectorAll('[name="includedPages"]:not(:checked)')).map(e=>e.value)),
+  '- Extra page capacity: '+money(c.pages),
+  '- Agreed additional functionality: '+(val('extraDescription')||'None'),
+  '- Additional agreed cost: '+money(c.extras),
+  '- Page-specific notes: '+(val('pageNotes')||'None'),
+  '',
+  '## Business objectives and creative brief',
+  '- Priorities:',
+  list(checkedValues('goals')),
+  '- Primary goal: '+(val('priority')||'Not specified'),
+  '- Intended audience: '+(val('audience')||'Not specified'),
+  '- Differentiator: '+(val('sellingPoint')||'Not specified'),
+  '- Style: '+(val('style')||'Not specified'),
+  '- Colours: '+(val('colours')||'Not specified'),
+  '- Logo status: '+(val('logoStatus')||'Not specified'),
+  '- Image direction: '+(val('photos')||'Not specified'),
+  '- Likes: '+(val('demoLikes')||'None recorded'),
+  '- Requested changes: '+(val('demoChanges')||'None recorded'),
+  '- Inspiration links: '+(val('references')||'None supplied'),
+  '- Special requests (check against agreed price): '+(val('specialRequests')||'None recorded'),
+  '',
+  '## Content and assets',
+  'Status of each material:',
+  ...assetNames.map(([id,label])=>'- '+label+': '+(val(id)||'Unknown')),
+  '- Person responsible: '+(val('contentOwner')||'Not specified'),
+  '- Requested by: '+(val('contentDue')||'Not specified'),
+  '- Delivery arrangement: '+deliveryInstructions(),
+  '- Content notes: '+(val('contentNotes')||'None'),
+  '- CRITICAL: Actual logos/photos/menus/files must be provided separately. This document does not contain or transfer those files.',
+  '',
+  '## Technical, domain and care',
+  '- Domain arrangement: '+(c.domain==='chipin'?'Chip In-managed standard domain, £20 per year':c.domain),
+  '- Existing domain: '+(val('currentDomain')||'None recorded'),
+  '- Preferred domain: '+(val('proposedDomain')||'Not chosen'),
+  '- Domain owner: '+(val('domainOwner')||'Not specified'),
+  '- Hosting arrangement: '+(c.hosting==='chipin'?'Chip In to arrange, separate unpriced charge must be confirmed':c.hosting),
+  '- Hosting notes: '+(val('hostingNotes')||'None recorded'),
+  '- Care plan: '+planData[c.care].title+' ('+(c.monthly===null?'not chosen':money(c.monthly)+'/month')+')',
+  '',
+  '## Commercial and project milestones',
+  '- Build and agreed extras: '+money(c.oneOff),
+  '- Domain (annual): '+money(c.annualTotal),
+  '- Care (monthly): '+money(c.monthlyTotal),
+  '- First 12-month illustration, excluding any unpriced hosting: '+money(c.firstYear),
+  '- Payment schedule: '+(val('paymentSchedule')||'Not agreed'),
+  '- Payment method: '+(val('paymentMethod')||'Not agreed'),
+  '- Monthly billing: '+(val('monthlyMethod')||'Not agreed'),
+  '- Annual domain billing: '+(val('domainBilling')||'Not agreed'),
+  '- First draft target: '+(val('draftDate')||'Not set'),
+  '- Client review target: '+(val('reviewDate')||'Not set'),
+  '- Launch target: '+(val('launchDate')||'Not set'),
+  '- Launch approver: '+(val('launchApprover')||'Not specified'),
+  '- Other notes: '+(val('commercialNotes')||'None'),
+  '',
+  '## Open decisions — resolve before treating as fully agreed',
+  list(c.unresolved),
+  '',
+  '## Build instructions for a new ChatGPT work session',
+  'Use this specification and the client-approved content files to build the website. Do not invent unavailable client details, domain credentials, hosting charges, menus, or prices. Match Chip In’s published £250 package scope. Flag missing decisions. Provide a draft for client review, allow one consolidated amendment round, and require launch approval.',
+  '',
+  '_Internal build document — keep private. No account passwords should be placed in these meeting notes._'
+ ];
+ return lines.join('\n');
+}
+function downloadBuildBrief(){
+ const text=buildBriefMarkdown();
+ const blob=new Blob([text],{type:'text/markdown;charset=utf-8'});
+ const url=URL.createObjectURL(blob);
+ const a=document.createElement('a');
+ a.href=url;a.download='chipin-'+(val('business')||'client').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')+'-website-build-brief.md';
+ document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);
 }
 async function copySummary(){
  const str=summaryPlain();
