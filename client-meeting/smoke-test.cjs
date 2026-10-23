@@ -1,0 +1,55 @@
+const fs=require('node:fs');
+const assert=require('node:assert/strict');
+const {JSDOM}=require('jsdom');
+const html=fs.readFileSync('client-meeting/index.html','utf8');
+const script=fs.readFileSync('client-meeting/meeting.js','utf8');
+const dom=new JSDOM(html,{url:'https://chipinworks.co.uk/client-meeting/',runScripts:'outside-only',pretendToBeVisual:true});
+const w=dom.window;
+w.matchMedia=()=>({matches:false,addListener(){},removeListener(){}});
+let printed=0;
+w.print=()=>{printed++};
+w.alert=()=>{};
+w.confirm=()=>true;
+w.eval(script);
+const d=w.document;
+const form=d.getElementById('meetingForm');
+const input=(name,value)=>{
+ const el=form.elements.namedItem(name);
+ if(el.length&&el[0].type==='radio'){
+   for(const radio of Array.from(el))radio.checked=radio.value===value;
+ }else el.value=value;
+ form.dispatchEvent(new w.Event('change',{bubbles:true}));
+};
+const text=()=>d.getElementById('liveQuote').textContent;
+assert.match(text(),/£250/);
+assert.match(d.getElementById('readiness').textContent,/decisions are still open|Still to confirm/i);
+assert.equal(d.querySelectorAll('section.pane').length,9);
+d.getElementById('plansTop').click();
+assert.equal(d.querySelector('section.pane[data-pane="6"]').hidden,false);
+input('care','care');
+input('domainChoice','chipin');
+input('hostingChoice','client');
+d.getElementById('quoteTop').click();
+assert.match(text(),/£49/);
+assert.match(text(),/£20/);
+assert.match(text(),/£858/); // 250+20+49*12
+input('extraPages','1');
+assert.match(text(),/£908/); // 300+20+49*12
+input('care','partner');
+assert.match(text(),/£1,388/);
+input('hostingChoice','chipin');
+input('hostingCost','12');
+input('hostingInterval','month');
+assert.match(text(),/£1,532/);
+assert.match(d.getElementById('readiness').textContent,/payment/i);
+assert.ok(w.localStorage.getItem('chipin-client-meeting-bulls-head-v1'));
+d.getElementById('printQuote').click();
+assert.equal(printed,1);
+assert.match(d.getElementById('printArea').textContent,/£1,532/);
+d.getElementById('printHandover').click();
+assert.equal(printed,2);
+d.getElementById('plansTop').click();
+d.getElementById('printPlans').click();
+assert.equal(printed,3);
+assert.match(d.getElementById('printArea').textContent,/Website Health/);
+console.log('PASS: nine steps, package pricing, additional pages, monthly/annual fees, first-year totals, local save, quotation, handover and plan print routes.');
