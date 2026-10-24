@@ -42,6 +42,46 @@ function deliveryInstructions(){
  if(kind==='other')return val('deliveryNotes')||'Delivery method to be agreed';
  return 'Email documents and approved photographs to '+(val('receivingEmail')||'jamesbutt.chipin+websites@gmail.com');
 }
+/* Dates are UTC-only calendar dates; the build and review use calendar days. */
+function isoDate(s){return /^\d{4}-\d{2}-\d{2}$/.test(s||'')&&!Number.isNaN(new Date(s+'T12:00:00Z').getTime())&&new Date(s+'T12:00:00Z').toISOString().slice(0,10)===s;}
+function addDays(s,n){if(!isoDate(s))return '';const d=new Date(s+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10);}
+function firstMonday(y,m){const d=new Date(Date.UTC(y,m-1,1,12));d.setUTCDate(1+(8-d.getUTCDay())%7);return d.toISOString().slice(0,10);}
+function lastMonday(y,m){const d=new Date(Date.UTC(y,m,0,12));d.setUTCDate(d.getUTCDate()-((d.getUTCDay()+6)%7));return d.toISOString().slice(0,10);}
+function easter(y){const a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k+7)%7,m=Math.floor((a+11*h+22*l)/451),month=Math.floor((h+l-7*m+114)/31),day=(h+l-7*m+114)%31+1;return y+'-'+String(month).padStart(2,'0')+'-'+String(day).padStart(2,'0');}
+function standardBankHolidays(y){
+ const days=new Set(),newYear=y+'-01-01',w=new Date(newYear+'T12:00:00Z').getUTCDay();
+ days.add(w===6?y+'-01-03':w===0?y+'-01-02':newYear);
+ const e=easter(y);days.add(addDays(e,-2));days.add(addDays(e,1));
+ days.add(firstMonday(y,5));days.add(lastMonday(y,5));days.add(lastMonday(y,8));
+ [25,26].forEach(day=>{const d=new Date(Date.UTC(y,11,day,12));let key=d.toISOString().slice(0,10);while(d.getUTCDay()===0||d.getUTCDay()===6||days.has(key)){d.setUTCDate(d.getUTCDate()+1);key=d.toISOString().slice(0,10);}days.add(key);});
+ return days;
+}
+function addWorkingDays(s,count){if(!isoDate(s))return '';let d=s,added=0;while(added<count){d=addDays(d,1);const day=new Date(d+'T12:00:00Z').getUTCDay();if(day!==0&&day!==6&&!standardBankHolidays(Number(d.slice(0,4))).has(d))added++;}return d;}
+function timeline(){
+ const latest=val('contentDue'),received=val('assetsReceivedDate');
+ const days=Number(val('buildDays')),duration=val('buildDays')!==''&&Number.isInteger(days)&&days>=1&&days<=180?days:null;
+ const anchor=isoDate(received)?received:isoDate(latest)?latest:'';
+ const draft=anchor&&duration!==null?addDays(anchor,duration):'';
+ const feedback=draft?addDays(draft,3):'';
+ const complete=feedback?addWorkingDays(feedback,5):'';
+ const approval=isoDate(val('finalApprovalDate'))?val('finalApprovalDate'):'';
+ const launchBase=approval||complete;
+ return {latest,received,duration,anchor,draft,feedback,complete,approval,liveFrom:launchBase?addDays(launchBase,1):'',liveTo:launchBase?addDays(launchBase,2):''};
+}
+function timelineHTML(t){
+ const label=d=>dateText(d);
+ const cards=[
+  ['01 · Client assets deadline',label(t.latest),'Latest agreed date to provide ALL required photos and content'],
+  ['02 · Build starts',label(t.anchor),t.received?'Confirmed date when ALL required client materials arrived':'Projected from the promised asset deadline; actual receipt triggers the build'],
+  ['03 · First website revision',label(t.draft),t.duration!==null?t.duration+' calendar days from complete assets':'Agree the build duration'],
+  ['04 · Client review deadline',label(t.feedback),'3 calendar days to return one consolidated list of changes'],
+  ['05 · Finished revision',label(t.complete),'5 working days after client feedback deadline, excluding standard England and Wales bank holidays'],
+  ['06 · Website publication',t.liveFrom?label(t.liveFrom)+' to '+label(t.liveTo):'To be agreed',(t.approval?'After the recorded final written approval':'Illustrative ONLY if the client approves immediately when the finished version is presented')+'; normally within 24–48 hours, subject to DNS and SSL']
+ ];
+ return '<div class="timeline-cards">'+cards.map(r=>'<article><strong>'+esc(r[0])+'</strong><b>'+esc(r[1])+'</b><span>'+esc(r[2])+'</span></article>').join('')+'</div><p class="small-intro">All dates are '+(t.received?'based on the actual receipt date recorded':'projections assuming the client meets the assets deadline')+'. Late assets, delayed review, scope changes and exceptional bank holidays can shift the timetable. No site is published without final written approval.</p>';
+}
+function refreshTimeline(){const el=document.getElementById('timelinePreview');if(el)el.innerHTML=timelineHTML(timeline());}
+
 function syncAssetToPages(changedPage){
  const map=[['Food / Menu','assetFood'],['Products / Services / Drinks','assetDrinks'],['Opening Hours','assetHours'],["What's On / Events",'assetEvents']];
  const match=map.find(([page])=>page===changedPage);
