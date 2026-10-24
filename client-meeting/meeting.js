@@ -129,7 +129,7 @@ function applyState(state){
  for(const el of Array.from(form.elements)){
   if(!el.name||!Object.prototype.hasOwnProperty.call(state.fields,el.name))continue;
   const x=state.fields[el.name];
-  if(el.type==='radio')el.checked=x===el.value;
+  if(el.type==='radio')el.checked=x===el.value||(el.name==='hostingChoice'&&x==='pending'&&el.value==='chipin');
   else if(el.type==='checkbox')el.checked=Array.isArray(x)&&x.includes(el.value);
   else if(typeof x==='string'||typeof x==='number')el.value=String(x);
  }
@@ -201,6 +201,7 @@ function calc(){
  if(!isoDate(val('contentDue')))unresolved.push('Agree the latest date for the client to upload ALL photos, assets and information');
  const dates=timeline();
  if(dates.duration===null)unresolved.push('Agree number of calendar days to deliver the first website revision');
+ if(!field('timelineAcknowledged').checked)unresolved.push('Confirm client acknowledged the asset deadline and the agreed delivery/review timetable');
  if(val('assetsReceivedDate')&&!isoDate(val('assetsReceivedDate')))unresolved.push('Confirm the date all client assets were actually received');
  if(val('finalApprovalDate')&&!isoDate(val('finalApprovalDate')))unresolved.push('Record a valid written launch approval date');
  if(dates.approval&&dates.complete&&dates.approval<dates.complete)unresolved.push('Written launch approval date predates the projected finished revision');
@@ -448,6 +449,7 @@ function buildBriefMarkdown(){
    '- LATEST date client commits to provide ALL assets: '+(val('contentDue')||'Not agreed'),
    '- Actual date all client assets received: '+(val('assetsReceivedDate')||'Not yet confirmed — countdown has not started'),
    '- Agreed build duration from complete receipt: '+(timeline().duration||'Not agreed')+' calendar days',
+   '- Client explicitly acknowledged milestone terms: '+(field('timelineAcknowledged').checked?'Yes':'Not yet'),
    '- Projected first draft: '+(timeline().draft||'Not set'),
    '- Client feedback due (3 calendar days): '+(timeline().feedback||'Not set'),
    '- Finished revision for client approval (5 working days after feedback): '+(timeline().complete||'Not set'),
