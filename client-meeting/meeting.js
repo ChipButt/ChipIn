@@ -232,7 +232,7 @@ function quoteHTML(c){
  table(list)+sum+
  '<p><strong>Illustrative first 12 months after launch:</strong> '+money(c.firstYear)+' <span class="small">(build + 12 months of selected maintenance + annual domain; standard static hosting included at £0; separately agreed premium services excluded)</span></p>'+
  '<h4>Website sections selected</h4><p class="small">'+(c.selectedPages.length?esc(c.selectedPages.join('; ')):'No sections selected')+'. <strong>Mobile-friendly design, contact routes, social links where supplied, one review amendment and editor where appropriate.</strong></p>'+
- '<h4>Content still required from client</h4><p class="small">'+(clientTodos.length?esc(clientTodos.join(' · ')):'None flagged as outstanding in the checklist')+'</p><p class="small"><strong>Delivery:</strong> '+esc(deliveryInstructions())+' · Target '+dateText(val('contentDue'))+'</p>'+
+ '<h4>Content still required from client</h4><p class="small">'+(clientTodos.length?esc(clientTodos.join(' · ')):'None flagged as outstanding in the checklist')+'</p><p class="small"><strong>Delivery:</strong> '+esc(deliveryInstructions())+' · Latest agreed assets deadline '+dateText(val('contentDue'))+'</p>'+
  '<h4>Agreed payment arrangements</h4><p class="small">Build: '+safeText(val('paymentSchedule'))+'<br>Payment method: '+safeText(val('paymentMethod'))+'<br>Monthly care: '+safeText(val('monthlyMethod'))+'<br>Annual domain: '+safeText(val('domainBilling'))+'</p>'+
  '<h4>Agreed project delivery timeline</h4>'+timelineHTML(timeline())+
  '<p class="small"><strong>Agreed first-build timeframe:</strong> '+(timeline().duration===null?'Not yet agreed':timeline().duration+' calendar days after all assets arrive')+' · <strong>Client review:</strong> 3 calendar days · <strong>Included revisions:</strong> 5 UK working days · <strong>Final approver:</strong> '+safeText(val('launchApprover')||val('approver'))+'. Publication normally follows written approval within 24–48 hours subject to DNS and SSL.</p>'+
@@ -291,7 +291,7 @@ function handoverHTML(){
  out+=clientTodos.length?clientTodos.map(x=>'<li>Provide '+esc(x)+'</li>').join(''):'<li>Confirm all supplied content is accurate and approved for use</li>';
  out+='<li>Supply every outstanding item no later than '+tDate+'</li><li>Confirm domain ownership/access</li><li>Approve the final quote and payment</li><li>Return ONE consolidated amendment list within three calendar days of the first draft</li><li>Provide final written approval after reviewing the finished version</li></ul><h2>What Chip In will do</h2><ul><li>Begin the agreed '+(timeline().duration===null?'number of':timeline().duration)+' calendar-day build only after all required client assets arrive</li><li>Send the first revision by '+dateText(timeline().draft)+'</li><li>Allow five UK working days after the feedback deadline for included revisions</li><li>Present the finished website by '+dateText(timeline().complete)+' for final written approval</li><li>After approval, publish normally within 24–48 hours, subject to domain DNS and SSL propagation</li></ul></div></div>';
  out+='<h2>Agreed delivery timetable</h2>'+timelineHTML(timeline());
- out+='<h2>How to send your website materials</h2><p><strong>'+esc(deliveryInstructions())+'</strong></p><p><strong>Deadline:</strong> '+tDate+' · <strong>Content contact:</strong> '+safeText(val('contentOwner'))+'</p>';
+ out+='<h2>How to send your website materials</h2><p><strong>'+esc(deliveryInstructions())+'</strong></p><p><strong>Latest agreed client assets deadline:</strong> '+tDate+' · <strong>Content contact:</strong> '+safeText(val('contentOwner'))+'</p>';
  if(c.selectedPages.indexOf('Food / Menu')===-1)out+='<p class="print-note">Food / Menu is not requested for this website; no menu content is required.</p>';
  out+='<h2>Payment and approval process</h2><ol><li>Chip In sends the written quotation for approval.</li><li>Client approves the scope and receives an invoice with payment instructions.</li><li>Any new domain is bought only after approval; its standard managed fee is £20 annually.</li><li>Chip In sends a first draft; the client consolidates one amendment round and gives written launch approval.</li><li>Any optional care plan is billed monthly as agreed, with domain renewal invoiced annually. This tool does not take payments.</li></ol>';
  out+='<h2>Files already supplied</h2><p>'+esc(supplied.join(' · ')||'None marked supplied yet')+'</p>';
@@ -422,7 +422,7 @@ function buildBriefMarkdown(){
   'Status of each material:',
   ...assetNames.map(([id,label])=>'- '+label+': '+(val(id)||'Unknown')),
   '- Person responsible: '+(val('contentOwner')||'Not specified'),
-  '- Requested by: '+(val('contentDue')||'Not specified'),
+  '- Client committed latest date for all required assets: '+(val('contentDue')||'Not specified'),
   '- Delivery arrangement: '+deliveryInstructions(),
   '- Content notes: '+(val('contentNotes')||'None'),
   '- CRITICAL: Actual logos/photos/menus/files must be provided separately. This document does not contain or transfer those files.',
