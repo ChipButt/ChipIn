@@ -60,7 +60,6 @@ const food=d.querySelector('input[name="includedPages"][value="Food / Menu"]');
 food.checked=false;
 food.dispatchEvent(new w.Event('change',{bubbles:true}));
 assert.equal(f.elements.namedItem('assetFood').value,'Not needed');
-assert.equal(f.elements.namedItem('buildDays').value,'7');
 assert.doesNotMatch(text(),/Home; About \/ Our Business; Food \/ Menu/);
 assert.equal(d.querySelectorAll('[name="includedPages"]:checked').length,6);
 // The client commits to a latest asset date; timeline stays projected until ALL assets actually arrive.
@@ -129,6 +128,7 @@ select.dispatchEvent(new w.Event('change',{bubbles:true}));
 assert.equal(f.elements.namedItem('business').value,oldName);
 assert.equal(f.elements.namedItem('assetFood').value,'Not needed');
 assert.equal(d.querySelectorAll('[name="includedPages"]:checked').length,6);
+assert.equal(f.elements.namedItem('buildDays').value,'7');
 // Client workspace is only provisioned after both the Apps Script setup and written quote acceptance.
 d.getElementById('quoteTop').click();
 input('deliveryMethod','portal');
