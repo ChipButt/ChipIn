@@ -375,7 +375,7 @@ function openClientOnboarding(){
 function buildBriefMarkdown(){
  const c=calc();
  const list=items=>items.length?items.map(item=>'- '+item).join('\n'):'- None';
- const fields=['business','location','contact','email','phone','approver','priority','audience','sellingPoint','specialRequests','style','colours','logoStatus','photos','demoLikes','demoChanges','references','pageNotes','contentOwner','contentDue','contentNotes','currentDomain','proposedDomain','domainOwner','hostingChoice','hostingNotes','care','paymentSchedule','paymentMethod','monthlyMethod','domainBilling','draftDate','reviewDate','launchDate','launchApprover','commercialNotes'];
+ const fields=['business','location','contact','email','phone','approver','priority','audience','sellingPoint','specialRequests','style','colours','logoStatus','photos','demoLikes','demoChanges','references','pageNotes','contentOwner','contentDue','contentNotes','currentDomain','proposedDomain','domainOwner','hostingChoice','hostingNotes','care','paymentSchedule','paymentMethod','monthlyMethod','domainBilling','buildDays','assetsReceivedDate','finalApprovalDate','launchApprover','commercialNotes'];
  const lines=[
   '# Chip In — Website Build Specification',
   '',
@@ -431,7 +431,7 @@ function buildBriefMarkdown(){
   '- Existing domain: '+(val('currentDomain')||'None recorded'),
   '- Preferred domain: '+(val('proposedDomain')||'Not chosen'),
   '- Domain owner: '+(val('domainOwner')||'Not specified'),
-  '- Hosting arrangement: '+(c.hosting==='chipin'?'Chip In to arrange, separate unpriced charge must be confirmed':c.hosting),
+  '- Hosting arrangement: '+(c.hosting==='chipin'?'Chip In-managed static Cloudflare Pages hosting, separate client GitHub repository — £0 included':c.hosting==='special'?'Special paid hosting to be quoted separately':c.hosting),
   '- Hosting notes: '+(val('hostingNotes')||'None recorded'),
   '- Care plan: '+planData[c.care].title+' ('+(c.monthly===null?'not chosen':money(c.monthly)+'/month')+')',
   '',
@@ -439,14 +439,21 @@ function buildBriefMarkdown(){
   '- Build and agreed extras: '+money(c.oneOff),
   '- Domain (annual): '+money(c.annualTotal),
   '- Care (monthly): '+money(c.monthlyTotal),
-  '- First 12-month illustration, excluding any unpriced hosting: '+money(c.firstYear),
+  '- First 12-month illustration, standard static hosting £0, paid services excluded: '+money(c.firstYear),
   '- Payment schedule: '+(val('paymentSchedule')||'Not agreed'),
   '- Payment method: '+(val('paymentMethod')||'Not agreed'),
   '- Monthly billing: '+(val('monthlyMethod')||'Not agreed'),
   '- Annual domain billing: '+(val('domainBilling')||'Not agreed'),
-  '- First draft target: '+(val('draftDate')||'Not set'),
-  '- Client review target: '+(val('reviewDate')||'Not set'),
-  '- Launch target: '+(val('launchDate')||'Not set'),
+
+   '- LATEST date client commits to provide ALL assets: '+(val('contentDue')||'Not agreed'),
+   '- Actual date all client assets received: '+(val('assetsReceivedDate')||'Not yet confirmed — countdown has not started'),
+   '- Agreed build duration from complete receipt: '+(timeline().duration||'Not agreed')+' calendar days',
+   '- Projected first draft: '+(timeline().draft||'Not set'),
+   '- Client feedback due (3 calendar days): '+(timeline().feedback||'Not set'),
+   '- Finished revision for client approval (5 working days after feedback): '+(timeline().complete||'Not set'),
+   '- Written final approval date (if received): '+(val('finalApprovalDate')||'Not received'),
+   '- Conditional go-live window (24–48h after approval): '+(timeline().liveFrom||'Not set')+' to '+(timeline().liveTo||'Not set'),
+   '- Standard England and Wales bank holidays excluded from the working-day calculation; exceptional bank holidays, delayed assets, feedback and changed scope may move the timetable.',
   '- Launch approver: '+(val('launchApprover')||'Not specified'),
   '- Other notes: '+(val('commercialNotes')||'None'),
   '',
@@ -454,7 +461,7 @@ function buildBriefMarkdown(){
   list(c.unresolved),
   '',
   '## Build instructions for a new ChatGPT work session',
-  'Use this specification and the client-approved content files to build the website. Do not invent unavailable client details, domain credentials, hosting charges, menus, or prices. Match Chip In’s published £250 package scope. Flag missing decisions. Provide a draft for client review, allow one consolidated amendment round, and require launch approval.',
+  'Use this specification and the client-approved content files to build the website. Do not invent unavailable client details, domain credentials, hosting charges, menus, or prices. Match Chip In’s published £250 package scope. Flag missing decisions. Start only when all required client assets have actually arrived and the agreed payment conditions are satisfied. Allow the agreed calendar days to build, 3 calendar days for consolidated client feedback, 5 UK working days for the revision, and get final written approval before launch. Allow normally 24–48 hours for DNS/SSL publication after approval. Default to a separate GitHub repo per client with free Cloudflare Pages hosting for standard static sites rather than GitHub Pages business hosting.',
   '',
   '_Internal build document — keep private. No account passwords should be placed in these meeting notes._'
  ];
