@@ -187,7 +187,7 @@ function calc(){
  if(domain==='chipin'&&!val('domainOwner'))unresolved.push('Who owns the domain');
  if(domain==='chipin'&&!val('domainBilling'))unresolved.push('Annual domain invoice arrangement');
  if(hosting==='pending')unresolved.push('Hosting provider');
- if(hosting==='chipin')unresolved.push('Separate Chip In hosting scope and price (not included here)');
+ if(hosting==='special')unresolved.push('Special hosting or server costs must be agreed and quoted separately');
  if(care==='pending')unresolved.push('Monthly care choice, including no plan');
  if(!val('paymentSchedule'))unresolved.push('Build payment arrangement');
  if(!val('paymentMethod'))unresolved.push('Invoice payment method');
@@ -198,7 +198,12 @@ function calc(){
  if(val('specialRequests'))unresolved.push('Check special requests against standard scope');
  if(selectedPages.length===0)unresolved.push('Choose at least one website page');
  const outstanding=assetNames.filter(([id])=>val(id)==='To supply');
- if(outstanding.length&&!val('contentDue'))unresolved.push('Deadline for client to send content');
+ if(!isoDate(val('contentDue')))unresolved.push('Agree the latest date for the client to upload ALL photos, assets and information');
+ const dates=timeline();
+ if(dates.duration===null)unresolved.push('Agree number of calendar days to deliver the first website revision');
+ if(val('assetsReceivedDate')&&!isoDate(val('assetsReceivedDate')))unresolved.push('Confirm the date all client assets were actually received');
+ if(val('finalApprovalDate')&&!isoDate(val('finalApprovalDate')))unresolved.push('Record a valid written launch approval date');
+ if(dates.approval&&dates.complete&&dates.approval<dates.complete)unresolved.push('Written launch approval date predates the projected finished revision');
  if(outstanding.length&&val('deliveryMethod')==='folder'&&!val('uploadFolder'))unresolved.push('Send client their private upload-folder invitation');
  if(document.getElementById('quoteApproved').checked&&val('deliveryMethod')==='portal'&&!val('clientPortalUrl'))unresolved.push('Activate the client upload workspace and record the link');
  if(outstanding.length&&val('deliveryMethod')==='email'&&!val('receivingEmail'))unresolved.push('Email address for sending content');
@@ -215,7 +220,7 @@ function quoteHTML(c){
   ...(c.extras?[['Additional agreed feature: '+safeText(val('extraDescription')),money(c.extras)+' once']]:[]),
   ['Domain',c.domain==='chipin'?money(20)+'/year':c.domain==='pending'?'Not decided':'Client/existing domain — £0 from Chip In'],
   ['Monthly website support',c.monthly===null?'Not chosen':esc(planData[c.care].title)+' — '+money(c.monthly)+'/month'],
-  ['Hosting',c.hosting==='client'?'Client / external provider (cost paid separately)':c.hosting==='pending'?'Arrangement to be confirmed':'Chip In to arrange — separate price not yet included']
+  ['Hosting',c.hosting==='chipin'?'Chip In-managed static hosting via Cloudflare Pages — £0 included':c.hosting==='client'?'Client / external provider — any costs paid directly':c.hosting==='special'?'Special paid hosting — separate quote required':'Arrangement to be confirmed']
  ];
  const clientTodos=assetNames.filter(([id])=>val(id)==='To supply').map(x=>x[1]);
  const starts=c.unresolved.length===0?'Ready for written confirmation':'Draft: some decisions are still open';
@@ -224,12 +229,13 @@ function quoteHTML(c){
  '<h3>Proposed website quotation</h3>'+
  '<p class="small">'+esc(starts)+' · Review all items before issuing a formal quotation or invoice.</p>'+
  table(list)+sum+
- '<p><strong>Illustrative first 12 months after launch:</strong> '+money(c.firstYear)+' <span class="small">(build + 12 months of selected maintenance + annual domain; excludes unpriced hosting / third-party costs and assumes 12 months of care)</span></p>'+
+ '<p><strong>Illustrative first 12 months after launch:</strong> '+money(c.firstYear)+' <span class="small">(build + 12 months of selected maintenance + annual domain; standard static hosting included at £0; separately agreed premium services excluded)</span></p>'+
  '<h4>Website sections selected</h4><p class="small">'+(c.selectedPages.length?esc(c.selectedPages.join('; ')):'No sections selected')+'. <strong>Mobile-friendly design, contact routes, social links where supplied, one review amendment and editor where appropriate.</strong></p>'+
  '<h4>Content still required from client</h4><p class="small">'+(clientTodos.length?esc(clientTodos.join(' · ')):'None flagged as outstanding in the checklist')+'</p><p class="small"><strong>Delivery:</strong> '+esc(deliveryInstructions())+' · Target '+dateText(val('contentDue'))+'</p>'+
  '<h4>Agreed payment arrangements</h4><p class="small">Build: '+safeText(val('paymentSchedule'))+'<br>Payment method: '+safeText(val('paymentMethod'))+'<br>Monthly care: '+safeText(val('monthlyMethod'))+'<br>Annual domain: '+safeText(val('domainBilling'))+'</p>'+
- '<h4>Timings &amp; approval</h4><p class="small">Target first draft: '+dateText(val('draftDate'))+' · Review: '+dateText(val('reviewDate'))+' · Target launch: '+dateText(val('launchDate'))+'<br>Client approval contact: '+safeText(val('approver'))+'</p>'+
- '<p class="small divide">Maintenance is optional and runs month to month with no long-term commitment. Unused update time does not carry forward. New pages, major redesigns, integrations, paid tools, domain fees and hosting are separate. Ad hoc updates: £40/hour, billed in 30-minute increments. Your site and any included editor remain usable without a maintenance subscription.</p>';
+ '<h4>Agreed project delivery timeline</h4>'+timelineHTML(timeline())+
+ '<p class="small"><strong>Agreed first-build timeframe:</strong> '+(timeline().duration===null?'Not yet agreed':timeline().duration+' calendar days after all assets arrive')+' · <strong>Client review:</strong> 3 calendar days · <strong>Included revisions:</strong> 5 UK working days · <strong>Final approver:</strong> '+safeText(val('launchApprover')||val('approver'))+'. Publication normally follows written approval within 24–48 hours subject to DNS and SSL.</p>'+
+ '<p class="small divide">The build countdown begins only when ALL required client assets are received, not at enquiry or quote approval. Late material, feedback delays and scope changes may require revised dates. Standard static hosting is included at £0 via GitHub and Cloudflare Pages; an agreed standard managed domain is £20/year. Additional paid infrastructure or integrations must be quoted separately. Maintenance is optional, month to month. Ad hoc updates: £40/hour in 30-minute increments. Final written approval is required before publication; DNS or SSL may extend the normal 24–48-hour launch window.</p>';
 }
 function renderQuote(){
  const c=calc();
@@ -237,6 +243,7 @@ function renderQuote(){
  ready.classList.toggle('warn',c.unresolved.length>0);
  ready.innerHTML=c.unresolved.length?'<strong>Still to confirm before issuing a fixed quote ('+c.unresolved.length+')</strong><ul>'+c.unresolved.map(s=>'<li>'+esc(s)+'</li>').join('')+'</ul>':'<strong>Core commercial decisions captured.</strong><p>Check the notes, confirm scope and obtain written acceptance before invoicing.</p>';
  document.getElementById('liveQuote').innerHTML=quoteHTML(c);
+ refreshTimeline();
 }
 function topLine(){
  return '<div class="print-head"><div><b>Chip In</b><br><span>Website Design · Client meeting documents</span></div><div style="text-align:right"><strong>'+safeText(val('business'))+'</strong><br><span>'+safeText(val('location'))+'</span><br><span>'+dateText(val('meetingDate'))+'</span></div></div>';
