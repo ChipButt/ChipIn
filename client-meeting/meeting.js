@@ -280,20 +280,23 @@ function handoverHTML(){
   ['Existing domain',safeText(val('currentDomain'))],
   ['Hosting / domain notes',safeText(val('hostingNotes'))],
   ['Extra work',safeText(val('extraDescription'))],
-  ['Launch target',dateText(val('launchDate'))]
+  ['Projected first draft',dateText(timeline().draft)],
+   ['Finished revision ready for approval',dateText(timeline().complete)],
+   ['Conditional publication window',dateText(timeline().liveFrom)+' – '+dateText(timeline().liveTo)]
  ];
  let out=topLine()+'<h1>Website project — who does what next?</h1><p>A simple record of the decisions made in the meeting. Scope and price are confirmed by the formal Chip In quotation.</p>';
  out+='<h2>Project decisions</h2><table>'+rows.map(x=>'<tr><td style="width:27%"><strong>'+x[0]+'</strong></td><td>'+x[1]+'</td></tr>').join('')+'</table>';
  out+='<div class="print-cols"><div><h2>What the client needs to do</h2><ul>';
  out+=clientTodos.length?clientTodos.map(x=>'<li>Provide '+esc(x)+'</li>').join(''):'<li>Confirm all supplied content is accurate and approved for use</li>';
- out+='<li>Supply any outstanding items by '+tDate+'</li><li>Confirm ownership/access for domain and hosting</li><li>Approve final quote and arrange agreed payment</li><li>Review first draft and consolidate one amendment round</li><li>Provide written approval before launch</li></ul><p><strong>Content contact:</strong> '+safeText(val('contentOwner'))+'</p></div><div><h2>What Chip In will do</h2><ul><li>Send written scope and confirmed quotation</li><li>Clarify any unpriced or additional requests</li><li>Confirm hosting and domain arrangements before purchase</li><li>Organise supplied content and build agreed pages</li><li>Test mobile, desktop and primary contact routes</li><li>Send the draft for one review-amendment round</li><li>Publish only after sign-off and arrange handover</li></ul><p><strong>Proposed first draft:</strong> '+dateText(val('draftDate'))+'</p></div></div>';
+ out+='<li>Supply every outstanding item no later than '+tDate+'</li><li>Confirm domain ownership/access</li><li>Approve the final quote and payment</li><li>Return ONE consolidated amendment list within three calendar days of the first draft</li><li>Provide final written approval after reviewing the finished version</li></ul><h2>What Chip In will do</h2><ul><li>Begin the agreed '+(timeline().duration===null?'number of':timeline().duration)+' calendar-day build only after all required client assets arrive</li><li>Send the first revision by '+dateText(timeline().draft)+'</li><li>Allow five UK working days after the feedback deadline for included revisions</li><li>Present the finished website by '+dateText(timeline().complete)+' for final written approval</li><li>After approval, publish normally within 24–48 hours, subject to domain DNS and SSL propagation</li></ul></div></div>';
+ out+='<h2>Agreed delivery timetable</h2>'+timelineHTML(timeline());
  out+='<h2>How to send your website materials</h2><p><strong>'+esc(deliveryInstructions())+'</strong></p><p><strong>Deadline:</strong> '+tDate+' · <strong>Content contact:</strong> '+safeText(val('contentOwner'))+'</p>';
  if(c.selectedPages.indexOf('Food / Menu')===-1)out+='<p class="print-note">Food / Menu is not requested for this website; no menu content is required.</p>';
  out+='<h2>Payment and approval process</h2><ol><li>Chip In sends the written quotation for approval.</li><li>Client approves the scope and receives an invoice with payment instructions.</li><li>Any new domain is bought only after approval; its standard managed fee is £20 annually.</li><li>Chip In sends a first draft; the client consolidates one amendment round and gives written launch approval.</li><li>Any optional care plan is billed monthly as agreed, with domain renewal invoiced annually. This tool does not take payments.</li></ol>';
  out+='<h2>Files already supplied</h2><p>'+esc(supplied.join(' · ')||'None marked supplied yet')+'</p>';
  out+='<h2>Additional meeting notes</h2><p>'+safeText(val('contentNotes'))+' '+safeText(val('commercialNotes'))+'</p>';
  if(c.unresolved.length)out+='<h2>Unresolved decisions</h2><ul>'+c.unresolved.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>';
- out+='<div class="print-terms"><strong>Reminder:</strong> £250 Standard Website Package; one draft review-amendment round; extras and ongoing costs agreed separately. Written confirmation is required before paid work is authorised.</div>';
+ out+='<div class="print-terms"><strong>Reminder:</strong> £250 Standard Website Package, one consolidated draft amendment round, free standard static hosting via Cloudflare Pages, and domain/optional support costs shown separately. Late assets or feedback can move dates. Written quote acceptance and final written launch approval are required.</div>';
  return out;
 }
 function plansHTML(){
@@ -305,7 +308,7 @@ function plansHTML(){
  let s=topLine()+'<h1>Website Care &amp; Updates</h1><p>Optional monthly support after the website goes live. Choose only the help you need.</p><div class="print-plan-grid">';
  cards.forEach((c,i)=>{s+='<div class="print-plan '+(i===1?'feature':'')+'"><h3>'+c[0]+'</h3><div class="plan-cost">'+c[1]+'<small style="font-size:10px"> / month</small></div><p>'+c[2]+'</p><ul>'+c[3].map(t=>'<li>'+esc(t)+'</li>').join('')+'</ul></div>';});
  s+='</div><h2>Or choose no monthly plan</h2><p>£0/month. Keep using the website and any included editor, and request ad hoc updates at £40/hour in 30-minute increments.</p>';
- s+='<div class="print-terms"><strong>The small print, kept simple:</strong> Plans are optional, month-to-month with no long-term commitment. Included time does not roll over. Changes outside the allowance are quoted. Domain, hosting, paid third-party software, major redesigns, new pages and complex functionality are separate. Routine turnaround times start after you supply the necessary content.</div>';
+ s+='<div class="print-terms"><strong>The small print, kept simple:</strong> Plans are optional, month-to-month with no long-term commitment. Included time does not roll over. Changes outside the allowance are quoted. Domain registration, special paid hosting, third-party software, major redesigns, new pages and complex functionality are separate; standard static hosting is £0. Routine turnaround times start after you supply the necessary content.</div>';
  s+='<p><strong>Client selection:</strong> '+safeText(planData[calc().care].title)+'</p><p class="print-note">Chip In · chipinworks.co.uk · Public package terms are available on the Website Design page.</p>';
  return s;
 }
@@ -329,15 +332,15 @@ function summaryPlain(){
  '\nEXTRA PAGE CAPACITY: '+money(c.pages)+
  '\nADDITIONAL AGREED FEATURES: '+(val('extraDescription')||'None')+' — '+money(c.extras)+
  '\nDOMAIN: '+(c.domain==='chipin'?'Chip In-managed standard domain £20/year':c.domain)+
- '\nHOSTING: '+(c.hosting==='chipin'?'Separate hosting quotation required':c.hosting)+
+ '\nHOSTING: '+(c.hosting==='chipin'?'Chip In-managed GitHub plus Cloudflare Pages static hosting — £0 included':c.hosting==='special'?'Special paid hosting — quote required':c.hosting)+
  '\nMAINTENANCE: '+planData[c.care].title+
  '\nONE-OFF BUILD: '+money(c.oneOff)+'\nMONTHLY CARE: '+money(c.monthlyTotal)+
- '\nANNUAL DOMAIN: '+money(c.annualTotal)+'\n12 MONTHS (excludes unpriced hosting): '+money(c.firstYear)+
+ '\nANNUAL DOMAIN: '+money(c.annualTotal)+'\n12 MONTHS (standard hosting £0; paid extras excluded): '+money(c.firstYear)+
  '\n\nCONTENT TO SUPPLY: '+outstanding+'\nCONTENT DUE: '+val('contentDue')+
  '\nCONTENT DELIVERY: '+deliveryInstructions()+
  '\nPAYMENT ARRANGEMENTS: '+val('paymentSchedule')+'; '+val('paymentMethod')+
  '\nMONTHLY BILLING: '+val('monthlyMethod')+'\nANNUAL BILLING: '+val('domainBilling')+
- '\nFIRST DRAFT: '+val('draftDate')+'\nREVIEW: '+val('reviewDate')+'\nLAUNCH: '+val('launchDate')+
+ '\nAGREED BUILD DAYS (CALENDAR): '+(timeline().duration||'Not yet agreed')+'\nLATEST COMPLETE CLIENT ASSETS DUE: '+val('contentDue')+'\nACTUAL ALL ASSETS RECEIVED: '+val('assetsReceivedDate')+'\nFIRST DRAFT: '+timeline().draft+'\nCLIENT FEEDBACK DUE (3 calendar days): '+timeline().feedback+'\nFINISHED REVISION (5 UK working days): '+timeline().complete+'\nWRITTEN APPROVAL: '+val('finalApprovalDate')+'\nCONDITIONAL LIVE WINDOW 24-48 HOURS: '+timeline().liveFrom+' to '+timeline().liveTo+
  '\nOPEN ITEMS: '+(c.unresolved.join('; ')||'None flagged')+
  '\n\nMeeting summary, not an invoice. The client content files must still be supplied.';
 }
