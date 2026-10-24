@@ -26,6 +26,8 @@ const input=(name,value)=>{
 };
 const text=()=>d.getElementById('liveQuote').textContent;
 assert.match(text(),/£250/);
+assert.equal(f.elements.namedItem('hostingChoice').value,'chipin');
+assert.match(text(),/static hosting via Cloudflare Pages — £0 included/i);
 assert.equal(d.getElementById('heroBusiness').textContent,'New client');
 assert.equal(d.querySelectorAll('[name="includedPages"]:checked').length,7);
 assert.equal(d.querySelectorAll('section.pane').length,9);
@@ -48,25 +50,65 @@ assert.match(text(),/£908/);
 input('care','partner');
 assert.match(text(),/£1,388/);
 input('hostingChoice','chipin');
-assert.match(text(),/separate price not yet included/i);
-assert.match(d.getElementById('readiness').textContent,/hosting scope and price/i);
+assert.match(text(),/Cloudflare Pages — £0 included/i);
+assert.doesNotMatch(d.getElementById('readiness').textContent,/hosting scope and price/i);
+input('hostingChoice','special');
+assert.match(d.getElementById('readiness').textContent,/Special hosting or server costs must be agreed/i);
+input('hostingChoice','chipin');
 assert.doesNotMatch(text(),/£1,532/);
 const food=d.querySelector('input[name="includedPages"][value="Food / Menu"]');
 food.checked=false;
 food.dispatchEvent(new w.Event('change',{bubbles:true}));
 assert.equal(f.elements.namedItem('assetFood').value,'Not needed');
+assert.equal(f.elements.namedItem('buildDays').value,'7');
 assert.doesNotMatch(text(),/Home; About \/ Our Business; Food \/ Menu/);
 assert.equal(d.querySelectorAll('[name="includedPages"]:checked').length,6);
+// The client commits to a latest asset date; timeline stays projected until ALL assets actually arrive.
+input('contentDue','2026-11-06'); // Friday
+assert.match(d.getElementById('readiness').textContent,/Agree number of calendar days/i);
+input('buildDays','7'); // 7 calendar days
+let schedule=d.getElementById('timelinePreview').textContent;
+assert.match(schedule,/13\/11\/2026/); // first version
+assert.match(schedule,/16\/11\/2026/); // 3 calendar day review
+assert.match(schedule,/23\/11\/2026/); // 5 working days: Tue-Fri then Mon
+assert.match(schedule,/24\/11\/2026/);
+assert.match(schedule,/25\/11\/2026/);
+assert.match(schedule,/Illustrative ONLY/i);
+assert.match(text(),/Agreed project delivery timeline/);
+input('assetsReceivedDate','2026-11-09'); // Actual receipt pushes dates forwards
+schedule=d.getElementById('timelinePreview').textContent;
+assert.match(schedule,/16\/11\/2026/); // first version
+assert.match(schedule,/19\/11\/2026/); // review due
+assert.match(schedule,/26\/11\/2026/); // 5 working days after review
+assert.match(schedule,/27\/11\/2026/); // illustrative launch +24h
+input('finalApprovalDate','2026-11-30');
+assert.match(d.getElementById('timelinePreview').textContent,/02\/12\/2026/);
+assert.doesNotMatch(d.getElementById('timelinePreview').textContent,/Illustrative ONLY/i);
+input('contentDue','2026-12-21');
+input('buildDays','2');
+input('assetsReceivedDate',''); // projected timeline through Christmas/New Year bank holidays
+input('finalApprovalDate','');
+schedule=d.getElementById('timelinePreview').textContent;
+assert.match(schedule,/23\/12\/2026/); // first version
+assert.match(schedule,/26\/12\/2026/); // 3-day review
+assert.match(schedule,/05\/01\/2027/); // 5 working days after Dec 26 incl Boxing and New Year
+input('contentDue','2026-11-06');
+input('buildDays','7');
+input('assetsReceivedDate','2026-11-09');
 input('deliveryMethod','folder');
 input('assetPhotos','To supply');
 d.getElementById('printHandover').click();
 assert.equal(w._prints,1);
 assert.match(d.getElementById('printArea').textContent,/private upload-folder invitation/i);
 assert.match(d.getElementById('printArea').textContent,/Approved photographs/);
+assert.match(d.getElementById('printArea').textContent,/five UK working days/i);
+assert.match(d.getElementById('printArea').textContent,/26\/11\/2026/);
 input('uploadFolder','https://drive.google.com/drive/folders/demo123');
 d.getElementById('printQuote').click();
 assert.equal(w._prints,2);
 assert.match(d.getElementById('printArea').textContent,/drive.google.com/);
+assert.match(d.getElementById('printArea').textContent,/£0 included/);
+assert.match(d.getElementById('printArea').textContent,/asset/i);
 d.getElementById('plansTop').click();
 d.getElementById('printPlans').click();
 assert.equal(w._prints,3);
@@ -76,6 +118,7 @@ const oldName=f.elements.namedItem('business').value;
 d.getElementById('newClient').click();
 assert.equal(f.elements.namedItem('business').value,'');
 assert.equal(d.querySelectorAll('[name="includedPages"]:checked').length,7);
+assert.equal(f.elements.namedItem('hostingChoice').value,'chipin');
 input('business','Second Client');
 let select=d.getElementById('projectPicker');
 assert.equal(select.options.length,2);
@@ -107,6 +150,9 @@ const encoded=decodeURIComponent(w._lastOpened.split('#brief=')[1]).replace(/-/g
 const onboardingData=JSON.parse(Buffer.from(encoded,'base64').toString('utf8'));
 assert.equal(onboardingData.business,'Test Cafe');
 assert.equal(onboardingData.email,'contact@testcafe.example');
+assert.equal(onboardingData.brief.fields.buildDays,'7');
+assert.equal(onboardingData.brief.fields.assetsReceivedDate,'2026-11-09');
+assert.equal(onboardingData.brief.fields.hostingChoice,'chipin');
 assert.deepEqual(onboardingData.brief.fields.quoteApproved,['on']); // checkbox captured in structured brief
 input('clientPortalUrl','https://script.google.com/macros/s/EXAMPLE/exec?mode=onboard-upload&code=private');
 d.getElementById('printHandover').click();
@@ -119,4 +165,4 @@ assert.ok(b);
 const source=fs.readFileSync('client-meeting/meeting.js','utf8');
 assert.match(source,/function buildBriefMarkdown/);
 assert.match(source,/## Build instructions for a new ChatGPT work session/);
-console.log('PASS: reusable meeting and pages, annual domain, care quote, post-approval owner activation, imported client identity, private upload link handover, saved sessions and print views.');
+console.log('PASS: free commercial static hosting, quote timeline from agreed client deadline, 3 calendar day feedback, 5 UK working days incl bank holidays, conditional DNS window, owner activation, print handover and saved client sessions.');
