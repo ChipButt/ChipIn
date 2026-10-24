@@ -66,6 +66,11 @@ assert.equal(d.querySelectorAll('[name="includedPages"]:checked').length,6);
 input('contentDue','2026-11-06'); // Friday
 assert.match(d.getElementById('readiness').textContent,/Agree number of calendar days/i);
 input('buildDays','7'); // 7 calendar days
+assert.match(d.getElementById('readiness').textContent,/client acknowledged/i);
+const ack=d.getElementById('timelinePreview').parentElement.querySelector('[name="timelineAcknowledged"]');
+assert.ok(ack);
+ack.checked=true;ack.dispatchEvent(new w.Event('change',{bubbles:true}));
+assert.doesNotMatch(d.getElementById('readiness').textContent,/client acknowledged/i);
 let schedule=d.getElementById('timelinePreview').textContent;
 assert.match(schedule,/13\/11\/2026/); // first version
 assert.match(schedule,/16\/11\/2026/); // 3 calendar day review
@@ -151,6 +156,7 @@ const onboardingData=JSON.parse(Buffer.from(encoded,'base64').toString('utf8'));
 assert.equal(onboardingData.business,'Test Cafe');
 assert.equal(onboardingData.email,'contact@testcafe.example');
 assert.equal(onboardingData.brief.fields.buildDays,'7');
+assert.deepEqual(onboardingData.brief.fields.timelineAcknowledged,['confirmed']);
 assert.equal(onboardingData.brief.fields.assetsReceivedDate,'2026-11-09');
 assert.equal(onboardingData.brief.fields.hostingChoice,'chipin');
 assert.deepEqual(onboardingData.brief.fields.quoteApproved,['on']); // checkbox captured in structured brief
