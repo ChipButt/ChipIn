@@ -24,3 +24,5 @@
 .quote-view .timeline-cards b{font-size:16px}
 @media(max-width:760px){.timeline-agreement{padding:14px}.timeline-cards,.quote-view .timeline-cards{grid-template-columns:1fr}}
 @media print{.print-sheet .timeline-cards{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}.print-sheet .timeline-cards article{padding:7px;break-inside:avoid}.print-sheet .timeline-cards b{font-size:12px}.print-sheet .timeline-cards strong,.print-sheet .timeline-cards span{font-size:9px}.print-sheet .timeline-cards span{line-height:1.3}}
+
+.timeline-ack{display:flex;align-items:flex-start;gap:12px;background:#e9f7ee;border:1px solid #9ecfb0;border-radius:12px;padding:14px;margin:17px 0;font-size:13px;line-height:1.5;color:#173f34}.timeline-ack input{width:19px;height:19px;flex:0 0 19px;margin-top:2px;accent-color:#12684d}
