@@ -6,6 +6,7 @@ const stepButtons=Array.from(document.querySelectorAll('[data-jump]'));
 const libraryKey='chipin-client-meetings-v2';
 const legacyKey='chipin-client-meeting-bulls-head-v1';
 let library={activeId:null,projects:{}};
+let linkedProjectId='';
 const assetNames=[
  ['assetLogo','Logo / brand assets'],
  ['assetPhotos','Approved photographs'],
@@ -121,11 +122,11 @@ function getState(){
      if(el.checked)fields[el.name].push(el.value);
    }else if(el.tagName==='INPUT'||el.tagName==='TEXTAREA'||el.tagName==='SELECT')fields[el.name]=el.value;
  });
- return {version:2,updatedAt:new Date().toISOString(),step:active,fields:fields};
+ return {version:2,projectId:linkedProjectId,updatedAt:new Date().toISOString(),step:active,fields:fields};
 }
 function applyState(state){
  if(!state||![1,2].includes(state.version)||!state.fields||typeof state.fields!=='object'||Array.isArray(state.fields))throw new Error('This is not a valid Chip In meeting backup.');
- form.reset();
+ form.reset();linkedProjectId=String(state.projectId||'');
  for(const el of Array.from(form.elements)){
   if(!el.name||!Object.prototype.hasOwnProperty.call(state.fields,el.name))continue;
   const x=state.fields[el.name];
@@ -153,7 +154,7 @@ function loadProject(id){
 }
 function createNewClient(){
  if(library.activeId)library.projects[library.activeId]=getState();
- form.reset();goTo(0);
+ form.reset();linkedProjectId='';goTo(0);
  library.activeId=newId();library.projects[library.activeId]=getState();
  save();refreshHeader();
 }
@@ -361,7 +362,7 @@ function openClientOnboarding(){
  }
  const url='https://script.google.com/macros/s/AKfycbzz7FWTrjHkH8LUCrEElzr1MFCN9lN408-C_wC2o2FAU5j8HYXd43uUBgUHRDsiB78/exec?mode=onboard-admin';
  const fields=getState().fields;
- const payload={meetingId:library.activeId,business:val('business'),email:val('email'),contact:val('contact'),brief:{version:2,fields}};
+ const payload={meetingId:library.activeId,projectId:linkedProjectId||'',business:val('business'),email:val('email'),contact:val('contact'),brief:{version:2,projectId:linkedProjectId||'',fields}};
  let hash='';
  try{
   const bytes=new TextEncoder().encode(JSON.stringify(payload));
@@ -561,5 +562,25 @@ try{
  document.getElementById('saveStatus').textContent='Local save issue — download a backup before leaving';
 }
 try{document.getElementById('onboardingReady').checked=localStorage.getItem('chipin-onboarding-setup-confirmed-v1')==='yes';}catch(err){}
-renderQuote();refreshHeader();
+// An owner-issued link carries the permanent project ID, not just a name.
+ // It creates/opens a local meeting draft for EXACTLY this project.
+ // No other saved client's notes are overwritten or associated by guesswork.
+ const params=new URLSearchParams(window.location.search);
+ const projectId=params.get('projectId')||'';
+ const projectName=(params.get('business')||'').trim();
+ if(/^[a-z0-9-]{6,100}$/.test(projectId)){
+   const match=Object.entries(library.projects).find(([id,p])=>p&&p.projectId===projectId);
+   if(match)loadProject(match[0]);
+   else{
+     createNewClient();
+     linkedProjectId=projectId;
+     if(projectName.length<=110)field('business').value=projectName;
+     save();
+   }
+   const notice=document.createElement('p');
+   notice.className='small-intro';
+   notice.textContent='Linked to the existing '+(val('business')||'client')+' website project. Its current website and editor will be reused after quote acceptance.';
+   document.getElementById('workarea').prepend(notice);
+ }
+ renderQuote();refreshHeader();
 })();

@@ -3,8 +3,8 @@ const assert=require('node:assert/strict');
 const {JSDOM}=require('jsdom');
 const html=fs.readFileSync('client-meeting/index.html','utf8');
 const script=fs.readFileSync('client-meeting/meeting.js','utf8');
-function open(existing){
- const dom=new JSDOM(html,{url:'https://chipinworks.co.uk/client-meeting/',runScripts:'outside-only',pretendToBeVisual:true});
+function open(existing,url){
+ const dom=new JSDOM(html,{url:url||'https://chipinworks.co.uk/client-meeting/',runScripts:'outside-only',pretendToBeVisual:true});
  const w=dom.window;
  w.matchMedia=()=>({matches:false,addListener(){},removeListener(){}});
  w.print=()=>{w._prints=(w._prints||0)+1};
@@ -171,4 +171,29 @@ assert.ok(b);
 const source=fs.readFileSync('client-meeting/meeting.js','utf8');
 assert.match(source,/function buildBriefMarkdown/);
 assert.match(source,/## Build instructions for a new ChatGPT work session/);
+// A client project must bind by opaque server-issued ID rather than name.
+const linkedUrl='https://chipinworks.co.uk/client-meeting/?projectId=bulls-head-bidford&business=The+Bulls+Head';
+const linked=open(null,linkedUrl),linkedForm=linked.document.getElementById('meetingForm');
+assert.equal(linkedForm.elements.namedItem('business').value,'The Bulls Head');
+assert.match(linked.document.getElementById('workarea').textContent,/Linked to the existing The Bulls Head website project/i);
+linkedForm.elements.namedItem('email').value='owner@bulls.example';
+linkedForm.elements.namedItem('contact').value='Manager';
+linked.document.getElementById('onboardingReady').checked=true;
+linked.document.getElementById('quoteApproved').checked=true;
+linked.document.getElementById('activateAssets').click();
+const linkedBrief=decodeURIComponent(linked._lastOpened.split('#brief=')[1]).replace(/-/g,'+').replace(/_/g,'/');
+const linkedPayload=JSON.parse(Buffer.from(linkedBrief,'base64').toString('utf8'));
+assert.equal(linkedPayload.projectId,'bulls-head-bidford');
+assert.equal(linkedPayload.brief.projectId,'bulls-head-bidford');
+assert.equal(linkedPayload.business,'The Bulls Head');
+const linkedStored=JSON.parse(linked.localStorage.getItem('chipin-client-meetings-v2'));
+assert.equal(Object.values(linkedStored.projects).filter(p=>p.projectId==='bulls-head-bidford').length,1);
+const linkedAgain=open(JSON.stringify(linkedStored),linkedUrl);
+const linkedAgainStored=JSON.parse(linkedAgain.localStorage.getItem('chipin-client-meetings-v2'));
+assert.equal(Object.values(linkedAgainStored.projects).filter(p=>p.projectId==='bulls-head-bidford').length,1);
+linkedAgain.document.getElementById('newClient').click();
+const afterNew=JSON.parse(linkedAgain.localStorage.getItem('chipin-client-meetings-v2'));
+const fresh=afterNew.projects[afterNew.activeId];
+assert.equal(fresh.projectId,'');
+
 console.log('PASS: free commercial static hosting, quote timeline from agreed client deadline, 3 calendar day feedback, 5 UK working days incl bank holidays, conditional DNS window, owner activation, print handover and saved client sessions.');
