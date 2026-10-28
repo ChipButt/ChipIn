@@ -12,7 +12,8 @@
     return s;
   }
   const sales = ()=>ensureSales();
-  const stageOrder=['Found','Research','Contact','Follow-up','Interested','Quote','Won','Lost'];
+  const stageOrder=['Found','Research','Contact','Follow-up','Interested','Quote'];
+  const closedStages=['Won','Lost'];
   const methodLabels={research:'RESEARCH',email:'EMAIL',call:'CALL',visit:'VISIT'};
   const methodIcon={research:'⌕',email:'✉',call:'☎',visit:'⌖'};
   const leadById=id=>sales().leads.find(x=>x.id===id);
@@ -25,7 +26,7 @@
   function countStage(stages){return sales().leads.filter(l=>stages.includes(l.stage)).length}
   function prospectStats(){
     return {
-      prospects:sales().leads.length,
+      prospects:sales().leads.filter(l=>!closedStages.includes(l.stage)).length,
       conversations:activityThisMonth('conversation').length,
       quotes:activityThisMonth('quote').length,
       won:activityThisMonth('won').length
@@ -685,7 +686,7 @@
       <div class="field"><label>Estimated value (£)</label><input name="estimatedValue" type="number" min="0" step="0.01" value="${esc(l.estimatedValue||'')}"></div>
       <div class="field full"><label>Address / location</label><input name="address" value="${esc(l.address||'')}"></div>
       <div class="field"><label>Services they might need</label><input name="service" value="${esc(l.service||'')}" placeholder="Website Design, Pub Quiz, Hospitality…"></div>
-      <div class="field"><label>Pipeline stage</label><select name="stage">${stageOrder.map(x=>`<option ${(l.stage||'Found')===x?'selected':''}>${x}</option>`).join('')}</select></div>
+      <div class="field"><label>Pipeline stage</label><select name="stage">${stageOrder.concat(closedStages).map(x=>`<option ${(l.stage||'Found')===x?'selected':''}>${x}</option>`).join('')}</select></div>
       <div class="field full"><label>Problem / opportunity noticed</label><textarea name="problem" placeholder="What have you actually noticed that Chip In could solve?">${esc(l.problem||'')}</textarea></div>
       <div class="field full"><label>Last contact summary</label><textarea name="lastContactSummary" placeholder="Only factual notes. What actually happened last time?">${esc(l.lastContactSummary||'')}</textarea></div>
       <div class="field"><label>Next action</label><select name="nextActionMethod">${['research','email','call','visit'].map(x=>`<option value="${x}" ${(l.nextActionMethod||'research')===x?'selected':''}>${methodLabels[x]}</option>`).join('')}</select></div>
@@ -705,6 +706,7 @@
       Object.assign(target,v,{updatedAt:new Date().toISOString()});
       if(!l.id)sales().leads.push(target);
       await saveState(); closeModal(); render(); toast('Prospect saved');
+      if(target.stage==='Won' && !target.convertedJobId)window.ChipInProspectConversion?.start(target.id);
     };
     $('#deleteSalesLead')?.addEventListener('click',()=>confirmAction('Delete this prospect and its sales history?',async()=>{
       sales().leads=sales().leads.filter(x=>x.id!==l.id);
@@ -744,6 +746,7 @@
         l.nextActionReason=v.outcome==='researched'?'Research complete; make first contact.':v.outcome==='quote'?'Follow up the quote.':v.outcome==='no_reply'?'No reply last time; try again.':'Continue the conversation.';
       }
       await saveState(); closeModal(); render(); toast('Sales action recorded');
+      if(v.outcome==='won' && !l.convertedJobId)window.ChipInProspectConversion?.start(l.id);
     };
   }
 
