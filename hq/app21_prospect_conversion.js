@@ -19,10 +19,15 @@
       }));
     } catch (error) { console.warn('Meeting library unavailable', error); return []; }
   };
+  const isMatch = (m, name, clientId, leadId) =>
+    (norm(name) && norm(m.business) === norm(name)) ||
+    (clientId && m.hqClientId === clientId) ||
+    (leadId && state.jobs.some(j => j.sourceLeadId === leadId && j.id === m.hqJobId));
+  // Include other local meeting drafts as manual choices when names differ.
+  // Only precise matches are ever auto-suggested.
   const matchingMeetings = (name, clientId, leadId) =>
-    allMeetings().filter(m => (norm(name) && norm(m.business) === norm(name)) ||
-      (clientId && m.hqClientId === clientId) ||
-      (leadId && state.jobs.some(j => j.sourceLeadId === leadId && j.id === m.hqJobId)));
+    allMeetings().sort((a, b) => Number(!!isMatch(b, name, clientId, leadId)) -
+      Number(!!isMatch(a, name, clientId, leadId)));
 
   function selectOptions(items, selected, labelFn) {
     return items.map(item => '<option value="' + esc(item.id) + '"' +
@@ -41,7 +46,7 @@
   }
   const clientKeys = ['name', 'contact', 'email', 'phone', 'address', 'website', 'notes'];
 
-  function start(leadId) {
+  function start(leadId, clientDraft) {
     const lead = leadById(leadId);
     if (!lead) { toast('Prospect not found'); return; }
     if (lead.convertedClientId && lead.convertedJobId &&
@@ -58,7 +63,8 @@
       (lead.email && clean(c.email).toLowerCase() === clean(lead.email).toLowerCase()));
     const linked = existing.find(c => c.sourceLeadId === lead.id);
     const suggested = linked || (existing.length === 1 ? existing[0] : null);
-    const initial = suggested || clientDefaults(lead);
+    const initial = clientDraft || suggested || clientDefaults(lead);
+    const chosenClientId = clientDraft ? clientDraft.existingClientId : (suggested?.id || '');
     openModal(
       '<div class="sales-kicker">WON CONTRACT · STEP 1 OF 2</div><h2>Confirm client details</h2>' +
       '<p class="sub">Check the details transferred from ' + esc(lead.businessName) +
@@ -66,7 +72,7 @@
       '<form id="hqConversionClient"><div class="form-grid">' +
       '<div class="field full"><label>Client record</label><select name="existingClientId" id="hqExistingClient">' +
       '<option value="">Create a new client</option>' +
-      selectOptions(existing, suggested?.id || '', c => c.name + (c.email ? ' · ' + c.email : '')) +
+      selectOptions(existing, chosenClientId, c => c.name + (c.email ? ' · ' + c.email : '')) +
       '</select>' + (existing.length ? '<div class="muted">Possible existing client found. Confirm which record to use.</div>' : '') + '</div>' +
       '<div class="field"><label>Business / client name</label><input name="name" required value="' + esc(initial.name) + '"></div>' +
       '<div class="field"><label>Contact</label><input name="contact" value="' + esc(initial.contact) + '"></div>' +
@@ -114,8 +120,9 @@
     const meetings = matchingMeetings(client.name, currentClient, lead.id);
     const previouslyLinked = matches.find(j => j.sourceLeadId === lead.id);
     const selectedJob = previouslyLinked || null;
+    const precise = meetings.filter(m => isMatch(m, client.name, currentClient, lead.id));
     const suggestedMeeting = meetings.find(m => selectedJob && (m.id === selectedJob.meetingId || m.hqJobId === selectedJob.id)) ||
-      (meetings.length === 1 ? meetings[0] : null);
+      (precise.length === 1 ? precise[0] : null);
     const values = selectedJob || jobDefaults(lead, suggestedMeeting);
     openModal(
       '<div class="sales-kicker">WON CONTRACT · STEP 2 OF 2</div><h2>Confirm the job and website work</h2>' +
@@ -131,8 +138,9 @@
       selectOptions(meetings, suggestedMeeting?.id || '', m => m.business + (m.date ? ' · ' + m.date : '') +
         (m.projectId ? ' · linked website project' : '')) +
       '</select><div class="muted">' +
-      (meetings.length ? 'Matching saved meeting drafts found on this browser. Confirm the right one.' :
-        'No matching meeting found in this browser. You can create or link one after saving.') +
+      (precise.length ? 'Matching meeting drafts found on this browser. Please confirm the correct one.' :
+        meetings.length ? 'Other saved meeting drafts are available; select one only if it is the right project.' :
+        'No meeting drafts are saved in this browser. You can create or link one after saving.') +
       '</div></div>' +
       '<div class="field full"><label>Job title</label><input name="title" required value="' + esc(values.title) + '"></div>' +
       '<div class="field"><label>Category</label><select name="category">' +
@@ -155,7 +163,7 @@
       '<button type="submit" class="btn gold" id="hqConfirmConversion">Confirm · Create client and job</button></div></form>', true
     );
     const form = $('#hqConversionJob');
-    $('#hqBackClient').onclick = () => start(lead.id);
+    $('#hqBackClient').onclick = () => start(lead.id, client);
     $('#hqExistingJob').onchange = e => {
       const record = state.jobs.find(j => j.id === e.target.value);
       const meeting = meetings.find(m => m.id === form.elements.meetingId.value);
@@ -175,6 +183,7 @@
       const oldJobs = structuredClone(state.jobs);
       const oldLeads = structuredClone(state.salesAssistant.leads);
       const oldActivity = structuredClone(state.salesAssistant.activity || []);
+      const oldNextJobNumber = state.settings.nextJobNumber;
       try {
         const now = new Date().toISOString();
         let c = client.existingClientId ? clientById(client.existingClientId) : null;
@@ -190,6 +199,8 @@
         if (j && j.clientId !== c.id && j.sourceLeadId !== lead.id) throw Error('Selected job belongs to another client');
         const fee = Number(data.amount);
         const meeting = meetings.find(m => m.id === data.meetingId);
+        if (meeting?.hqJobId && meeting.hqJobId !== (j?.id || '') && jobById(meeting.hqJobId))
+          throw Error('This meeting is already linked to another HQ job. Select that existing job first.');
         const jobData = {
           clientId: c.id, title: clean(data.title), category: data.category,
           status: data.status, startDate: data.startDate, endDate: data.endDate,
@@ -231,6 +242,7 @@
       } catch (error) {
         state.clients = oldClients; state.jobs = oldJobs; state.salesAssistant.leads = oldLeads;
         state.salesAssistant.activity = oldActivity;
+        state.settings.nextJobNumber = oldNextJobNumber;
         button.disabled = false;
         toast('Could not complete conversion: ' + error.message);
         console.error('Prospect conversion failed', error);
