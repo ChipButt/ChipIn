@@ -7,6 +7,7 @@ const libraryKey='chipin-client-meetings-v2';
 const legacyKey='chipin-client-meeting-bulls-head-v1';
 let library={activeId:null,projects:{}};
 let linkedProjectId='';
+let linkedHQJobId='', linkedHQClientId='';
 const assetNames=[
  ['assetLogo','Logo / brand assets'],
  ['assetPhotos','Approved photographs'],
@@ -122,11 +123,12 @@ function getState(){
      if(el.checked)fields[el.name].push(el.value);
    }else if(el.tagName==='INPUT'||el.tagName==='TEXTAREA'||el.tagName==='SELECT')fields[el.name]=el.value;
  });
- return {version:2,projectId:linkedProjectId,updatedAt:new Date().toISOString(),step:active,fields:fields};
+ return {version:2,projectId:linkedProjectId,hqJobId:linkedHQJobId,hqClientId:linkedHQClientId,updatedAt:new Date().toISOString(),step:active,fields:fields};
 }
 function applyState(state){
  if(!state||![1,2].includes(state.version)||!state.fields||typeof state.fields!=='object'||Array.isArray(state.fields))throw new Error('This is not a valid Chip In meeting backup.');
  form.reset();linkedProjectId=String(state.projectId||'');
+ linkedHQJobId=String(state.hqJobId||'');linkedHQClientId=String(state.hqClientId||'');
  for(const el of Array.from(form.elements)){
   if(!el.name||!Object.prototype.hasOwnProperty.call(state.fields,el.name))continue;
   const x=state.fields[el.name];
@@ -154,7 +156,7 @@ function loadProject(id){
 }
 function createNewClient(){
  if(library.activeId)library.projects[library.activeId]=getState();
- form.reset();linkedProjectId='';goTo(0);
+ form.reset();linkedProjectId='';linkedHQJobId='';linkedHQClientId='';goTo(0);
  library.activeId=newId();library.projects[library.activeId]=getState();
  save();refreshHeader();
 }
@@ -562,21 +564,53 @@ try{
  document.getElementById('saveStatus').textContent='Local save issue — download a backup before leaving';
 }
 try{document.getElementById('onboardingReady').checked=localStorage.getItem('chipin-onboarding-setup-confirmed-v1')==='yes';}catch(err){}
-// An owner-issued link carries the permanent project ID, not just a name.
- // It creates/opens a local meeting draft for EXACTLY this project.
- // No other saved client's notes are overwritten or associated by guesswork.
+// Open an explicitly linked meeting or website project first; never match by name alone.
+ // The HQ job link is separate from the permanent HospoLP website project ID.
  const params=new URLSearchParams(window.location.search);
  const projectId=params.get('projectId')||'';
- const projectName=(params.get('business')||'').trim();
- if(/^[a-z0-9-]{6,100}$/.test(projectId)){
-   const match=Object.entries(library.projects).find(([id,p])=>p&&p.projectId===projectId);
-   if(match)loadProject(match[0]);
+ const meetingId=params.get('meetingId')||'';
+ const hqJobId=params.get('hqJobId')||'';
+ const hqClientId=params.get('hqClientId')||'';
+ const safeJob=/^job_[a-z0-9_]{5,100}$/.test(hqJobId);
+ const safeClient=/^cli_[a-z0-9_]{5,100}$/.test(hqClientId);
+ const safeProject=/^[a-z0-9-]{6,100}$/.test(projectId);
+ let matched=false, created=false;
+ if(meetingId&&Object.prototype.hasOwnProperty.call(library.projects,meetingId)){
+   loadProject(meetingId);
+   matched=true;
+ }else if(safeJob){
+   const previous=Object.entries(library.projects).find(([,record])=>record&&record.hqJobId===hqJobId);
+   if(previous){loadProject(previous[0]);matched=true;}
+ }
+ if(!matched&&safeProject){
+   const existing=Object.entries(library.projects).find(([,record])=>record&&record.projectId===projectId);
+   if(existing){loadProject(existing[0]);matched=true;}
    else{
-     createNewClient();
-     linkedProjectId=projectId;
-     if(projectName.length<=110)field('business').value=projectName;
-     save();
+     createNewClient();linkedProjectId=projectId;created=true;
    }
+ }
+ if(!matched&&!created&&safeJob){createNewClient();created=true;}
+ if(safeJob){
+   linkedHQJobId=hqJobId;
+   if(safeClient)linkedHQClientId=hqClientId;
+   if(created){
+     try{
+       const transfer=JSON.parse(localStorage.getItem('chipin-hq-meeting-intent-v1')||'{}');
+       if(transfer.hqJobId===hqJobId){
+         for(const [key,value] of [['business',transfer.business],['contact',transfer.contact],['email',transfer.email],['location',transfer.location]]){
+           const input=field(key);
+           if(input&&!val(key)&&typeof value==='string')input.value=value.slice(0,250);
+         }
+       }
+     }catch(err){console.warn('HQ meeting draft prefill unavailable',err);}
+   }
+   save();
+   const notice=document.createElement('p');
+   notice.className='small-intro';
+   notice.textContent='Linked to Chip In HQ job '+hqJobId+'. Changes to this meeting save on this browser; HQ can recognise this job link here.';
+   document.getElementById('workarea').prepend(notice);
+ }else if(safeProject){
+   if(created)save();
    const notice=document.createElement('p');
    notice.className='small-intro';
    notice.textContent='Linked to the existing '+(val('business')||'client')+' website project. Its current website and editor will be reused after quote acceptance.';
