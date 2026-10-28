@@ -568,6 +568,7 @@ try{document.getElementById('onboardingReady').checked=localStorage.getItem('chi
  // The HQ job link is separate from the permanent HospoLP website project ID.
  const params=new URLSearchParams(window.location.search);
  const projectId=params.get('projectId')||'';
+ const projectName=(params.get('business')||'').trim();
  const meetingId=params.get('meetingId')||'';
  const hqJobId=params.get('hqJobId')||'';
  const hqClientId=params.get('hqClientId')||'';
@@ -587,6 +588,7 @@ try{document.getElementById('onboardingReady').checked=localStorage.getItem('chi
    if(existing){loadProject(existing[0]);matched=true;}
    else{
      createNewClient();linkedProjectId=projectId;created=true;
+     if(projectName.length<=110&&field('business'))field('business').value=projectName;
    }
  }
  if(!matched&&!created&&safeJob){createNewClient();created=true;}
