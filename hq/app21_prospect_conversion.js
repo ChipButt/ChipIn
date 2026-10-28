@@ -119,7 +119,7 @@
       j.sourceLeadId === lead.id);
     const meetings = matchingMeetings(client.name, currentClient, lead.id);
     const previouslyLinked = matches.find(j => j.sourceLeadId === lead.id);
-    const selectedJob = previouslyLinked || null;
+    const selectedJob = previouslyLinked || matches.find(j => meetings.some(m => m.hqJobId === j.id)) || null;
     const precise = meetings.filter(m => isMatch(m, client.name, currentClient, lead.id));
     const suggestedMeeting = meetings.find(m => selectedJob && (m.id === selectedJob.meetingId || m.hqJobId === selectedJob.id)) ||
       (precise.length === 1 ? precise[0] : null);
@@ -318,7 +318,7 @@
       '<p class="muted">Open the existing meeting record, or start a linked draft for this job.</p>' +
       websiteJobs.map(j => '<div class="action-item"><div><div class="title">' + esc(j.title) +
         '</div><div class="meta">' + esc(clientById(j.clientId)?.name || '') + ' · ' +
-        (j.meetingId ? 'Meeting linked' : 'Meeting not yet linked') + '</div></div>' +
+        (j.meetingId || allMeetings().some(m => m.hqJobId === j.id) ? 'Meeting linked' : 'Meeting not yet linked') + '</div></div>' +
         '<button class="btn small secondary" data-hq-meeting="' + esc(j.id) +
         '">Website meeting</button></div>').join('');
     $('#content').prepend(section);
