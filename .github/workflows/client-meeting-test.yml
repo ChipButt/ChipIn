@@ -3,6 +3,7 @@ on:
   push:
     paths:
       - 'client-meeting/**'
+      - 'hq/**'
       - '.github/workflows/client-meeting-test.yml'
   workflow_dispatch:
 jobs:
@@ -16,8 +17,13 @@ jobs:
         with:
           node-version: '20'
       - name: Validate JavaScript syntax
-        run: node --check client-meeting/meeting.js
+        run: |
+          node --check client-meeting/meeting.js
+          node --check hq/app18_sales_assistant.js
+          node --check hq/app21_prospect_conversion.js
       - name: Install isolated browser DOM test dependency
         run: npm install --no-save --ignore-scripts --no-audit --no-fund jsdom@26
       - name: Test workflow, quotes, saving and printing
-        run: node client-meeting/smoke-test.cjs
+        run: |
+          node client-meeting/smoke-test.cjs
+          node hq/prospect-conversion-smoke.test.cjs
