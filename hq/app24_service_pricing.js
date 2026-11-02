@@ -106,6 +106,10 @@ openJobForm=function(id,duplicateFromId){
    optionsHost.querySelectorAll('input,select').forEach(el=>el.addEventListener('change',update));
   }
   const pkg=isPackage();
+  // Package jobs do not use an hourly/day rate. A hidden required rate field
+  // otherwise stops the browser firing the submit event at all.
+  const rateField=field('rate');
+  if(rateField){rateField.required=!pkg;if(pkg&&rateField.value==='')rateField.value='0';}
   optionsHost.classList.toggle('hq-hide-package',!pkg);
   box.querySelector('#hqLegacyNotice').style.display=keepLegacy&&!!spec?'':'none';
   box.querySelector('#hqSwitchPrice').style.display=keepLegacy&&!!spec?'':'none';
