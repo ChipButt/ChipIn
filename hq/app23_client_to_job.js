@@ -11,12 +11,12 @@
 
   function inferCategory(service) {
     const value = trim(service).toLowerCase();
-    if (/website|web\s?design|web\s?site|domain|hosting|\bseo\b/.test(value)) return 'Website';
-    if (/quiz|trivia/.test(value)) return 'Quiz hosting';
-    if (/video|film|editing/.test(value)) return 'Video editing';
+    if (/website|web\s?design|web\s?site|domain|hosting|\bseo\b/.test(value)) return 'Website Design';
+    if (/quiz|trivia/.test(value)) return 'Pub Quizzes';
+    if (/video|film|editing/.test(value)) return 'Video Creation';
     if (/production|photograph|audio|podcast|voice.?over|recording/.test(value)) return 'Production';
-    if (/hospitality|staffing|bar service|event/.test(value)) return 'Events / hospitality';
-    if (/admin|general support|business support|virtual assistant/.test(value)) return 'General support';
+    if (/hospitality|staffing|bar service|event/.test(value)) return 'Hospitality & Events';
+    if (/admin|general support|business support|virtual assistant/.test(value)) return 'Admin Support';
     return 'Other'; // Never infer a job from the type of business alone.
   }
 
@@ -45,7 +45,7 @@
   }
 
   function linkMeeting(meeting, job, clientId) {
-    if (!meeting || !job || job.category !== 'Website') return false;
+    if (!meeting || !job || !['Website Design','Website'].includes(job.category)) return false;
     try {
       const library = JSON.parse(localStorage.getItem(MEETINGS_KEY) || '{}');
       const record = library.projects?.[meeting.id];
@@ -66,7 +66,7 @@
     const lead = findLead(client);
     const service = trim(lead?.service);
     const meetings = matchingMeetings(client);
-    const category = service ? inferCategory(service) : (meetings.length === 1 ? 'Website' : 'Other');
+    const category = service ? inferCategory(service) : (meetings.length === 1 ? 'Website Design' : 'Other');
 
     // Use the established job editor: categories, pricing, day/hour rates,
     // discounts, timesheets, recurrence and invoice generation stay intact.
@@ -88,7 +88,7 @@
     const categoryInput = fill(form, 'category', category);
     if (categoryInput && categoryInput.value !== category) categoryInput.value = 'Other';
     fill(form, 'title', service ? client.name + ' — ' + service :
-      client.name + (category === 'Website' ? ' — Website project' : ' — New job'));
+      client.name + (category === 'Website Design' ? ' — Website project' : ' — New job'));
     fill(form, 'description', service);
     fill(form, 'notes', noteLines(lead));
 
