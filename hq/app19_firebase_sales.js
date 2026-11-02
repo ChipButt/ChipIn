@@ -33,6 +33,7 @@
         stage:l.stage||'',problem:l.problem||'',lastContactDate:l.lastContactDate||'',
         lastContactSummary:l.lastContactSummary||'',nextActionMethod:l.nextActionMethod||'',
         nextActionDate:l.nextActionDate||'',nextActionReason:l.nextActionReason||'',
+        businessType:l.businessType||l.category||'',businessOverview:l.businessOverview||'',businessKeyDetails:l.businessKeyDetails||'',
         websiteStatus:l.websiteStatus||'',websiteEvidence:l.websiteEvidence||'',researchSummary:l.researchSummary||'',
         demoStatus:l.demoStatus||'',demoUrl:l.demoUrl||'',demoSlug:l.demoSlug||''
       }))
