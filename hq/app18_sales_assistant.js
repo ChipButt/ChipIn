@@ -708,7 +708,7 @@
       Object.assign(target,v,{updatedAt:new Date().toISOString()});
       if(!l.id)sales().leads.push(target);
       await saveState(); closeModal(); render(); toast('Contact saved');
-      if(target.stage==='Won' && !target.convertedJobId)window.ChipInProspectConversion?.start(target.id);
+      // Won contacts create jobs separately using their Client tile.
     };
     $('#deleteSalesLead')?.addEventListener('click',()=>confirmAction('Delete this prospect and its sales history?',async()=>{
       sales().leads=sales().leads.filter(x=>x.id!==l.id);
@@ -747,7 +747,7 @@
         l.nextActionReason=v.outcome==='researched'?'Research complete; make first contact.':v.outcome==='quote'?'Follow up the quote.':v.outcome==='no_reply'?'No reply last time; try again.':'Continue the conversation.';
       }
       await saveState(); closeModal(); render(); toast('Sales action recorded');
-      if(v.outcome==='won' && !l.convertedJobId)window.ChipInProspectConversion?.start(l.id);
+      // No automatic job creation: keep the client ready for Convert to Job.
     };
   }
 
