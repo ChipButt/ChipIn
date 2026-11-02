@@ -1,5 +1,5 @@
 // Chip In HQ pricing defaults, client rates and sidebar contrast
-const CHIPIN_JOB_CATEGORIES=['Events / hospitality','Quiz hosting','Website','Video editing','Production','General support','Other'];
+const CHIPIN_JOB_CATEGORIES=['Website Design','Hospitality & Events','Admin Support','Pub Quizzes','Bingo Nights','Video Creation','Voice Acting','Production','Other'];
 const CHIPIN_RATE_DEFAULTS=Object.fromEntries(CHIPIN_JOB_CATEGORIES.map(c=>[c,{hourly:0,day:0}]));
 Object.assign(DEFAULT_STATE.settings,{jobPrefix:'JOB',nextJobNumber:1});
 DEFAULT_STATE.settings.categoryRates=DEFAULT_STATE.settings.categoryRates||CHIPIN_RATE_DEFAULTS;
