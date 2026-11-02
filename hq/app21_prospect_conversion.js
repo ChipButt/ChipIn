@@ -285,7 +285,7 @@
   const previousJobs = window.renderJobs;
   window.renderJobs = function () {
     previousJobs();
-    const websiteJobs = state.jobs.filter(j => j.category === 'Website' || j.meetingId);
+    const websiteJobs = state.jobs.filter(j => ['Website','Website Design'].includes(j.category) || j.meetingId);
     if (!websiteJobs.length) return;
     const section = document.createElement('div');
     section.className = 'card hq-handover';
