@@ -8,6 +8,9 @@ const serviceCat=x=>CATALOG[x]?x:LEGACY[x]||null;
 const round=x=>Math.round((Number(x)||0)*100)/100;
 const clean=x=>String(x==null?'':x).trim();
 const savedExtras=j=>Array.isArray(j&&j.customCharges)?j.customCharges:[];
+const isRecurringExtra=x=>['monthly','annual'].includes(x?.frequency);
+const firstChargeAmount=x=>isRecurringExtra(x)&&x.includeFirst===false?0:Number(x.amount||0);
+const firstChargeTotal=charges=>round(charges.reduce((sum,charge)=>sum+firstChargeAmount(charge),0));
 function selection(spec,saved){
  const obj={};for(const group of spec.groups){
   const n=saved&&saved[group.id]!=null?Number(saved[group.id]):group.default;
@@ -34,7 +37,7 @@ function price(category,choices,checked,extras,billing={}){
  }
  spec.checks.forEach((extra,i)=>{if(checked.includes(i)){amount+=extra.price;lines.push({name:extra.label,amount:extra.price});}});
  if(spec.min&&amount<spec.min){lines.push({name:'Minimum booking adjustment',amount:round(spec.min-amount)});amount=spec.min;}
- const custom=round(extras.reduce((s,x)=>s+Number(x.amount||0),0));
+ const custom=firstChargeTotal(extras);
  return {base:round(amount),custom,total:round(amount+custom),lines,monthly,annualDomain};
 }
 const oldJobForm=jobForm;
@@ -48,14 +51,31 @@ jobForm=function(j={}){
  return html.replace('<div class="field full"><label>Invoice description</label>',section+'<div class="field full"><label>Invoice description</label>');
 };
 function customRow(item){
- return '<div class="hq-charge-row"><div class="field"><label>Charge name</label><input data-extra-name maxlength="120" value="'+esc(item.name||'')+'" placeholder="e.g. Extra revision"></div><div class="field"><label>Amount (£)</label><input data-extra-price type="number" min="0" step="0.01" value="'+esc(item.amount??'')+'" placeholder="0.00"></div><div class="field hq-charge-desc"><label>Description</label><textarea data-extra-desc rows="2" placeholder="What is included?">'+esc(item.description||'')+'</textarea></div><button type="button" class="btn small secondary hq-del-charge">Remove</button></div>';
+ const frequency=isRecurringExtra(item)?item.frequency:'one-off';
+ const isFirst=item.includeFirst!==false;
+ return '<div class="hq-charge-row" data-extra-id="'+esc(item.id||'')+'">'+
+ '<div class="field"><label>Charge name</label><input data-extra-name maxlength="120" value="'+esc(item.name||'')+'" placeholder="e.g. Additional support"></div>'+
+ '<div class="field"><label>Amount (£)</label><input data-extra-price type="number" min="0" step="0.01" value="'+esc(item.amount??'')+'" placeholder="0.00"></div>'+
+ '<div class="field hq-charge-desc"><label>Description</label><textarea data-extra-desc rows="2" placeholder="What is included?">'+esc(item.description||'')+'</textarea></div>'+
+ '<div class="field hq-charge-frequency"><label>Billing frequency</label><select data-extra-frequency>'+
+ '<option value="one-off"'+(frequency==='one-off'?' selected':'')+'>One-off</option>'+
+ '<option value="monthly"'+(frequency==='monthly'?' selected':'')+'>Monthly</option>'+
+ '<option value="annual"'+(frequency==='annual'?' selected':'')+'>Annual</option></select></div>'+
+ '<label class="hq-extra-first"><input type="checkbox" data-extra-first'+(isFirst?' checked':'')+'> Include first period on this job</label>'+
+ '<button type="button" class="btn small secondary hq-del-charge">Remove</button></div>';
 }
 function chargesIn(form,strict){
  const result=[];for(const row of form.querySelectorAll('.hq-charge-row')){
   const name=clean(row.querySelector('[data-extra-name]').value),description=clean(row.querySelector('[data-extra-desc]').value),raw=clean(row.querySelector('[data-extra-price]').value);
   if(!name&&!raw&&!description)continue;
   if(strict&&(!name||raw===''||!Number.isFinite(Number(raw))||Number(raw)<0))throw Error('Each extra charge requires a name and valid amount.');
-  const amount=Number(raw||0);if(Number.isFinite(amount)&&amount>=0)result.push({name,description,amount:round(amount)});
+  const amount=Number(raw||0);
+  const frequency=row.querySelector('[data-extra-frequency]')?.value||'one-off';
+  if(Number.isFinite(amount)&&amount>=0){
+   if(strict&&!row.dataset.extraId)row.dataset.extraId=uid('charge');
+   result.push({id:row.dataset.extraId||'',name,description,amount:round(amount),
+    frequency,includeFirst:row.querySelector('[data-extra-first]')?.checked!==false});
+  }
  }return result;
 }
 const oldOpenJob=openJobForm;
@@ -71,7 +91,12 @@ openJobForm=function(id,duplicateFromId){
  function bindCharges(){
   chargesHost.querySelectorAll('.hq-charge-row').forEach(row=>{
    row.querySelector('.hq-del-charge').onclick=()=>{row.remove();update();};
-   row.querySelectorAll('input,textarea').forEach(input=>input.addEventListener('input',update));
+   row.querySelectorAll('input,textarea,select').forEach(input=>input.addEventListener('input',update));
+   const frequency=row.querySelector('[data-extra-frequency]'),first=row.querySelector('.hq-extra-first');
+   if(frequency&&first){
+    const refresh=()=>{first.style.display=frequency.value==='one-off'?'none':'';update();};
+    frequency.addEventListener('change',refresh);refresh();
+   }
   });
  }
  bindCharges();
@@ -122,7 +147,7 @@ openJobForm=function(id,duplicateFromId){
   update();
  }
  function update(){
-  const extras=chargesIn(form,false),custom=round(extras.reduce((s,x)=>s+x.amount,0));
+  const extras=chargesIn(form,false),custom=firstChargeTotal(extras);
   const options=currentSelections(),pkg=isPackage()?price(cat.value,options.choices,options.checked,[],billingOptions()):null;
   const base=pkg?pkg.base:basicAmount();
   box.querySelector('#hqPriceBase').textContent=money(base);
@@ -156,7 +181,7 @@ openJobForm=function(id,duplicateFromId){
     for(const [key,value] of [['rateType','day'],['rate','0'],['days','1'],['discount','0'],['hourlyDiscount','0'],['overrideAmount',String(prices.total)]])
      if(field(key))field(key).value=value;
    }else if(custom.length||j?.pricingModel==='rate-extras'){
-    base=basicAmount();if(field('overrideAmount'))field('overrideAmount').value=String(round(base+custom.reduce((s,x)=>s+x.amount,0)));
+    base=basicAmount();if(field('overrideAmount'))field('overrideAmount').value=String(round(base+firstChargeTotal(custom)));
    }
   }catch(error){toast(error.message);return;}
   const oldIds=new Set(state.jobs.map(x=>x.id)),oldRecord=id?JSON.stringify(jobById(id)):null;
@@ -173,7 +198,7 @@ openJobForm=function(id,duplicateFromId){
    record.pricingBaseAmount=round(base);
    record.monthlyCare=pricing?.monthlyCare||null;
    record.annualDomain=pricing?.annualDomain||null;
-   if(pricing)record.amount=round(base+custom.reduce((s,x)=>s+x.amount,0));
+   if(pricing)record.amount=round(base+firstChargeTotal(custom));
   }
   await saveState();
  };
@@ -186,7 +211,7 @@ chipInInvoiceItemsForJob=function(job){
   items=(job.servicePricing.lines||[]).map(x=>({description:x.name,qty:1,rate:round(x.amount)}));
   if(!items.length)items=[{description:job.title||'Service',qty:1,rate:round(job.servicePricing.base)}];
  }else items=oldInvoiceItems({...job,overrideAmount:job.pricingBaseAmount==null?null:job.pricingBaseAmount});
- for(const x of savedExtras(job))items.push({description:clean(x.name)+(clean(x.description)?' — '+clean(x.description):''),qty:1,rate:round(x.amount)});
+ for(const x of savedExtras(job))if(firstChargeAmount(x)>0)items.push({description:clean(x.name)+(clean(x.description)?' — '+clean(x.description):''),qty:1,rate:round(firstChargeAmount(x))});
  const total=round(items.reduce((s,x)=>s+Number(x.qty)*Number(x.rate),0));
  if(Math.abs(total-Number(job.amount||0))>=0.01)items.push({description:'Agreed price adjustment',qty:1,rate:round(Number(job.amount||0)-total)});
  return items;
@@ -198,7 +223,7 @@ chipInBasisText=function(j){
  return originalBasis(j);
 };
 const style=document.createElement('style');
-style.textContent='.hq-pricing-box{border:1px solid #dce4ee;background:#f8fafd;padding:16px;border-radius:14px;margin:8px 0}.hq-pricing-box h3{margin:0;font-size:17px}.hq-pricing-intro,.hq-price-fineprint{font-size:12px;color:var(--muted);line-height:1.5;margin:6px 0 14px}.hq-price-fineprint{font-size:11px;margin:10px 0 0}#hqPricingChoices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.hq-hide-package{display:none!important}.hq-check-extra{display:block;font-size:12px;margin:9px 0}.hq-extra-head{display:flex;justify-content:space-between;gap:12px;align-items:center;margin:16px 0 10px}.hq-charge-row{display:grid;grid-template-columns:1fr 120px auto;gap:10px;align-items:end;padding:12px;background:white;border:1px solid var(--line);border-radius:12px;margin:8px 0}.hq-charge-desc{grid-column:1/3}.hq-price-grid{display:grid;grid-template-columns:1fr auto;gap:8px 12px;border-top:1px solid var(--line);padding-top:13px;font-size:12px;margin-top:16px}.hq-price-grid strong{text-align:right}.hq-price-grid b{font-size:17px;color:var(--navy)}@media(max-width:700px){#hqPricingChoices{grid-template-columns:1fr}.hq-charge-row{grid-template-columns:1fr 110px}.hq-charge-desc{grid-column:1/-1}.hq-del-charge{grid-column:1/-1}}';
+style.textContent='.hq-pricing-box{border:1px solid #dce4ee;background:#f8fafd;padding:16px;border-radius:14px;margin:8px 0}.hq-pricing-box h3{margin:0;font-size:17px}.hq-pricing-intro,.hq-price-fineprint{font-size:12px;color:var(--muted);line-height:1.5;margin:6px 0 14px}.hq-price-fineprint{font-size:11px;margin:10px 0 0}#hqPricingChoices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.hq-hide-package{display:none!important}.hq-check-extra{display:block;font-size:12px;margin:9px 0}.hq-extra-head{display:flex;justify-content:space-between;gap:12px;align-items:center;margin:16px 0 10px}.hq-charge-row{display:grid;grid-template-columns:1fr 120px auto;gap:10px;align-items:end;padding:12px;background:white;border:1px solid var(--line);border-radius:12px;margin:8px 0}.hq-charge-desc{grid-column:1/3}.hq-charge-frequency{grid-column:1/2}.hq-extra-first{display:flex;align-items:center;gap:8px;font-size:12px}.hq-extra-first input{width:auto}.hq-price-grid{display:grid;grid-template-columns:1fr auto;gap:8px 12px;border-top:1px solid var(--line);padding-top:13px;font-size:12px;margin-top:16px}.hq-price-grid strong{text-align:right}.hq-price-grid b{font-size:17px;color:var(--navy)}@media(max-width:700px){#hqPricingChoices{grid-template-columns:1fr}.hq-charge-row{grid-template-columns:1fr 110px}.hq-charge-desc{grid-column:1/-1}.hq-del-charge{grid-column:1/-1}}';
 document.head.appendChild(style);
 window.ChipInServicePricing={catalog:CATALOG,price,serviceCat};
 })();
