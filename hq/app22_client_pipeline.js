@@ -4,9 +4,9 @@
   'use strict';
 
   const STAGES = [
-    ['Found', 'To contact'],
-    ['Research', 'Researching'],
-    ['Contact', 'Contacting'],
+    ['Research', 'Research'],
+    ['Found', 'To Contact'],
+    ['Contact', 'Contacted'],
     ['Follow-up', 'Following up'],
     ['Interested', 'Interested'],
     ['Quote', 'Quote sent'],
@@ -55,6 +55,9 @@
           id: uid('cli'), name: clean(lead.businessName), contact: clean(lead.contactName),
           email: clean(lead.email), phone: clean(lead.phone), website: clean(lead.website),
           address: clean(lead.address), notes: clean(lead.notes),
+          businessType: clean(lead.businessType || lead.category),
+          businessOverview: clean(lead.businessOverview),
+          businessKeyDetails: clean(lead.businessKeyDetails || lead.researchSummary),
           createdAt: lead.createdAt || dateTime(), updatedAt: lead.updatedAt || dateTime(),
           sourceLeadId: lead.id, pipelineStage: lead.stage || 'Found',
           lastLeadSyncedAt: lead.updatedAt || lead.createdAt || ''
@@ -63,6 +66,16 @@
         changed = true;
       }
       if (client.sourceLeadId !== lead.id) { client.sourceLeadId = lead.id; changed = true; }
+      // Fill only missing profile fields from verified lead research. Never
+      // replace business information already edited in Clients.
+      const profileSources = {
+        businessType: lead.businessType || lead.category,
+        businessOverview: lead.businessOverview,
+        businessKeyDetails: lead.businessKeyDetails || lead.researchSummary
+      };
+      for (const [key, raw] of Object.entries(profileSources)) {
+        if (!clean(client[key]) && clean(raw)) { client[key] = clean(raw); changed = true; }
+      }
       if (lead.clientRecordId !== client.id) { lead.clientRecordId = client.id; changed = true; }
 
       const stamp = lead.updatedAt || lead.createdAt || '';
@@ -123,7 +136,7 @@
     const query = clientSearch.toLowerCase();
     const rows = state.clients.filter(c => isArchived(c) === archiveView)
       .filter(c => !stageFilter || stageOf(c) === stageFilter)
-      .filter(c => [c.name, c.contact, c.email, c.phone, c.address, c.website, c.notes].some(v =>
+      .filter(c => [c.name, c.contact, c.email, c.phone, c.address, c.website, c.notes, c.businessType, c.businessOverview, c.businessKeyDetails].some(v =>
         clean(v).toLowerCase().includes(query)))
       .sort((a,b) => clean(a.name).localeCompare(clean(b.name), 'en-GB'));
     const count = document.getElementById('clientMatchCount');
@@ -140,6 +153,13 @@
         '<div><span>Email</span>' + (c.email ? '<a href="mailto:' + esc(c.email) + '">' + esc(c.email) + '</a>' : '<em>Not recorded</em>') + '</div>' +
         '<div><span>Phone</span>' + (c.phone ? '<a href="tel:' + esc(c.phone) + '">' + esc(c.phone) + '</a>' : '<em>Not recorded</em>') + '</div>' +
         '<div><span>Jobs</span><strong>' + jobs + '</strong></div></div>' +
+        '<section class="hq-business-profile" aria-label="Business profile">' +
+        '<div class="hq-business-profile-head"><strong>Business profile</strong>' +
+        '<span>' + esc(c.businessType || 'Business type not recorded') + '</span></div>' +
+        (c.businessOverview ? '<p class="hq-business-overview">' + esc(c.businessOverview) + '</p>' : '') +
+        (c.businessKeyDetails ? '<div class="hq-business-facts"><strong>Key information</strong><p>' + esc(c.businessKeyDetails) + '</p></div>' : '') +
+        (!c.businessOverview && !c.businessKeyDetails ? '<p class="hq-business-empty">Add a description and useful business facts using Edit details.</p>' : '') +
+        '</section>' +
         (archiveView && (c.noReason || leadFor(c)?.closedReason) ?
           '<p class="hq-no-reason">' + esc(c.noReason || leadFor(c)?.closedReason) + '</p>' : '') +
         '<div class="hq-client-controls">' +
@@ -263,7 +283,7 @@
     ensureAfterRemoteLoad();
     const existing = id ? clientById(id) : null;
     const c = existing || {};
-    const initialStage = existing ? stageOf(existing) : 'Found';
+    const initialStage = existing ? stageOf(existing) : 'Research';
     openModal('<h2>' + (existing ? 'Edit client' : 'Add client') + '</h2>' +
       '<p class="sub">Contact details and sales progress are saved together. A job is only added when you choose to create one.</p>' +
       '<form id="hqUnifiedClientForm"><div class="form-grid">' +
@@ -274,7 +294,11 @@
       '<div class="field full"><label>Website</label><input name="website" value="' + esc(c.website || '') + '"></div>' +
       '<div class="field full"><label>Address</label><textarea name="address">' + esc(c.address || '') + '</textarea></div>' +
       '<div class="field"><label>Sales stage</label><select name="pipelineStage">' + options(initialStage, !leadFor(c)) + '</select></div>' +
-      '<div class="field full"><label>Notes</label><textarea name="notes">' + esc(c.notes || '') + '</textarea></div>' +
+      '<div class="field full"><label>Internal client notes</label><textarea name="notes">' + esc(c.notes || '') + '</textarea></div>' +
+      '<div class="hq-form-section-heading full"><h3>Business profile</h3><p>Describe their business, not the services Chip In is offering them. Only enter information you have verified.</p></div>' +
+      '<div class="field full"><label>Type of business</label><input name="businessType" placeholder="e.g. Village pub, florist, restaurant, local retailer" value="' + esc(c.businessType || '') + '"></div>' +
+      '<div class="field full"><label>What the business does</label><textarea name="businessOverview" placeholder="A short description of the business, what it sells or the services it offers">' + esc(c.businessOverview || '') + '</textarea></div>' +
+      '<div class="field full"><label>Key business information</label><textarea name="businessKeyDetails" placeholder="Important verified facts, such as opening hours, specialties, facilities or relevant background">' + esc(c.businessKeyDetails || '') + '</textarea></div>' +
       '</div><div class="form-actions"><button type="button" class="btn secondary" data-close-modal>Cancel</button>' +
       '<button type="submit" class="btn">Save client</button></div></form>', true);
     const form = document.getElementById('hqUnifiedClientForm');
@@ -290,7 +314,7 @@
       }
       if (!clean(values.name)) return;
       const client = existing || {id:uid('cli'),createdAt:dateTime()};
-      for (const field of ['name','contact','email','phone','website','address','notes']) {
+      for (const field of ['name','contact','email','phone','website','address','notes','businessType','businessOverview','businessKeyDetails']) {
         client[field] = clean(values[field]);
       }
       if (!existing) {
@@ -305,6 +329,8 @@
           id:uid('lead'), createdAt:dateTime(), businessName:client.name,
           contactName:client.contact, email:client.email, phone:client.phone,
           website:client.website, address:client.address, notes:client.notes,
+          category:client.businessType, businessType:client.businessType,
+          businessOverview:client.businessOverview, businessKeyDetails:client.businessKeyDetails,
           stage:next, nextActionMethod:'research', nextActionDate:'',
           nextActionReason:'', service:'', problem:'', estimatedValue:''
         };
@@ -319,7 +345,9 @@
         Object.assign(lead, {
           businessName:client.name, contactName:client.contact, email:client.email,
           phone:client.phone, address:client.address, website:client.website,
-          notes:client.notes, updatedAt:dateTime()
+          notes:client.notes, category:client.businessType, businessType:client.businessType,
+          businessOverview:client.businessOverview, businessKeyDetails:client.businessKeyDetails,
+          updatedAt:dateTime()
         });
         if (next !== 'Client') lead.stage = next;
         lead.clientRecordId = client.id;
@@ -366,6 +394,12 @@
     '.hq-client-controls select{display:block;border:1px solid var(--line);border-radius:9px;padding:8px 9px;max-width:150px;color:var(--ink);background:#fff;margin-top:4px;font-size:12px}' +
     '.hq-client-controls .hq-no-button{color:var(--bad);border-color:#f3c8cc}' +
     '.hq-no-reason{font-size:12px;color:var(--muted);line-height:1.5;margin:4px 0 12px}' +
+    '.hq-business-profile{background:#f7f9fc;border:1px solid var(--line);border-radius:12px;padding:13px 14px;margin:12px 0 16px;overflow-wrap:anywhere}' +
+    '.hq-business-profile-head{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:8px;font-size:12px}' +
+    '.hq-business-profile-head strong{font-size:12px;color:var(--navy)}.hq-business-profile-head span{font-size:11px;color:#46576a;background:#e8edf4;border-radius:8px;padding:4px 8px}' +
+    '.hq-business-overview,.hq-business-facts p,.hq-business-empty{font-size:12px;line-height:1.6;white-space:pre-line;color:#465061;margin:10px 0 0}' +
+    '.hq-business-facts{margin-top:12px;padding-top:11px;border-top:1px solid #e0e6ed}.hq-business-facts strong{font-size:11px;color:var(--navy)}' +
+    '.hq-form-section-heading{border-top:1px solid var(--line);margin-top:5px;padding-top:15px}.hq-form-section-heading h3{margin:0 0 5px;font-size:17px}.hq-form-section-heading p{margin:0;color:var(--muted);font-size:12px;line-height:1.5}' +
     '@media(max-width:950px){.hq-client-grid{grid-template-columns:1fr}}' +
     '@media(max-width:500px){.hq-directory-intro{align-items:flex-start}.hq-client-tabs{width:100%}.hq-client-tabs button{flex:1}.hq-client-details{grid-template-columns:1fr 1fr}.hq-client-controls label{width:100%}.hq-client-controls select{width:100%;max-width:none}.hq-directory-toolbar select{width:100%}}';
   document.head.appendChild(style);
