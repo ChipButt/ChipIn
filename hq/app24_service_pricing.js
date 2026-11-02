@@ -14,20 +14,28 @@ function selection(spec,saved){
   obj[group.id]=Number.isInteger(n)&&n>=0&&n<group.choices.length?n:group.default;
  }return obj;
 }
-function price(category,choices,checked,extras){
+function price(category,choices,checked,extras,billing={}){
  const spec=CATALOG[serviceCat(category)];if(!spec)return null;
- const lines=[];let amount=spec.base,monthly=null;
+ const lines=[];let amount=spec.base,monthly=null,annualDomain=null;
  if(spec.base)lines.push({name:(serviceCat(category)==='Website Design'?'Website Design — Standard Package':serviceCat(category)+' — base'),amount:spec.base});
  for(const group of spec.groups){
   const item=group.choices[choices[group.id]??group.default];
-  if(group.monthly){monthly=item.price>0?{name:item.label,amount:item.price,interval:'monthly'}:null;continue;}
+  if(group.monthly){
+   monthly=item.price>0?{name:item.label,amount:item.price,interval:'monthly'}:null;
+   if(monthly && billing.monthlyFirst!==false){amount+=item.price;lines.push({name:'First month — '+item.label,amount:item.price});}
+   continue;
+  }
+  if(group.id==='webDomain'&&item.price>0){
+   annualDomain={name:'Domain renewal',description:item.label,amount:item.price,interval:'annual'};
+   if(billing.domainFirst===false)continue;
+  }
   amount+=item.price;
   if(item.price)lines.push({name:group.label+': '+item.label,amount:item.price});
  }
  spec.checks.forEach((extra,i)=>{if(checked.includes(i)){amount+=extra.price;lines.push({name:extra.label,amount:extra.price});}});
  if(spec.min&&amount<spec.min){lines.push({name:'Minimum booking adjustment',amount:round(spec.min-amount)});amount=spec.min;}
  const custom=round(extras.reduce((s,x)=>s+Number(x.amount||0),0));
- return {base:round(amount),custom,total:round(amount+custom),lines,monthly};
+ return {base:round(amount),custom,total:round(amount+custom),lines,monthly,annualDomain};
 }
 const oldJobForm=jobForm;
 jobForm=function(j={}){
@@ -36,7 +44,7 @@ jobForm=function(j={}){
  if(j.category&&!categories.includes(j.category))categories.push(j.category);
  const options='<select name="category">'+categories.map(c=>'<option value="'+esc(c)+'"'+((j.category||'Other')===c?' selected':'')+'>'+esc(c)+'</option>').join('')+'</select>';
  html=html.replace(/<select name="category">[\s\S]*?<\/select>/,options);
- const section='<div class="field full hq-pricing-box" id="hqPricingBox"><h3>Service pricing</h3><p class="hq-pricing-intro">Select the published service options. Add your own extra charges where needed.</p><div id="hqPricingChoices"></div><div id="hqLegacyNotice" class="hint-box" style="display:none">This older job keeps its existing rate-based pricing until you choose to change it.</div><button type="button" class="btn small secondary" id="hqSwitchPrice" style="display:none">Use service package pricing</button><div class="hq-extra-head"><strong>Additional charges</strong><button type="button" id="hqAddCharge" class="btn small secondary">+ Add Custom Charge</button></div><div id="hqChargeRows"></div><div class="hq-price-grid"><span>Base / one-off</span><strong id="hqPriceBase">£0.00</strong><span>Custom charges</span><strong id="hqPriceExtras">£0.00</strong><b>Total for this job</b><b id="hqPriceTotal">£0.00</b><span id="hqCareCaption" style="display:none">Monthly care, separate</span><strong id="hqCareTotal" style="display:none"></strong></div><p class="hq-price-fineprint">Published prices are guides. Confirm the agreed amount before saving. Monthly care is not added to the one-off job.</p></div>';
+ const section='<div class="field full hq-pricing-box" id="hqPricingBox"><h3>Service pricing</h3><p class="hq-pricing-intro">Select the published service options. Add your own extra charges where needed.</p><div id="hqPricingChoices"></div><div id="hqLegacyNotice" class="hint-box" style="display:none">This older job keeps its existing rate-based pricing until you choose to change it.</div><button type="button" class="btn small secondary" id="hqSwitchPrice" style="display:none">Use service package pricing</button><div class="hq-extra-head"><strong>Additional charges</strong><button type="button" id="hqAddCharge" class="btn small secondary">+ Add Custom Charge</button></div><div id="hqChargeRows"></div><div class="hq-price-grid"><span>Base / one-off</span><strong id="hqPriceBase">£0.00</strong><span>Custom charges</span><strong id="hqPriceExtras">£0.00</strong><b>Total for this job</b><b id="hqPriceTotal">£0.00</b><span id="hqCareCaption" style="display:none">Monthly care, separate</span><strong id="hqCareTotal" style="display:none"></strong></div><p class="hq-price-fineprint">Published prices are guides. Confirm the agreed amount before saving. First-period charges can be included in the job. Future monthly and annual renewals are invoiced separately.</p></div>';
  return html.replace('<div class="field full"><label>Invoice description</label>',section+'<div class="field full"><label>Invoice description</label>');
 };
 function customRow(item){
@@ -72,6 +80,7 @@ openJobForm=function(id,duplicateFromId){
   bindCharges();chargesHost.lastElementChild.querySelector('[data-extra-name]').focus();
  };
  const isPackage=()=>!!serviceCat(cat.value)&&!keepLegacy;
+ const billingOptions=()=>({monthlyFirst:form.querySelector('#hqBillFirstMonth')?.checked!==false,domainFirst:form.querySelector('#hqBillFirstDomain')?.checked!==false});
  function basicAmount(){
   const override=clean(field('overrideAmount')?.value);
   if(override!==''&&Number.isFinite(Number(override)))return round(Math.max(0,Number(override)));
@@ -110,7 +119,7 @@ openJobForm=function(id,duplicateFromId){
  }
  function update(){
   const extras=chargesIn(form,false),custom=round(extras.reduce((s,x)=>s+x.amount,0));
-  const options=currentSelections(),pkg=isPackage()?price(cat.value,options.choices,options.checked,[]):null;
+  const options=currentSelections(),pkg=isPackage()?price(cat.value,options.choices,options.checked,[],billingOptions()):null;
   const base=pkg?pkg.base:basicAmount();
   box.querySelector('#hqPriceBase').textContent=money(base);
   box.querySelector('#hqPriceExtras').textContent=money(custom);
@@ -137,9 +146,9 @@ openJobForm=function(id,duplicateFromId){
   try{
    custom=chargesIn(form,true);
    if(isPackage()){
-    const opts=currentSelections(),prices=price(cat.value,opts.choices,opts.checked,custom);
+    const opts=currentSelections(),prices=price(cat.value,opts.choices,opts.checked,custom,billingOptions());
     base=prices.base;
-    pricing={version:1,category:cat.value,choices:opts.choices,checked:opts.checked,lines:prices.lines,base:prices.base,monthlyCare:prices.monthly};
+    pricing={version:2,category:cat.value,choices:opts.choices,checked:opts.checked,lines:prices.lines,base:prices.base,monthlyCare:prices.monthly,annualDomain:prices.annualDomain,billingOptions:billingOptions()};
     for(const [key,value] of [['rateType','day'],['rate','0'],['days','1'],['discount','0'],['hourlyDiscount','0'],['overrideAmount',String(prices.total)]])
      if(field(key))field(key).value=value;
    }else if(custom.length||j?.pricingModel==='rate-extras'){
@@ -159,6 +168,7 @@ openJobForm=function(id,duplicateFromId){
    record.pricingModel=pricing?'package':custom.length?'rate-extras':'';
    record.pricingBaseAmount=round(base);
    record.monthlyCare=pricing?.monthlyCare||null;
+   record.annualDomain=pricing?.annualDomain||null;
    if(pricing)record.amount=round(base+custom.reduce((s,x)=>s+x.amount,0));
   }
   await saveState();
