@@ -22,7 +22,7 @@
   const normal = value => clean(value).toLowerCase().replace(/[^a-z0-9]/g, '');
   const leads = () => Array.isArray(state.salesAssistant?.leads) ? state.salesAssistant.leads : [];
   const dateTime = () => new Date().toISOString();
-  const leadFor = client => leads().find(l => l.id === client.sourceLeadId || l.clientRecordId === client.id || (l.convertedClientId === client.id));
+  const leadFor = client => client && client.id ? leads().find(l => l.id === client.sourceLeadId || l.clientRecordId === client.id || l.convertedClientId === client.id) : null;
   const stageOf = client => leadFor(client)?.stage || client.pipelineStage || (client.archivedAt ? 'Lost' : 'Client');
   const isArchived = client => stageOf(client) === 'Lost';
   const label = stage => STAGES.find(s => s[0] === stage)?.[1] || stage;
@@ -67,12 +67,13 @@
 
       const stamp = lead.updatedAt || lead.createdAt || '';
       if (stamp && stamp !== client.lastLeadSyncedAt && (!client.lastLeadSyncedAt || stamp > client.lastLeadSyncedAt)) {
+        const leadIsNewer = !client.updatedAt || stamp > client.updatedAt;
         const map = {businessName:'name', contactName:'contact', email:'email',
           phone:'phone', website:'website', address:'address', notes:'notes'};
         for (const [from, to] of Object.entries(map)) {
           // A blank research result must never erase verified client details.
           const value = clean(lead[from]);
-          if (value && value !== client[to]) { client[to] = value; changed = true; }
+          if (value && (leadIsNewer || !clean(client[to])) && value !== client[to]) { client[to] = value; changed = true; }
         }
         client.lastLeadSyncedAt = stamp;
         changed = true;
