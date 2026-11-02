@@ -296,6 +296,8 @@
       if (!existing) {
         client.pipelineStage = next;
         state.clients.push(client);
+        archiveView = false;
+        stageFilter = '';
       }
       let lead = leadFor(client);
       if (!lead && !['Client','Lost'].includes(next)) {
