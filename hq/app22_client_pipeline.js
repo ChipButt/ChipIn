@@ -74,7 +74,7 @@
         businessKeyDetails: lead.businessKeyDetails || lead.researchSummary
       };
       for (const [key, raw] of Object.entries(profileSources)) {
-        if (!clean(client[key]) && clean(raw)) { client[key] = clean(raw); changed = true; }
+        if (!client.businessProfileEditedAt && !clean(client[key]) && clean(raw)) { client[key] = clean(raw); changed = true; }
       }
       if (lead.clientRecordId !== client.id) { lead.clientRecordId = client.id; changed = true; }
 
@@ -356,6 +356,7 @@
       }
       client.pipelineStage = next;
       client.updatedAt = dateTime();
+      client.businessProfileEditedAt = client.updatedAt;
       await saveState();
       closeModal();
       render();
