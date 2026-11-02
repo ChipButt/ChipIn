@@ -3,7 +3,7 @@
   'use strict';
 
   var MAX_OCCURRENCES20=120;
-  var JOB_FIELDS20=['clientId','category','customerReference','title','startTime','endTime','rateType','rate','hours','minutes','days','hourlyDiscount','discount','overrideAmount','description','notes'];
+  var JOB_FIELDS20=['clientId','category','customerReference','title','startTime','endTime','rateType','rate','hours','minutes','days','hourlyDiscount','discount','overrideAmount','description','notes','customCharges','servicePricing','pricingModel','pricingBaseAmount','monthlyCare'];
 
   function dayNumber20(value){
     var m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value||''));
@@ -70,7 +70,7 @@
   function cloneOccurrence20(source,date,seriesId,rootId){
     var delta=dayNumber20(date)-dayNumber20(source.startDate);
     var job={id:uid('job'),createdAt:new Date().toISOString(),status:source.status==='Quote'?'Quote':'Booked'};
-    JOB_FIELDS20.forEach(function(k){if(source[k]!==undefined)job[k]=source[k]});
+    JOB_FIELDS20.forEach(function(k){if(source[k]!==undefined)job[k]=source[k]&&typeof source[k]==='object'?structuredClone(source[k]):source[k]});
     job.reference=chipInNextJobReference();
     job.startDate=date;
     job.endDate=shiftDate20(source.endDate||source.startDate,delta)||date;
