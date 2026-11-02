@@ -120,7 +120,14 @@ openJobForm=function(id,duplicateFromId){
   if(pkg?.monthly)output.textContent=money(pkg.monthly.amount)+'/month';
  }
  box.querySelector('#hqSwitchPrice').onclick=()=>{keepLegacy=false;draw();};
- cat.addEventListener('change',()=>{if(cat.value!==initialCategory)keepLegacy=false;draw();});
+ cat.addEventListener('change',()=>{
+  if(cat.value!==initialCategory){
+   keepLegacy=false;
+   // A stored package total is not an hourly/day rate for the next category.
+   if(j?.pricingModel==='package'&&field('overrideAmount'))field('overrideAmount').value='';
+  }
+  draw();
+ });
  form.querySelectorAll('input,select').forEach(el=>{if(el!==cat)el.addEventListener('input',update);});
  draw();
  const submit=form.onsubmit;
@@ -142,7 +149,8 @@ openJobForm=function(id,duplicateFromId){
   const oldIds=new Set(state.jobs.map(x=>x.id)),oldRecord=id?JSON.stringify(jobById(id)):null;
   await submit.call(form,event);
   const created=state.jobs.filter(x=>!oldIds.has(x.id));
-  const edited=id&&jobById(id)&&JSON.stringify(jobById(id))!==oldRecord?[jobById(id)]:[];
+  const modalClosed=!!document.getElementById('modal')?.classList.contains('hidden');
+  const edited=id&&jobById(id)&&(modalClosed||JSON.stringify(jobById(id))!==oldRecord)?[jobById(id)]:[];
   const changed=created.length?created:edited;
   if(!changed.length)return;
   for(const record of changed){
