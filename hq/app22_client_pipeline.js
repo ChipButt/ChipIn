@@ -168,13 +168,13 @@
           '<label>Stage<select aria-label="Stage for ' + esc(c.name) + '" data-client-stage="' + esc(c.id) + '">' +
           options(stage, !leadFor(c)) + '</select></label>') +
         (!archiveView && stage === 'Won' ? '<button class="btn small gold" type="button" data-client-job="' + esc(c.id) + '">' +
-          (state.jobs.some(j => j.clientId === c.id && (j.sourceLeadId === leadFor(c)?.id || j.id === leadFor(c)?.convertedJobId)) ? '+ Another Job' : 'Convert to Job') + '</button>' : '') +
+          (state.jobs.some(j => j.clientId === c.id) ? '+ Another Job' : 'Convert to Job') + '</button>' : '') +
         '<button class="btn small secondary" type="button" data-client-edit="' + esc(c.id) + '">Edit details</button>' +
         (!archiveView ? '<button class="btn small secondary hq-no-button" type="button" data-client-no="' + esc(c.id) + '">No</button>' : '') +
         '</div></article>';
     }).join('') : empty(archiveView ? 'No archived contacts match your search.' : 'No active clients match your search.');
     container.querySelectorAll('[data-client-edit]').forEach(b => b.onclick = () => openClientForm(b.dataset.clientEdit));
-    container.querySelectorAll('[data-client-job]').forEach(b => b.onclick = () => window.ChipInClientToJob?.start(b.dataset.clientJob));
+    container.querySelectorAll('[data-client-job]').forEach(b => b.onclick = () => window.ChipInClientToJob?.start(b.dataset.clientJob, b.textContent.includes('Another')));
     container.querySelectorAll('[data-client-no]').forEach(b => b.onclick = () => openNoForm(b.dataset.clientNo));
     container.querySelectorAll('[data-client-restore]').forEach(b => b.onclick = () => restoreClient(b.dataset.clientRestore));
     container.querySelectorAll('[data-client-stage]').forEach(sel => sel.onchange = () => {
