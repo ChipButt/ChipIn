@@ -57,14 +57,53 @@ function planFromJob(job,kind,source){
   firstIncludedInJob:first,active:true,createdAt:new Date().toISOString()
  });
 }
-function syncJob(job){
- if(!job||!job.clientId||!job.id)return;
- if(job.category!=='Website Design'||job.pricingModel!=='package'){
-  registry().filter(c=>c.jobId===job.id&&['care','domain'].includes(c.kind)).forEach(c=>{c.active=false;c.updatedAt=new Date().toISOString();});
+function syncCustomExtra(job,extra){
+ const id=extra.id;
+ const prior=registry().find(c=>c.jobId===job.id&&c.kind==='custom-extra'&&c.sourceChargeId===id);
+ const recurrence=['monthly','annual'].includes(extra.frequency)&&Number(extra.amount)>0;
+ if(!recurrence){
+  if(prior){prior.active=false;prior.updatedAt=new Date().toISOString();}
   return;
  }
- planFromJob(job,'care',job.servicePricing?.monthlyCare||job.monthlyCare);
- planFromJob(job,'domain',job.servicePricing?.annualDomain||job.annualDomain);
+ const first=extra.includeFirst!==false,anchorDate=cleanStart(job.startDate);
+ if(prior){
+  const alreadyInvoiced=state.invoices.some(i=>i.recurringChargeId===prior.id||
+   i.recurringItems?.some(x=>x.chargeId===prior.id));
+  prior.clientId=job.clientId;prior.name=extra.name;prior.description=extra.description||'';
+  if(!prior.amountEdited)prior.amount=amount(extra.amount);
+  if(!alreadyInvoiced&&prior.anchorDate!==anchorDate){
+   prior.anchorDate=anchorDate;prior.anchorDay=Number(anchorDate.slice(-2));
+   prior.nextInvoiceDate=first?nextDate(anchorDate,extra.frequency,prior.anchorDay):anchorDate;
+  }
+  prior.frequency=extra.frequency;prior.firstIncludedInJob=first;prior.updatedAt=new Date().toISOString();
+  return;
+ }
+ registry().push({
+  id:uid('bill'),clientId:job.clientId,jobId:job.id,kind:'custom-extra',sourceChargeId:id,
+  name:extra.name,description:extra.description||'',amount:amount(extra.amount),
+  frequency:extra.frequency,anchorDate,anchorDay:Number(anchorDate.slice(-2)),
+  nextInvoiceDate:first?nextDate(anchorDate,extra.frequency,Number(anchorDate.slice(-2))):anchorDate,
+  firstIncludedInJob:first,active:true,createdAt:new Date().toISOString()
+ });
+}
+function syncJob(job){
+ if(!job||!job.clientId||!job.id)return;
+ if(job.category==='Website Design'&&job.pricingModel==='package'){
+  planFromJob(job,'care',job.servicePricing?.monthlyCare||job.monthlyCare);
+  planFromJob(job,'domain',job.servicePricing?.annualDomain||job.annualDomain);
+ }else{
+  registry().filter(c=>c.jobId===job.id&&['care','domain'].includes(c.kind))
+   .forEach(c=>{if(c.active){c.active=false;c.updatedAt=new Date().toISOString();}});
+ }
+ const extras=Array.isArray(job.customCharges)?job.customCharges:[];
+ const selected=new Set();
+ for(const extra of extras){
+  if(!extra.id||!['monthly','annual'].includes(extra.frequency))continue;
+  selected.add(extra.id);
+  syncCustomExtra(job,extra);
+ }
+ registry().filter(c=>c.jobId===job.id&&c.kind==='custom-extra'&&!selected.has(c.sourceChargeId))
+  .forEach(c=>{if(c.active){c.active=false;c.updatedAt=new Date().toISOString();}});
 }
 function firstPeriodControls(job={}){
  const price=job.servicePricing||{};
