@@ -371,7 +371,7 @@
       </div>
       <div class="sales-action-list">${due.length?renderTodayGroups(due):`<div class="card"><div class="empty-state"><div class="empty-icon">✓</div><h3>You’re clear for now</h3><p>Add prospects or set follow-up dates and they will appear here automatically.</p></div></div>`}</div>
 
-      <div class="section-title"><div><h2>Pipeline</h2><p>Move every prospect forward or deliberately close it.</p></div><button class="btn secondary small" data-sales-action="targets">Targets</button></div>
+      <div class="section-title"><div><h2>Pipeline</h2><p>Move contacts forward or mark No to archive them.</p></div><button class="btn secondary small" data-sales-action="targets">Targets</button></div>
       <div class="sales-pipeline">${stageOrder.map(stage=>pipelineColumn(stage)).join('')}</div>
 
       <div class="section-title"><div><h2>Coming up</h2></div></div>
@@ -676,9 +676,9 @@
 
   function openLeadForm(id){
     const l=id?leadById(id):{};
-    openModal(`<h2>${l.id?'Edit prospect':'Add prospect'}</h2><p class="sub">Record enough information for HQ to tell you exactly who to contact, how, why and when.</p>
+    openModal(`<h2>${l.id?'Edit contact':'Add contact'}</h2><p class="sub">Record enough information for HQ to tell you exactly who to contact, how, why and when.</p>
     <form id="salesLeadForm"><div class="form-grid">
-      <div class="field"><label>Business / prospect</label><input name="businessName" value="${esc(l.businessName||'')}" required></div>
+      <div class="field"><label>Business / client</label><input name="businessName" value="${esc(l.businessName||'')}" required></div>
       <div class="field"><label>Contact name</label><input name="contactName" value="${esc(l.contactName||'')}"></div>
       <div class="field"><label>Email</label><input name="email" type="email" value="${esc(l.email||'')}"></div>
       <div class="field"><label>Phone</label><input name="phone" value="${esc(l.phone||'')}"></div>
@@ -696,7 +696,7 @@
       <div class="field full"><label>Why are you contacting them?</label><input name="nextActionReason" value="${esc(l.nextActionReason||'')}"></div>
       <div class="field full"><label>AI-approved wording (optional)</label><textarea name="aiReply" placeholder="Paste wording supplied by ChatGPT here if you want this exact wording shown on the action card.">${esc(l.aiReply||'')}</textarea></div>
       <div class="field full"><label>General notes</label><textarea name="notes">${esc(l.notes||'')}</textarea></div>
-    </div><div class="form-actions">${l.id?'<button class="btn danger" type="button" id="deleteSalesLead">Delete</button>':''}<button class="btn secondary" type="button" data-close-modal>Cancel</button><button class="btn" type="submit">Save prospect</button></div></form>`,true);
+    </div><div class="form-actions">${l.id?'<button class="btn danger" type="button" id="deleteSalesLead">Delete</button>':''}<button class="btn secondary" type="button" data-close-modal>Cancel</button><button class="btn" type="submit">Save contact</button></div></form>`,true);
     $('#salesLeadForm').onsubmit=async e=>{
       e.preventDefault();
       const v=Object.fromEntries(new FormData(e.target).entries());
@@ -705,7 +705,7 @@
       const target=l.id?l:{id:uid('lead'),createdAt:new Date().toISOString()};
       Object.assign(target,v,{updatedAt:new Date().toISOString()});
       if(!l.id)sales().leads.push(target);
-      await saveState(); closeModal(); render(); toast('Prospect saved');
+      await saveState(); closeModal(); render(); toast('Contact saved');
       if(target.stage==='Won' && !target.convertedJobId)window.ChipInProspectConversion?.start(target.id);
     };
     $('#deleteSalesLead')?.addEventListener('click',()=>confirmAction('Delete this prospect and its sales history?',async()=>{
