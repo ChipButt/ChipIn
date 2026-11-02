@@ -279,33 +279,8 @@
     window.open(url, '_blank', 'noopener');
   }
 
-  const previousSales = window.renderSales;
-  window.renderSales = function () {
-    previousSales();
-    const sales = state.salesAssistant?.leads || [];
-    const wins = sales.filter(l => l.stage === 'Won');
-    const lost = sales.filter(l => l.stage === 'Lost');
-    const pipeline = $('#content .sales-pipeline');
-    if (!pipeline) return;
-    const section = document.createElement('div');
-    section.className = 'hq-handover';
-    section.innerHTML =
-      '<div class="section-title"><div><h2>Won contracts · client handover</h2>' +
-      '<p>Won and lost contacts are removed from the active prospect pool. Keep the sales history.</p></div></div>' +
-      '<div class="card">' + (wins.length ? wins.map(l => {
-        const job = l.convertedJobId && jobById(l.convertedJobId);
-        return '<div class="action-item"><div><div class="title">' + esc(l.businessName) + '</div>' +
-          '<div class="meta">' + (job ? 'Client and job linked · ' + esc(job.title) :
-            'Won · client and job still need confirming') + '</div></div>' +
-          (job ? '<button class="btn small secondary" data-hq-job="' + esc(job.id) + '">Open job</button>' :
-            '<button class="btn small gold" data-hq-convert="' + esc(l.id) + '">Create client + job</button>') +
-          '</div>';
-      }).join('') : '<p class="muted">No won contracts awaiting handover.</p>') +
-      (lost.length ? '<details><summary>' + lost.length + ' closed / lost prospect(s)</summary>' +
-        '<p class="muted">' + lost.map(l => esc(l.businessName)).join(' · ') + '</p></details>' : '') +
-      '</div>';
-    pipeline.insertAdjacentElement('afterend', section);
-  };
+  // Sales and Clients now share records. Won contracts are managed from the
+  // client tile, so no second handover panel or duplicate client step is shown.
 
   const previousJobs = window.renderJobs;
   window.renderJobs = function () {
