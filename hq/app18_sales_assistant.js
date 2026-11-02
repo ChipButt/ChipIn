@@ -12,7 +12,9 @@
     return s;
   }
   const sales = ()=>ensureSales();
-  const stageOrder=['Found','Research','Contact','Follow-up','Interested','Quote'];
+  const stageOrder=['Research','Found','Contact','Follow-up','Interested','Quote'];
+  const stageLabels={Research:'Research',Found:'To Contact',Contact:'Contacted','Follow-up':'Following up',Interested:'Interested',Quote:'Quote sent',Won:'Won / working',Lost:'No — archived'};
+  const stageLabel=stage=>stageLabels[stage]||stage;
   const closedStages=['Won','Lost'];
   const methodLabels={research:'RESEARCH',email:'EMAIL',call:'CALL',visit:'VISIT'};
   const methodIcon={research:'⌕',email:'✉',call:'☎',visit:'⌖'};
@@ -66,9 +68,9 @@
   }
   function reasonFor(l){
     if(l.nextActionReason)return l.nextActionReason;
-    if(l.stage==='Found')return 'New prospect ready to research or contact.';
+    if(l.stage==='Found')return 'Research is done; this business is ready for first contact.';
     if(l.stage==='Research')return 'Research the business and identify a genuine opportunity before contacting them.';
-    if(l.stage==='Contact')return 'Initial contact is due.';
+    if(l.stage==='Contact')return 'Initial contact made; record the next step or follow-up.';
     if(l.stage==='Follow-up')return 'Follow up the previous contact.';
     if(l.stage==='Interested')return 'Keep the conversation moving.';
     if(l.stage==='Quote')return 'Check whether they have reviewed the quote.';
@@ -260,7 +262,7 @@
       if(typeof r.openingHoursVerified==='boolean')l.openingHoursVerified=r.openingHoursVerified;
       if(Array.isArray(r.images))l.demoImages=r.images;
       l.researchStatus='complete';
-      l.stage='Contact';
+      l.stage='Found';
       const preferred=r.recommendedContactMethod;
       l.nextActionMethod=['email','call','visit'].includes(preferred)?preferred:(l.email?'email':l.phone?'call':l.address?'visit':'research');
       l.nextActionDate=TODAY();l.nextActionTime='';l.nextActionDuration='';
@@ -401,7 +403,7 @@
   }
   function pipelineColumn(stage){
     const ls=sales().leads.filter(l=>l.stage===stage);
-    return `<div class="sales-pipeline-col"><div class="sales-pipeline-title"><span>${stage}</span><span>${ls.length}</span></div><div class="sales-pipeline-cards">${ls.map(l=>`<button class="sales-lead-card" data-sales-action="edit-lead" data-id="${l.id}"><strong>${esc(l.businessName)}</strong><span>${esc(l.service||'No service set')}</span><small>${l.nextActionDate?'Next: '+fmtDate(l.nextActionDate):'No next action'}</small></button>`).join('')||'<div class="sales-empty-col">—</div>'}</div></div>`;
+    return `<div class="sales-pipeline-col"><div class="sales-pipeline-title"><span>${stageLabel(stage)}</span><span>${ls.length}</span></div><div class="sales-pipeline-cards">${ls.map(l=>`<button class="sales-lead-card" data-sales-action="edit-lead" data-id="${l.id}"><strong>${esc(l.businessName)}</strong><span>${esc(l.service||'No service set')}</span><small>${l.nextActionDate?'Next: '+fmtDate(l.nextActionDate):'No next action'}</small></button>`).join('')||'<div class="sales-empty-col">—</div>'}</div></div>`;
   }
 
   function wireSalesActions(){
@@ -668,7 +670,7 @@
       e.preventDefault();const v=Object.fromEntries(new FormData(e.target).entries());
       l.nextActionMethod=v.method;l.nextActionDate=v.date;l.nextActionTime=v.time;l.nextActionDuration=Number(v.duration||30);
       if(v.reason)l.nextActionReason=v.reason;
-      if(l.stage==='Research')l.stage='Contact';
+      if(l.stage==='Research')l.stage='Found';
       l.updatedAt=new Date().toISOString();
       await saveState();closeModal();render();toast((v.method==='visit'?'Visit':'Call')+' added to calendar');
     };
@@ -686,7 +688,7 @@
       <div class="field"><label>Estimated value (£)</label><input name="estimatedValue" type="number" min="0" step="0.01" value="${esc(l.estimatedValue||'')}"></div>
       <div class="field full"><label>Address / location</label><input name="address" value="${esc(l.address||'')}"></div>
       <div class="field"><label>Services they might need</label><input name="service" value="${esc(l.service||'')}" placeholder="Website Design, Pub Quiz, Hospitality…"></div>
-      <div class="field"><label>Pipeline stage</label><select name="stage">${stageOrder.concat(closedStages).map(x=>`<option ${(l.stage||'Found')===x?'selected':''}>${x}</option>`).join('')}</select></div>
+      <div class="field"><label>Pipeline stage</label><select name="stage">${stageOrder.concat(closedStages).map(x=>`<option value="${x}" ${(l.stage||'Found')===x?'selected':''}>${stageLabel(x)}</option>`).join('')}</select></div>
       <div class="field full"><label>Problem / opportunity noticed</label><textarea name="problem" placeholder="What have you actually noticed that Chip In could solve?">${esc(l.problem||'')}</textarea></div>
       <div class="field full"><label>Last contact summary</label><textarea name="lastContactSummary" placeholder="Only factual notes. What actually happened last time?">${esc(l.lastContactSummary||'')}</textarea></div>
       <div class="field"><label>Next action</label><select name="nextActionMethod">${['research','email','call','visit'].map(x=>`<option value="${x}" ${(l.nextActionMethod||'research')===x?'selected':''}>${methodLabels[x]}</option>`).join('')}</select></div>
@@ -738,10 +740,9 @@
       if(v.outcome==='won'){l.stage='Won';l.nextActionDate='';}
       else if(v.outcome==='lost'){l.stage='Lost';l.nextActionDate='';}
       else {
-        if(v.outcome==='researched'){l.stage='Contact';l.researchSummary=v.summary;l.nextActionMethod=l.email?'email':l.phone?'call':l.address?'visit':'research';}
+        if(v.outcome==='researched'){l.stage='Found';l.researchSummary=v.summary;l.nextActionMethod=l.email?'email':l.phone?'call':l.address?'visit':'research';}
         else if(v.outcome==='quote'){l.stage='Quote';}
-        else if(v.outcome==='conversation')l.stage='Follow-up';
-        else if(v.outcome==='no_reply')l.stage='Follow-up';
+        else if(v.outcome==='conversation'||v.outcome==='no_reply')l.stage=['Research','Found'].includes(l.stage)?'Contact':'Follow-up';
         l.nextActionDate=v.nextDate||addDays(TODAY(),sales().settings.defaultFollowUpDays);
         l.nextActionReason=v.outcome==='researched'?'Research complete; make first contact.':v.outcome==='quote'?'Follow up the quote.':v.outcome==='no_reply'?'No reply last time; try again.':'Continue the conversation.';
       }
