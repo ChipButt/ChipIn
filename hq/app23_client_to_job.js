@@ -96,6 +96,18 @@
     // remains only a reference, never silently becomes an agreed fee.
     selectedClient.dispatchEvent(new Event('change', {bubbles:true}));
     categoryInput?.dispatchEvent(new Event('change', {bubbles:true}));
+    // The standard new-job editor initially loads a rate for its *first*
+    // category. Clear that value if this client's selected category has no
+    // applicable rate, rather than silently carrying an unrelated rate over.
+    const rateInput = form.elements.namedItem('rate');
+    const rateType = form.elements.namedItem('rateType')?.value || 'day';
+    const chosenCategory = categoryInput?.value || 'Other';
+    const applicableRate = typeof chipInRateFor === 'function'
+      ? Number(chipInRateFor(client.id, chosenCategory, rateType)?.rate || 0) : 0;
+    if (rateInput && applicableRate <= 0) {
+      rateInput.value = '';
+      rateInput.dispatchEvent(new Event('input', {bubbles:true}));
+    }
 
     const estimate = Number(lead?.estimatedValue);
     const hasEstimate = lead?.estimatedValue !== '' && lead?.estimatedValue != null
