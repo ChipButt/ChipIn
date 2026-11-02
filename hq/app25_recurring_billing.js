@@ -221,6 +221,21 @@ renderInvoices=function(){
   c.active=!c.active;c.updatedAt=new Date().toISOString();await saveState();render();
  });
 };
+const oldDashboard=renderDashboard;
+renderDashboard=function(){
+ oldDashboard();
+ const due=registry().filter(c=>c.active&&c.nextInvoiceDate<=TODAY()&&validDate(c.nextInvoiceDate));
+ if(!due.length)return;
+ const banner=document.createElement('div');
+ banner.className='hq-renewal-dashboard';
+ banner.innerHTML='<div><strong>'+due.length+' recurring invoice'+(due.length===1?'':'s')+' ready</strong>'+
+  '<p>Monthly or annual client charges are due for draft invoicing.</p></div>'+
+  '<button class="btn small gold" type="button">Review renewals</button>';
+ const host=document.getElementById('content');
+ if(!host)return;
+ host.prepend(banner);
+ banner.querySelector('button').onclick=()=>{page='invoices';render();};
+};
 document.addEventListener('click',event=>{
  const btn=event.target.closest('[data-hq-client-recurring]');
  if(!btn)return;
@@ -229,7 +244,8 @@ document.addEventListener('click',event=>{
  page='invoices';render();scheduleForm(null,client.id);
 });
 const css=document.createElement('style');
-css.textContent='.hq-first-period{border-top:1px solid var(--line);padding:14px 0;margin-top:12px}.hq-first-period h4{margin:0 0 10px;font-size:13px}.hq-first-period label{display:flex;align-items:center;gap:9px;font-size:12px;line-height:1.4;margin:9px 0}.hq-first-period input{width:auto}.hq-first-period p{font-size:11px;color:var(--muted);margin:8px 0 0}.hq-renewal-panel{border:1px solid var(--line);border-radius:14px;background:#fff;padding:18px;margin-bottom:20px}.hq-renewal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}.hq-renewal-head h2{margin:0 0 5px;font-size:19px}.hq-renewal-head p{margin:0;color:var(--muted);font-size:12px;line-height:1.5}.hq-renewal-count{margin:12px 0;color:var(--muted);font-size:12px}.hq-renewal-item{display:flex;justify-content:space-between;align-items:center;gap:12px;border-top:1px solid var(--line);padding:14px 0}.hq-renewal-main{display:flex;flex-direction:column;gap:4px;overflow-wrap:anywhere}.hq-renewal-main strong{font-size:14px}.hq-renewal-main span{font-size:12px}.hq-renewal-main small{font-size:11px;color:var(--muted)}.hq-renewal-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap}@media(max-width:700px){.hq-renewal-item{align-items:stretch;flex-direction:column}.hq-renewal-actions{justify-content:flex-end}}';
+css.textContent='.hq-renewal-dashboard{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;margin-bottom:18px;background:#f4f8fd;border:1px solid #dce4ee;border-radius:14px;flex-wrap:wrap}.hq-renewal-dashboard strong{font-size:14px}.hq-renewal-dashboard p{color:var(--muted);font-size:12px;margin:4px 0 0}' +
+ '.hq-first-period{border-top:1px solid var(--line);padding:14px 0;margin-top:12px}.hq-first-period h4{margin:0 0 10px;font-size:13px}.hq-first-period label{display:flex;align-items:center;gap:9px;font-size:12px;line-height:1.4;margin:9px 0}.hq-first-period input{width:auto}.hq-first-period p{font-size:11px;color:var(--muted);margin:8px 0 0}.hq-renewal-panel{border:1px solid var(--line);border-radius:14px;background:#fff;padding:18px;margin-bottom:20px}.hq-renewal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}.hq-renewal-head h2{margin:0 0 5px;font-size:19px}.hq-renewal-head p{margin:0;color:var(--muted);font-size:12px;line-height:1.5}.hq-renewal-count{margin:12px 0;color:var(--muted);font-size:12px}.hq-renewal-item{display:flex;justify-content:space-between;align-items:center;gap:12px;border-top:1px solid var(--line);padding:14px 0}.hq-renewal-main{display:flex;flex-direction:column;gap:4px;overflow-wrap:anywhere}.hq-renewal-main strong{font-size:14px}.hq-renewal-main span{font-size:12px}.hq-renewal-main small{font-size:11px;color:var(--muted)}.hq-renewal-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap}@media(max-width:700px){.hq-renewal-item{align-items:stretch;flex-direction:column}.hq-renewal-actions{justify-content:flex-end}}';
 document.head.appendChild(css);
 window.ChipInRecurringBilling={nextDate,priceFromJob:syncJob,createInvoice,charges:registry,validDate};
 })();
