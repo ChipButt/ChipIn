@@ -169,6 +169,7 @@
           options(stage, !leadFor(c)) + '</select></label>') +
         (!archiveView && stage === 'Won' ? '<button class="btn small gold" type="button" data-client-job="' + esc(c.id) + '">' +
           (state.jobs.some(j => j.clientId === c.id) ? '+ Another Job' : 'Convert to Job') + '</button>' : '') +
+        '<button class="btn small secondary" type="button" data-hq-client-recurring="' + esc(c.id) + '">Recurring charges</button>' +
         '<button class="btn small secondary" type="button" data-client-edit="' + esc(c.id) + '">Edit details</button>' +
         (!archiveView ? '<button class="btn small secondary hq-no-button" type="button" data-client-no="' + esc(c.id) + '">No</button>' : '') +
         '</div></article>';
