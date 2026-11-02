@@ -176,8 +176,9 @@
       return toast('Set this client to Won before converting it to a job.');
     }
     const lead = findLead(client);
-    const linked = state.jobs.filter(j => j.clientId === client.id &&
-      (j.sourceClientId === client.id || (lead && (j.sourceLeadId === lead.id || j.id === lead.convertedJobId))));
+    // Any existing job for this client merits a duplicate check, including
+    // jobs created before the new conversion workflow existed.
+    const linked = state.jobs.filter(j => j.clientId === client.id);
     if (linked.length && !addAnother) {
       openModal('<h2>Job already linked</h2><p class="sub">' + esc(client.name) +
         ' already has ' + linked.length + ' job' + (linked.length === 1 ? '' : 's') +
