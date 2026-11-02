@@ -98,6 +98,9 @@ function syncCustomExtra(job,extra){
 }
 function syncJob(job){
  if(!job||!job.clientId||!job.id)return;
+ // Repeating jobs have their own job records; only the series root owns
+ // subscription schedules, otherwise every occurrence bills the same fee.
+ if(job.recurrenceRootJobId&&job.recurrenceRootJobId!==job.id)return;
  if(job.category==='Website Design'&&job.pricingModel==='package'){
   planFromJob(job,'care',job.servicePricing?.monthlyCare||job.monthlyCare);
   planFromJob(job,'domain',job.servicePricing?.annualDomain||job.annualDomain);
