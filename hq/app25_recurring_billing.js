@@ -71,9 +71,19 @@ function syncCustomExtra(job,extra){
    i.recurringItems?.some(x=>x.chargeId===prior.id));
   prior.clientId=job.clientId;prior.name=extra.name;prior.description=extra.description||'';
   if(!prior.amountEdited)prior.amount=amount(extra.amount);
-  if(!alreadyInvoiced&&prior.anchorDate!==anchorDate){
+  if(!alreadyInvoiced&&(prior.anchorDate!==anchorDate||prior.frequency!==extra.frequency||prior.firstIncludedInJob!==first)){
    prior.anchorDate=anchorDate;prior.anchorDay=Number(anchorDate.slice(-2));
    prior.nextInvoiceDate=first?nextDate(anchorDate,extra.frequency,prior.anchorDay):anchorDate;
+  }
+  // After billing has begun, preserve the next due date unless the cadence
+  // changes. A switch from monthly to annual uses the last billed period.
+  if(alreadyInvoiced&&prior.frequency!==extra.frequency){
+   const invoicePeriods=state.invoices.flatMap(inv=>[
+    ...(inv.recurringChargeId===prior.id?[inv.recurringPeriod]:[]),
+    ...(inv.recurringItems||[]).filter(x=>x.chargeId===prior.id).map(x=>x.period)
+   ]).filter(validDate).sort();
+   const last=invoicePeriods.at(-1);
+   if(last)prior.nextInvoiceDate=nextDate(last,extra.frequency,prior.anchorDay);
   }
   prior.frequency=extra.frequency;prior.firstIncludedInJob=first;prior.updatedAt=new Date().toISOString();
   return;
