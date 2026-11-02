@@ -127,7 +127,8 @@ function createInvoice(chargeId){
  if(!clientById(charge.clientId))throw Error('The linked client no longer exists');
  const period=charge.nextInvoiceDate;
  if(!validDate(period)||!Number.isFinite(Number(charge.amount))||Number(charge.amount)<=0)throw Error('Check the renewal date and amount first.');
- const found=state.invoices.find(inv=>inv.recurringChargeId===charge.id&&inv.recurringPeriod===period);
+ const found=state.invoices.find(inv=>(inv.recurringChargeId===charge.id&&inv.recurringPeriod===period)||
+  (Array.isArray(inv.recurringItems)&&inv.recurringItems.some(x=>x.chargeId===charge.id&&x.period===period)));
  if(found)throw Error('An invoice already exists for that billing period: '+found.number);
  const issue=TODAY(),days=Number(state.settings.defaultTerms||14),now=new Date().toISOString();
  const inv={
@@ -145,6 +146,104 @@ function createInvoice(chargeId){
  charge.updatedAt=now;
  return inv;
 }
+
+// Create one client invoice per billing month containing every newly due
+// monthly/annual service. Runs when HQ loads or saves, never sends the drafts.
+const recurringKey=(id,period)=>id+'|'+period;
+function createDueMonthDrafts(){
+ const today=TODAY(),thisMonth=today.slice(0,7),known=new Set();
+ for(const invoice of state.invoices||[]){
+  if(invoice.recurringChargeId&&invoice.recurringPeriod)
+   known.add(recurringKey(invoice.recurringChargeId,invoice.recurringPeriod));
+  for(const item of invoice.recurringItems||[])known.add(recurringKey(item.chargeId,item.period));
+ }
+ const grouped=new Map();
+ let changed=false,skipped=0;
+ for(const charge of registry()){
+  if(!charge.active||!clientById(charge.clientId)||!cycles.includes(charge.frequency)||
+    !Number.isFinite(Number(charge.amount))||Number(charge.amount)<=0)continue;
+  let period=charge.nextInvoiceDate;
+  if(!validDate(period))continue;
+  // Catch up any missed months when HQ is reopened. Guard against corrupt
+  // schedules or years of unintended drafts from one session.
+  let runs=0;
+  while(period.slice(0,7)<=thisMonth && runs<36){
+   const key=recurringKey(charge.id,period);
+   if(!known.has(key)){
+    const group=charge.clientId+'|'+period.slice(0,7);
+    if(!grouped.has(group))grouped.set(group,{clientId:charge.clientId,month:period.slice(0,7),items:[]});
+    grouped.get(group).items.push({charge,period});
+    known.add(key);
+   }
+   const next=nextDate(period,charge.frequency,charge.anchorDay);
+   if(next<=period)throw Error('Recurring billing date did not advance');
+   period=next;runs++;changed=true;
+  }
+  if(runs===36 && period.slice(0,7)<=thisMonth)skipped++;
+  if(runs){charge.nextInvoiceDate=period;charge.updatedAt=new Date().toISOString();}
+ }
+ let count=0;
+ for(const batch of grouped.values()){
+  // Combine new charges with an untouched auto-created Draft for this client
+  // and month; never modify sent invoices or manually edited drafts.
+  const existing=state.invoices.find(i=>i.autoRecurring===true&&!i.autoRecurringEdited&&
+    i.status==='Draft'&&i.clientId===batch.clientId&&i.recurringMonth===batch.month);
+  const items=batch.items.map(({charge,period})=>({
+   description:charge.name+' — '+period+(clean(charge.description)&&charge.description!==charge.name?' — '+charge.description:''),
+   qty:1,rate:amount(charge.amount)
+  }));
+  const references=batch.items.map(({charge,period})=>({chargeId:charge.id,period}));
+  if(existing){
+   existing.items.push(...items);
+   existing.recurringItems=(existing.recurringItems||[]).concat(references);
+  }else{
+   const issue=today,days=Number(state.settings.defaultTerms||14);
+   state.invoices.push({
+    id:uid('inv'),number:nextInvoiceNumber(),clientId:batch.clientId,jobId:null,
+    issueDate:issue,dueDate:addDays(issue,days),status:'Draft',payments:[],
+    items,recurringItems:references,recurringMonth:batch.month,autoRecurring:true,
+    autoRecurringEdited:false,vatRate:Number(state.settings.defaultVatRate||0),
+    notes:'Thank you for your business.',createdAt:new Date().toISOString()
+   });
+   state.settings.nextInvoiceNumber=Number(state.settings.nextInvoiceNumber||1)+1;
+  }
+  count+=items.length;changed=true;
+ }
+ if(skipped)console.warn('Some old recurring billing periods remain to be reviewed:',skipped);
+ return {count,changed};
+}
+// Automatically prepare current-month renewal invoices as soon as new recurring
+// charges are saved, or when the app is reopened. No background server exists.
+const previousSaveRecurring=saveState;
+saveState=async function(){
+ const due=createDueMonthDrafts();
+ const result=await previousSaveRecurring();
+ if(due.count)console.info('Created draft renewal charges:',due.count);
+ return result;
+};
+const previousLoadRecurring=loadState;
+loadState=async function(){
+ await previousLoadRecurring();
+ const due=createDueMonthDrafts();
+ if(due.changed)await saveState();
+};
+// If an automatically assembled invoice is edited, preserve its changes and
+// stop future product additions from silently modifying its line items.
+const previousInvoiceFormRecurring=openInvoiceForm;
+openInvoiceForm=function(id,jobId){
+ previousInvoiceFormRecurring(id,jobId);
+ if(!id)return;
+ const inv=invoiceById(id),form=document.getElementById('invoiceForm');
+ if(!inv?.autoRecurring||!form)return;
+ const original=form.onsubmit;
+ form.onsubmit=async event=>{
+  const wasEdited=inv.autoRecurringEdited;
+  inv.autoRecurringEdited=true;
+  try{await original.call(form,event);}
+  catch(error){inv.autoRecurringEdited=wasEdited;throw error;}
+ };
+};
+
 let inFlight=false;
 async function draftCharge(id){
  if(inFlight)return;
@@ -164,7 +263,7 @@ function scheduleForm(id,clientId){
  const options=state.clients.map(c=>'<option value="'+esc(c.id)+'"'+(c.id===client?' selected':'')+'>'+esc(c.name)+'</option>').join('');
  const f=current?.frequency||'monthly';
  openModal('<h2>'+(current?'Edit recurring charge':'Add recurring charge')+'</h2>'+
-  '<p class="sub">Creates draft invoices when you choose to generate the next billing period. Nothing is automatically emailed or charged.</p>'+
+  '<p class="sub">HQ prepares draft invoices automatically for charges due this month. Nothing is emailed or charged automatically.</p>'+
   '<form id="hqRecurringForm"><div class="form-grid">'+
   '<div class="field full"><label>Client</label><select name="clientId" required><option value="">Choose client…</option>'+options+'</select></div>'+
   '<div class="field full"><label>Charge name</label><input name="name" required maxlength="120" value="'+esc(current?.name||'')+'" placeholder="e.g. Website maintenance"></div>'+
@@ -201,7 +300,7 @@ renderInvoices=function(){
  const panel=document.createElement('section');
  panel.className='hq-renewal-panel';
  panel.id='hqRenewalPanel';
- panel.innerHTML='<div class="hq-renewal-head"><div><h2>Recurring client charges'+(clientFocus?' — '+esc(clientById(clientFocus)?.name||'Client'):'')+'</h2><p>Monthly and annual renewals. Generate an invoice for each period when due; drafts are never sent automatically.</p></div><div class="hq-renewal-head-actions">'+(clientFocus?'<button class="btn small secondary" id="hqShowAllRenewals">All clients</button>':'')+'<button class="btn small" id="hqNewRecurring">+ Recurring Charge</button></div></div>'+
+ panel.innerHTML='<div class="hq-renewal-head"><div><h2>Recurring client charges'+(clientFocus?' — '+esc(clientById(clientFocus)?.name||'Client'):'')+'</h2><p>Monthly and annual renewals automatically produce draft invoices when HQ is opened or updated. Drafts are never sent automatically.</p></div><div class="hq-renewal-head-actions">'+(clientFocus?'<button class="btn small secondary" id="hqShowAllRenewals">All clients</button>':'')+'<button class="btn small" id="hqNewRecurring">+ Recurring Charge</button></div></div>'+
   '<div class="hq-renewal-count">'+due+' currently due · '+sorted.filter(x=>x.active).length+' active schedule(s)</div>'+
   (sorted.length ? '<div class="hq-renewal-list">'+sorted.map(c=>{
    const client=clientById(c.clientId),overdue=c.active&&c.nextInvoiceDate<=TODAY();
@@ -249,5 +348,5 @@ const css=document.createElement('style');
 css.textContent='.hq-renewal-dashboard{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;margin-bottom:18px;background:#f4f8fd;border:1px solid #dce4ee;border-radius:14px;flex-wrap:wrap}.hq-renewal-dashboard strong{font-size:14px}.hq-renewal-dashboard p{color:var(--muted);font-size:12px;margin:4px 0 0}' +
  '.hq-first-period{border-top:1px solid var(--line);padding:14px 0;margin-top:12px}.hq-first-period h4{margin:0 0 10px;font-size:13px}.hq-first-period label{display:flex;align-items:center;gap:9px;font-size:12px;line-height:1.4;margin:9px 0}.hq-first-period input{width:auto}.hq-first-period p{font-size:11px;color:var(--muted);margin:8px 0 0}.hq-renewal-panel{border:1px solid var(--line);border-radius:14px;background:#fff;padding:18px;margin-bottom:20px}.hq-renewal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}.hq-renewal-head h2{margin:0 0 5px;font-size:19px}.hq-renewal-head p{margin:0;color:var(--muted);font-size:12px;line-height:1.5}.hq-renewal-count{margin:12px 0;color:var(--muted);font-size:12px}.hq-renewal-item{display:flex;justify-content:space-between;align-items:center;gap:12px;border-top:1px solid var(--line);padding:14px 0}.hq-renewal-main{display:flex;flex-direction:column;gap:4px;overflow-wrap:anywhere}.hq-renewal-main strong{font-size:14px}.hq-renewal-main span{font-size:12px}.hq-renewal-main small{font-size:11px;color:var(--muted)}.hq-renewal-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap}@media(max-width:700px){.hq-renewal-item{align-items:stretch;flex-direction:column}.hq-renewal-actions{justify-content:flex-end}}';
 document.head.appendChild(css);
-window.ChipInRecurringBilling={nextDate,priceFromJob:syncJob,createInvoice,charges:registry,validDate};
+window.ChipInRecurringBilling={nextDate,priceFromJob:syncJob,createInvoice,createDueMonthDrafts,charges:registry,validDate};
 })();
