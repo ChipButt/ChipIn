@@ -151,7 +151,9 @@
               lead.convertedJobId = matching[0].id;
               lead.convertedAt = new Date().toISOString();
             }
-            lead.updatedAt = new Date().toISOString();
+            // Linking a job is not a research update. Do not advance the
+            // lead's contact-data timestamp: that could overwrite newer,
+            // manually corrected client details during state reconciliation.
           }
           if (chosenMeeting) linkMeeting(chosenMeeting, matching[0], client.id);
           await saveState();
