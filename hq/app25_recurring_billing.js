@@ -7,6 +7,7 @@ const clean=x=>String(x==null?'':x).trim();
 const amount=x=>Math.round(Number(x)*100)/100;
 const cycles=['monthly','annual'];
 const registry=()=>{if(!Array.isArray(state.recurringCharges))state.recurringCharges=[];return state.recurringCharges;};
+let clientFocus='';
 const byId=id=>registry().find(x=>x.id===id);
 const formatFrequency=f=>f==='annual'?'Annually':'Monthly';
 const yearMonthDay=x=>{const [y,m,d]=x.split('-').map(Number);return {y,m,d};};
@@ -195,12 +196,12 @@ const oldInvoices=renderInvoices;
 renderInvoices=function(){
  oldInvoices();
  const host=document.getElementById('content');if(!host)return;
- const sorted=registry().slice().sort((a,b)=>(a.nextInvoiceDate||'').localeCompare(b.nextInvoiceDate||''));
+ const sorted=registry().filter(c=>!clientFocus||c.clientId===clientFocus).slice().sort((a,b)=>(a.nextInvoiceDate||'').localeCompare(b.nextInvoiceDate||''));
  const due=sorted.filter(c=>c.active&&c.nextInvoiceDate<=TODAY()).length;
  const panel=document.createElement('section');
  panel.className='hq-renewal-panel';
  panel.id='hqRenewalPanel';
- panel.innerHTML='<div class="hq-renewal-head"><div><h2>Recurring client charges</h2><p>Monthly and annual renewals. Generate an invoice for each period when due; drafts are never sent automatically.</p></div><button class="btn small" id="hqNewRecurring">+ Recurring Charge</button></div>'+
+ panel.innerHTML='<div class="hq-renewal-head"><div><h2>Recurring client charges'+(clientFocus?' — '+esc(clientById(clientFocus)?.name||'Client'):'')+'</h2><p>Monthly and annual renewals. Generate an invoice for each period when due; drafts are never sent automatically.</p></div><div class="hq-renewal-head-actions">'+(clientFocus?'<button class="btn small secondary" id="hqShowAllRenewals">All clients</button>':'')+'<button class="btn small" id="hqNewRecurring">+ Recurring Charge</button></div></div>'+
   '<div class="hq-renewal-count">'+due+' currently due · '+sorted.filter(x=>x.active).length+' active schedule(s)</div>'+
   (sorted.length ? '<div class="hq-renewal-list">'+sorted.map(c=>{
    const client=clientById(c.clientId),overdue=c.active&&c.nextInvoiceDate<=TODAY();
@@ -213,7 +214,8 @@ renderInvoices=function(){
     '</div></article>';
   }).join('')+'</div>':'<p class="muted">No recurring charges yet. Add one here, or save a website job with monthly care or a supplied domain.</p>');
  host.prepend(panel);
- panel.querySelector('#hqNewRecurring').onclick=()=>scheduleForm();
+ panel.querySelector('#hqNewRecurring').onclick=()=>scheduleForm(null,clientFocus);
+ panel.querySelector('#hqShowAllRenewals')?.addEventListener('click',()=>{clientFocus='';render();});
  panel.querySelectorAll('[data-hq-charge-edit]').forEach(b=>b.onclick=()=>scheduleForm(b.dataset.hqChargeEdit));
  panel.querySelectorAll('[data-hq-charge-invoice]').forEach(b=>b.onclick=()=>draftCharge(b.dataset.hqChargeInvoice));
  panel.querySelectorAll('[data-hq-charge-pause]').forEach(b=>b.onclick=async()=>{
@@ -241,7 +243,7 @@ document.addEventListener('click',event=>{
  if(!btn)return;
  const client=clientById(btn.dataset.hqClientRecurring);
  if(!client)return;
- page='invoices';render();scheduleForm(null,client.id);
+ clientFocus=client.id;page='invoices';render();
 });
 const css=document.createElement('style');
 css.textContent='.hq-renewal-dashboard{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;margin-bottom:18px;background:#f4f8fd;border:1px solid #dce4ee;border-radius:14px;flex-wrap:wrap}.hq-renewal-dashboard strong{font-size:14px}.hq-renewal-dashboard p{color:var(--muted);font-size:12px;margin:4px 0 0}' +
