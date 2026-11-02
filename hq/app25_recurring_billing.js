@@ -36,7 +36,7 @@ function planFromJob(job,kind,source){
   return;
  }
  if(prior){
-  const alreadyInvoiced=state.invoices.some(i=>i.recurringChargeId===prior.id);
+  const alreadyInvoiced=state.invoices.some(i=>i.recurringChargeId===prior.id || (i.jobId===job.id && prior.firstIncludedInJob));
   prior.clientId=job.clientId;prior.name=title;prior.description=detail;
   // Do not reset agreed renewal amounts or dates once manually edited.
   if(!prior.amountEdited)prior.amount=amount(source.amount);
@@ -57,7 +57,11 @@ function planFromJob(job,kind,source){
  });
 }
 function syncJob(job){
- if(!job||!job.clientId||!job.id||job.category!=='Website Design'||job.pricingModel!=='package')return;
+ if(!job||!job.clientId||!job.id)return;
+ if(job.category!=='Website Design'||job.pricingModel!=='package'){
+  registry().filter(c=>c.jobId===job.id&&['care','domain'].includes(c.kind)).forEach(c=>{c.active=false;c.updatedAt=new Date().toISOString();});
+  return;
+ }
  planFromJob(job,'care',job.servicePricing?.monthlyCare||job.monthlyCare);
  planFromJob(job,'domain',job.servicePricing?.annualDomain||job.annualDomain);
 }
