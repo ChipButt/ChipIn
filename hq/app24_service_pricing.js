@@ -179,7 +179,7 @@ chipInInvoiceItemsForJob=function(job){
 };
 const originalBasis=chipInBasisText;
 chipInBasisText=function(j){
- if(j?.pricingModel==='package')return 'Service package and selected extras';
+ if(j?.pricingModel==='package')return 'Service package and selected extras'+(j.monthlyCare?' · '+j.monthlyCare.name+' (monthly, separate)':'');
  if(savedExtras(j).length)return 'Service rate and additional charges';
  return originalBasis(j);
 };
