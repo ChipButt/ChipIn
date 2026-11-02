@@ -21,7 +21,7 @@ const DEFAULT_STATE = {
     vatRegistered:false, vatNumber:'', defaultVatRate:20, taxRegion:'england_wales_ni',
     employmentIncome:0, payeTaxPaid:0, taxPotBalance:0, reservePercent:25, useTradingAllowance:'auto'
   },
-  clients:[], jobs:[], invoices:[], expenses:[], salesAssistant:{targets:{monthlyClients:3,prospects:50,conversations:15,quotes:6},leads:[],activity:[],settings:{defaultFollowUpDays:5}}, createdAt:new Date().toISOString(), updatedAt:new Date().toISOString()
+  clients:[], jobs:[], invoices:[], recurringCharges:[], expenses:[], salesAssistant:{targets:{monthlyClients:3,prospects:50,conversations:15,quotes:6},leads:[],activity:[],settings:{defaultFollowUpDays:5}}, createdAt:new Date().toISOString(), updatedAt:new Date().toISOString()
 };
 let state = structuredClone(DEFAULT_STATE);
 let page = 'dashboard';
