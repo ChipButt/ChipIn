@@ -224,20 +224,6 @@ document.addEventListener('click',event=>{
  if(!client)return;
  page='invoices';render();scheduleForm(null,client.id);
 });
-const oldRenderClients=renderClients;
-renderClients=function(){
- oldRenderClients();
- const cards=document.querySelectorAll('#clientDirectoryRows .hq-client-item');
- cards.forEach(card=>{
-  const edit=card.querySelector('[data-client-edit]'),actions=card.querySelector('.hq-client-controls');
-  if(!edit||!actions||actions.querySelector('[data-hq-client-recurring]'))return;
-  const button=document.createElement('button');
-  button.className='btn small secondary';
-  button.textContent='Recurring charges';
-  button.dataset.hqClientRecurring=edit.dataset.clientEdit;
-  actions.insertBefore(button,edit);
- });
-};
 const css=document.createElement('style');
 css.textContent='.hq-first-period{border-top:1px solid var(--line);padding:14px 0;margin-top:12px}.hq-first-period h4{margin:0 0 10px;font-size:13px}.hq-first-period label{display:flex;align-items:center;gap:9px;font-size:12px;line-height:1.4;margin:9px 0}.hq-first-period input{width:auto}.hq-first-period p{font-size:11px;color:var(--muted);margin:8px 0 0}.hq-renewal-panel{border:1px solid var(--line);border-radius:14px;background:#fff;padding:18px;margin-bottom:20px}.hq-renewal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}.hq-renewal-head h2{margin:0 0 5px;font-size:19px}.hq-renewal-head p{margin:0;color:var(--muted);font-size:12px;line-height:1.5}.hq-renewal-count{margin:12px 0;color:var(--muted);font-size:12px}.hq-renewal-item{display:flex;justify-content:space-between;align-items:center;gap:12px;border-top:1px solid var(--line);padding:14px 0}.hq-renewal-main{display:flex;flex-direction:column;gap:4px;overflow-wrap:anywhere}.hq-renewal-main strong{font-size:14px}.hq-renewal-main span{font-size:12px}.hq-renewal-main small{font-size:11px;color:var(--muted)}.hq-renewal-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap}@media(max-width:700px){.hq-renewal-item{align-items:stretch;flex-direction:column}.hq-renewal-actions{justify-content:flex-end}}';
 document.head.appendChild(css);
