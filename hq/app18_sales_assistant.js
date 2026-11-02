@@ -688,7 +688,7 @@
       <div class="field"><label>Estimated value (£)</label><input name="estimatedValue" type="number" min="0" step="0.01" value="${esc(l.estimatedValue||'')}"></div>
       <div class="field full"><label>Address / location</label><input name="address" value="${esc(l.address||'')}"></div>
       <div class="field"><label>Services they might need</label><input name="service" value="${esc(l.service||'')}" placeholder="Website Design, Pub Quiz, Hospitality…"></div>
-      <div class="field"><label>Pipeline stage</label><select name="stage">${stageOrder.concat(closedStages).map(x=>`<option value="${x}" ${(l.stage||'Found')===x?'selected':''}>${stageLabel(x)}</option>`).join('')}</select></div>
+      <div class="field"><label>Pipeline stage</label><select name="stage">${stageOrder.concat(closedStages).map(x=>`<option value="${x}" ${(l.stage||'Research')===x?'selected':''}>${stageLabel(x)}</option>`).join('')}</select></div>
       <div class="field full"><label>Problem / opportunity noticed</label><textarea name="problem" placeholder="What have you actually noticed that Chip In could solve?">${esc(l.problem||'')}</textarea></div>
       <div class="field full"><label>Last contact summary</label><textarea name="lastContactSummary" placeholder="Only factual notes. What actually happened last time?">${esc(l.lastContactSummary||'')}</textarea></div>
       <div class="field"><label>Next action</label><select name="nextActionMethod">${['research','email','call','visit'].map(x=>`<option value="${x}" ${(l.nextActionMethod||'research')===x?'selected':''}>${methodLabels[x]}</option>`).join('')}</select></div>
