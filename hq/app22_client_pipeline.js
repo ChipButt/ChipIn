@@ -25,6 +25,12 @@
   const leadFor = client => client && client.id ? leads().find(l => l.id === client.sourceLeadId || l.clientRecordId === client.id || l.convertedClientId === client.id) : null;
   const stageOf = client => leadFor(client)?.stage || client.pipelineStage || (client.archivedAt ? 'Lost' : 'Client');
   const isArchived = client => stageOf(client) === 'Lost';
+  // Order the directory by sales progress (furthest progressed first), then name.
+  const stageRank = stage => STAGES.findIndex(s => s[0] === stage);
+  const stageClass = stage => 'hq-stage-' + String(stage || 'Client').toLowerCase().replace(/[^a-z0-9]+/g, '-');
+  const compareClientsByProgress = (a, b) =>
+    (stageRank(stageOf(b)) - stageRank(stageOf(a))) ||
+    clean(a.name).localeCompare(clean(b.name), 'en-GB', {sensitivity: 'base'});
   const label = stage => STAGES.find(s => s[0] === stage)?.[1] || stage;
   const options = (selected, includeClient = true) => STAGES.filter(s => includeClient || s[0] !== 'Client').map(s =>
     '<option value="' + esc(s[0]) + '"' + (s[0] === selected ? ' selected' : '') + '>' + esc(s[1]) + '</option>').join('');
@@ -138,16 +144,16 @@
       .filter(c => !stageFilter || stageOf(c) === stageFilter)
       .filter(c => [c.name, c.contact, c.email, c.phone, c.address, c.website, c.notes, c.businessType, c.businessOverview, c.businessKeyDetails].some(v =>
         clean(v).toLowerCase().includes(query)))
-      .sort((a,b) => clean(a.name).localeCompare(clean(b.name), 'en-GB'));
+      .sort(compareClientsByProgress);
     const count = document.getElementById('clientMatchCount');
     if (count) count.textContent = rows.length + ' shown';
     container.innerHTML = rows.length ? rows.map(c => {
       const jobs = state.jobs.filter(j => j.clientId === c.id).length;
       const stage = stageOf(c);
-      return '<article class="hq-client-item">' +
+      return '<article class="hq-client-item ' + stageClass(stage) + '">' +
         '<div class="hq-client-heading"><div><h3>' + esc(c.name) + '</h3>' +
         '<p>' + esc(c.contact || 'Contact name not yet recorded') + '</p></div>' +
-        '<span class="badge ' + (stage === 'Lost' ? 'bad' : stage === 'Won' ? 'ok' : 'blue') + '">' +
+        '<span class="hq-client-stage-badge">' +
         esc(label(stage)) + '</span></div>' +
         '<div class="hq-client-details">' +
         '<div><span>Email</span>' + (c.email ? '<a href="mailto:' + esc(c.email) + '">' + esc(c.email) + '</a>' : '<em>Not recorded</em>') + '</div>' +
@@ -197,7 +203,19 @@
     for (const c of state.clients.filter(c => isArchived(c) === archiveView)) {
       const s = stageOf(c); counts.set(s, (counts.get(s) || 0) + 1);
     }
+    const pipelineTiles = STAGES.map(([stage, name]) => {
+      const count = state.clients.filter(c => stageOf(c) === stage).length;
+      const selected = stageFilter === stage && archiveView === (stage === 'Lost');
+      return '<button type="button" class="hq-pipeline-tile ' + stageClass(stage) +
+        (selected ? ' is-selected' : '') + '" data-hq-pipeline-stage="' + esc(stage) +
+        '" aria-pressed="' + (selected ? 'true' : 'false') + '">' +
+        '<span class="hq-pipeline-tile-label">' + esc(name) + '</span>' +
+        '<strong class="hq-pipeline-count">' + count + '</strong></button>';
+    }).join('');
     document.getElementById('content').innerHTML =
+      '<section class="hq-pipeline-panel" aria-label="Client pipeline">' +
+      '<div class="hq-pipeline-heading"><h2>Client pipeline</h2><p>Select a stage to see its contacts.</p></div>' +
+      '<div class="hq-pipeline-strip">' + pipelineTiles + '</div></section>' +
       '<div class="hq-directory-intro"><div><h2>Client directory</h2><p>Every contact in one place — from the first approach to an agreed job.</p></div>' +
       '<div class="hq-client-tabs">' +
       '<button type="button" class="btn small ' + (archiveView ? 'secondary' : '') + '" id="hqActiveClients">Active (' + active + ')</button>' +
@@ -209,10 +227,24 @@
         (stageFilter === s[0] ? ' selected' : '') + '>' + esc(s[1]) + ' (' + counts.get(s[0]) + ')</option>').join('') +
       '</select><span class="muted" id="clientMatchCount"></span></div>' +
       '<div id="clientDirectoryRows" class="hq-client-grid"></div>';
+    document.querySelectorAll('[data-hq-pipeline-stage]').forEach(tile => tile.onclick = () => {
+      const stage = tile.dataset.hqPipelineStage;
+      const nextArchiveView = stage === 'Lost';
+      stageFilter = stageFilter === stage && archiveView === nextArchiveView ? '' : stage;
+      archiveView = nextArchiveView;
+      renderClients();
+    });
+    const syncPipelineButtons = () => {
+      document.querySelectorAll('[data-hq-pipeline-stage]').forEach(tile => {
+        const selected = tile.dataset.hqPipelineStage === stageFilter && archiveView === (tile.dataset.hqPipelineStage === 'Lost');
+        tile.classList.toggle('is-selected', selected);
+        tile.setAttribute('aria-pressed', String(selected));
+      });
+    };
     document.getElementById('hqActiveClients').onclick = () => { archiveView = false; stageFilter = ''; renderClients(); };
     document.getElementById('hqArchivedClients').onclick = () => { archiveView = true; stageFilter = ''; renderClients(); };
     document.getElementById('clientSearch').oninput = event => { clientSearch = event.target.value; renderClientCards(); };
-    document.getElementById('clientStageFilter').onchange = event => { stageFilter = event.target.value; renderClientCards(); };
+    document.getElementById('clientStageFilter').onchange = event => { stageFilter = event.target.value; syncPipelineButtons(); renderClientCards(); };
     renderClientCards();
   };
 
