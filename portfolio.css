@@ -3,8 +3,3 @@
 .project-title-button:hover,.project-title-button:focus-visible{color:var(--navy2);text-decoration:underline;text-decoration-color:var(--gold);text-decoration-thickness:3px;text-underline-offset:5px}
 .project-title-button:focus-visible{outline:3px solid rgba(247,189,24,.55);outline-offset:4px;border-radius:6px}
 @media(max-width:620px){.project-title-button{font-size:1.45rem;margin-bottom:8px}}
-
-/* A simple live-client link below the website examples. */
-.web-client-example{margin:24px 0 0;text-align:center;color:var(--muted);font-size:1rem;line-height:1.5}
-.web-client-example a{color:var(--navy);font-weight:700;text-decoration:underline;text-underline-offset:4px}
-.web-client-example a:hover,.web-client-example a:focus-visible{color:var(--navy2)}
