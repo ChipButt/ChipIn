@@ -304,3 +304,24 @@ body.video-modal-open{overflow:hidden}
 .nav-links>a:focus-visible{outline:3px solid var(--gold);outline-offset:3px;border-radius:8px}
 @media(max-width:1120px){.nav{min-height:0;flex-wrap:wrap;justify-content:center;gap:8px;padding:10px 0}.nav .brand{width:100%;display:flex;justify-content:center}.nav .brand img{width:138px}.nav-links{width:100%;justify-content:center;gap:10px 18px;flex-wrap:wrap}}
 @media(max-width:620px){.nav{gap:6px;padding:8px 0}.nav .brand img{width:116px}.nav-links{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;width:100%;font-size:.78rem}.nav-links>a:not(.nav-cta){min-height:43px;display:flex;align-items:center;justify-content:center;text-align:center;line-height:1.15;white-space:normal!important;padding:7px 4px;border:1px solid rgba(8,47,104,.1);border-radius:11px;background:rgba(255,255,255,.7)}.nav-links>a.active:not(.nav-cta){background:#fff4c7;border-color:rgba(247,189,24,.5)}.nav-cta{min-height:43px;display:flex;align-items:center;justify-content:center;gap:5px;border-radius:11px;padding:7px 4px;box-shadow:none;font-size:.78rem}.nav-cta img{width:18px;height:18px}}
+
+/* Shared Chip In header contact buttons: E-mail and Call. */
+.nav-contact-actions{display:flex;align-items:center;gap:15px;flex:0 0 auto}
+.nav-contact-actions .nav-cta{white-space:nowrap}
+.nav-contact-actions .nav-call-icon{display:inline-block;flex:0 0 auto;width:22px;height:22px;background:var(--gold);-webkit-mask:url("chipin_asset_pack/icons/phone.png") center/contain no-repeat;mask:url("chipin_asset_pack/icons/phone.png") center/contain no-repeat}
+@media(max-width:1120px){
+  .nav{display:grid;grid-template-columns:1fr auto;gap:10px 18px;justify-content:stretch}
+  .nav .brand{grid-column:1;grid-row:1;width:auto;justify-content:flex-start}
+  .nav-contact-actions{grid-column:2;grid-row:1;justify-self:end}
+  .nav-links{grid-column:1/-1;grid-row:2;justify-content:center}
+}
+@media(max-width:620px){
+  .nav{gap:7px 10px}
+  .nav-contact-actions{gap:9px}
+  .nav-contact-actions .nav-cta{padding:8px 9px;min-height:38px;font-size:.78rem;gap:5px}
+  .nav-contact-actions .nav-cta img{width:17px;height:17px}
+  .nav-contact-actions .nav-call-icon{width:17px;height:17px}
+  .nav-links{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px}
+  .nav-links>a:nth-child(-n+2){grid-column:span 3}
+  .nav-links>a:nth-child(n+3){grid-column:span 2}
+}
