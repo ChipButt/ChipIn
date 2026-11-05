@@ -341,7 +341,7 @@ body.video-modal-open{overflow:hidden}
 .ci-reviews-button:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
 .ci-reviews-primary{background:var(--navy);color:#fff;box-shadow:0 6px 18px rgba(8,47,104,.16)}
 .ci-reviews-secondary{background:#fff4c7;color:var(--navy);border:1px solid #f3d77d}
-.ci-reviews-home-mark{display:flex;gap:3px;color:#e8a90d;font-size:clamp(1.25rem,2.3vw,1.7rem);flex:0 0 auto}
+.ci-reviews-home-mark{display:flex;justify-content:center;align-items:center;width:106px;height:106px;border-radius:30px;background:#fff4c7;color:var(--navy);font-family:Georgia,serif;font-size:7rem;line-height:1;flex:0 0 auto}
 .ci-reviews-page{padding:clamp(46px,7vw,95px) 0 100px;min-height:60vh}
 .ci-reviews-panel{background:#fff;border:1px solid var(--line);border-radius:28px;padding:clamp(24px,4vw,45px);box-shadow:var(--shadow);max-width:840px;margin:auto}
 .ci-reviews-page .ci-reviews-heading{margin-bottom:26px}
