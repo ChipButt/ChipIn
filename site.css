@@ -328,3 +328,22 @@ body.video-modal-open{overflow:hidden}
 
 /* Accessible text equivalent of decorative image-based service headings. */
 .sr-only{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
+
+/* Chip In Google reviews — brand-matched section and standalone page. */
+.ci-reviews-home{padding:30px 0 68px}
+.ci-reviews-home-wrap{border:1px solid var(--line);border-radius:28px;background:#fff;box-shadow:var(--shadow);padding:clamp(24px,4vw,46px);display:flex;gap:36px;align-items:center;justify-content:space-between}
+.ci-reviews-kicker{display:inline-block;color:var(--navy);font-size:.75rem;letter-spacing:.14em;font-weight:800}
+.ci-reviews-home h2,.ci-reviews-page h1{color:var(--navy);font-size:clamp(1.8rem,4.5vw,2.65rem);line-height:1.12;margin:12px 0}
+.ci-reviews-home p,.ci-reviews-page p{color:var(--muted);line-height:1.65;max-width:660px;margin:0 0 21px}
+.ci-reviews-actions{display:flex;flex-wrap:wrap;gap:12px}
+.ci-reviews-button{display:inline-flex;justify-content:center;align-items:center;text-align:center;min-height:46px;padding:12px 20px;border-radius:999px;font-family:Fredoka,Inter,sans-serif;font-weight:700;transition:transform .15s ease,box-shadow .15s ease}
+.ci-reviews-button:hover{transform:translateY(-2px)}
+.ci-reviews-button:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
+.ci-reviews-primary{background:var(--navy);color:#fff;box-shadow:0 6px 18px rgba(8,47,104,.16)}
+.ci-reviews-secondary{background:#fff4c7;color:var(--navy);border:1px solid #f3d77d}
+.ci-reviews-home-mark{display:flex;gap:3px;color:#e8a90d;font-size:clamp(1.25rem,2.3vw,1.7rem);flex:0 0 auto}
+.ci-reviews-page{padding:clamp(46px,7vw,95px) 0 100px;min-height:60vh}
+.ci-reviews-panel{background:#fff;border:1px solid var(--line);border-radius:28px;padding:clamp(24px,4vw,45px);box-shadow:var(--shadow);max-width:840px;margin:auto}
+.ci-reviews-page .ci-reviews-heading{margin-bottom:26px}
+.ci-reviews-note{font-size:.92rem;color:var(--muted);margin-top:18px}
+@media(max-width:760px){.ci-reviews-home-wrap{display:block}.ci-reviews-home-mark{margin-top:24px}.ci-reviews-actions{flex-direction:column;align-items:stretch}.ci-reviews-button{width:100%}}
