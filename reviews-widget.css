@@ -1,0 +1,21 @@
+/* Chip In Google Reviews: same ReviewsPlugin slider design approach as the Bulls Head, themed to Chip In. */
+.ci-reviews-home .ci-reviews-home-wrap{display:flex;flex-direction:column;align-items:stretch;gap:20px}
+.ci-reviews-home .ci-reviews-home-copy{text-align:center}
+.ci-reviews-home .ci-reviews-home-copy p{max-width:700px;margin:0 auto}
+.ci-reviews-home .ci-reviews-home-mark{display:none}
+.ci-reviews-home .ci-reviews-actions{justify-content:center}
+.ci-google-reviews{width:100%;min-width:0;box-sizing:border-box;border:2px solid #f1d171;border-radius:15px;background:#fff;box-shadow:none;padding:clamp(15px,3vw,32px);overflow:visible}
+.ci-google-reviews .rpi{display:block;width:100%;min-width:0;overflow:visible}
+.ci-review-source-attribution{display:table;margin:15px auto 0;font:500 .76rem/1.5 Inter,Arial,sans-serif;color:var(--muted)!important;text-decoration:underline!important;text-underline-offset:3px}
+.ci-review-source-attribution:hover{color:var(--navy)!important}
+.ci-google-reviews .rpi :is([class*="review-card"],[class*="review_card"],[class*="review-item"],[class*="review_item"],[itemprop="review"]){background:#fff;border:1px solid #d6e4e0!important;border-radius:12px;box-shadow:0 5px 14px rgba(8,47,104,.06)}
+.ci-google-reviews .rpi :is([class*="rating-summary"],[class*="rating_header"],[class*="rating-header"],[class*="header-rating"],[class*="head-rating"]){text-align:center!important;justify-content:center!important;margin-inline:auto}
+.ci-google-reviews .rpi :is(button[class*="arrow"],button[class*="next"],button[class*="prev"],button[class*="nav"],button[aria-label*="next" i],button[aria-label*="previous" i],button[aria-label*="prev" i],.swiper-button-next,.swiper-button-prev,.splide__arrow){color:#082f68!important;border-color:#f7bd18!important;background-color:#fff4c7!important}
+.ci-google-reviews .rpi :is(button[class*="arrow"],button[class*="next"],button[class*="prev"],button[class*="nav"],button[aria-label*="next" i],button[aria-label*="previous" i],button[aria-label*="prev" i],.swiper-button-next,.swiper-button-prev,.splide__arrow) svg{color:#082f68!important;fill:currentColor}
+.ci-google-reviews .rpi :is(.swiper-pagination-bullet-active,.splide__pagination__page.is-active,[role="tab"][aria-selected="true"],[class*="dot"][aria-current="true"],[class*="dot"].active){background-color:#f7bd18!important;border-color:#f7bd18!important}
+.ci-reviews-page .ci-reviews-panel{max-width:1110px}
+.ci-reviews-page .ci-reviews-heading{text-align:center}
+.ci-reviews-page .ci-reviews-heading p{margin-left:auto;margin-right:auto}
+.ci-reviews-page .ci-reviews-actions{justify-content:center;margin:0 0 24px}
+.ci-reviews-page .ci-reviews-note{max-width:100%;margin:18px auto 0;text-align:center}
+@media(max-width:680px){.ci-google-reviews{padding:15px 11px;border-width:2px}.ci-reviews-home .ci-reviews-home-wrap{gap:19px}.ci-reviews-page .ci-reviews-actions{gap:10px}}
