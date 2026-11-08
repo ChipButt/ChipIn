@@ -25,7 +25,17 @@
 .ci-reviews-home-wrap,.ci-reviews-panel{position:relative}
 .ci-google-reviews:not([data-reviews-valid="true"]){position:absolute;left:0;top:0;visibility:hidden;pointer-events:none;opacity:0}
 .ci-google-reviews[data-reviews-valid="true"]{position:relative;visibility:visible;opacity:1}
-.ci-reviews-fallback{width:100%;display:flex;flex-direction:column;align-items:center;text-align:center;gap:14px;padding:clamp(20px,4vw,38px);border:2px solid #f1d171;border-radius:15px;background:#fff}
-.ci-reviews-fallback p{color:var(--muted);line-height:1.65;margin:0}
+.ci-reviews-fallback{width:100%;padding:clamp(16px,3.1vw,32px);border:2px solid #f1d171;border-radius:15px;background:#fff}
 .ci-reviews-fallback[hidden]{display:none!important}
-@media(max-width:760px){.ci-reviews-fallback{padding:22px 16px}}
+.ci-review-summary{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:10px 16px;margin-bottom:23px;color:var(--navy)}
+.ci-review-summary-rating{font:700 clamp(2rem,4vw,2.7rem)/1 Fredoka,Inter,sans-serif}
+.ci-review-summary-stars,.ci-review-card-stars{color:#e5a400;letter-spacing:.08em;font-size:1.45rem;white-space:nowrap}
+.ci-review-summary-count{font-weight:700;color:var(--muted)}
+.ci-review-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.ci-review-card{margin:0;display:flex;flex-direction:column;gap:13px;background:#f7fbf9;border:1px solid var(--line);border-radius:17px;padding:clamp(18px,2vw,26px);min-width:0}
+.ci-review-card-stars{font-size:1.12rem}
+.ci-review-card blockquote{margin:0;color:var(--ink);font:400 .97rem/1.65 Inter,Arial,sans-serif;flex:1}
+.ci-review-card figcaption{color:var(--navy);font:700 .93rem/1.3 Fredoka,Inter,sans-serif}
+.ci-review-snapshot-note{margin:18px 0 0!important;max-width:none!important;text-align:center;font-size:.78rem;color:var(--muted);line-height:1.55}
+.ci-review-snapshot-note a{font-weight:700;text-decoration:underline;text-underline-offset:2px;color:var(--navy)}
+@media(max-width:700px){.ci-reviews-fallback{padding:16px 12px}.ci-review-cards{grid-template-columns:1fr}.ci-review-summary{gap:7px 12px}.ci-review-summary-count{flex-basis:100%;text-align:center}.ci-review-card{padding:18px}}
