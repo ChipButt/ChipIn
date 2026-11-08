@@ -11,8 +11,8 @@
         queued = false;
         var text = (widget.textContent || '').replace(/\s+/g, ' ').trim();
         var count = text.match(/\b(?:Based on\s+)?([1-9][\d,]*)\s+(?:Google\s+)?reviews?\b/i);
-        var rating = text.match(/(?<![\d.])([1-5](?:\.\d)?)(?![\d.])/);
-        var valid = !!(count && rating) && !/\bundefined\b|\bunable to load\b/i.test(text);
+        var rating = text.match(/\b([1-5]\.\d)\b/);
+        var valid = !!(count && rating) && !/\bundefined\b|\bunable to load\b|\bPOOR\b|\b0\.0\b/i.test(text);
         frame.dataset.reviewsValid = valid ? 'true' : 'false';
         fallback.hidden = valid;
       }
