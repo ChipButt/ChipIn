@@ -1,7 +1,35 @@
 /* Chip In reviews: never display a fabricated 0.0 rating when the third-party feed is incomplete.
    Review text and the real rating still come directly from ReviewsPlugin when available. */
 (function () {
+  function initSnapshotSliders() {
+    document.querySelectorAll('[data-ci-review-slider]').forEach(function (slider) {
+      var cards = Array.from(slider.querySelectorAll('.ci-review-card'));
+      var dots = Array.from(slider.querySelectorAll('.ci-snapshot-dot'));
+      if (!cards.length) return;
+      var active = 0;
+      function render() {
+        cards.forEach(function (card, index) {
+          card.style.order = (index - active + cards.length) % cards.length;
+          card.dataset.active = index === active ? 'true' : 'false';
+        });
+        dots.forEach(function (dot, index) {
+          dot.setAttribute('aria-pressed', index === active ? 'true' : 'false');
+        });
+      }
+      function move(delta) {
+        active = (active + delta + cards.length) % cards.length;
+        render();
+      }
+      slider.querySelector('.ci-snapshot-arrow--prev')?.addEventListener('click', function () { move(-1); });
+      slider.querySelector('.ci-snapshot-arrow--next')?.addEventListener('click', function () { move(1); });
+      dots.forEach(function (dot, index) {
+        dot.addEventListener('click', function () { active = index; render(); });
+      });
+      render();
+    });
+  }
   function init() {
+    initSnapshotSliders();
     document.querySelectorAll('.ci-google-reviews').forEach(function (frame) {
       var widget = frame.querySelector('[data-rpi]');
       var fallback = frame.nextElementSibling;
