@@ -19,3 +19,13 @@
 .ci-reviews-page .ci-reviews-actions{justify-content:center;margin:0 0 24px}
 .ci-reviews-page .ci-reviews-note{max-width:100%;margin:18px auto 0;text-align:center}
 @media(max-width:680px){.ci-google-reviews{padding:15px 11px;border-width:2px}.ci-reviews-home .ci-reviews-home-wrap{gap:19px}.ci-reviews-page .ci-reviews-actions{gap:10px}}
+
+/* If ReviewsPlugin has missing data, keep its invalid 0.0 output invisible.
+   The Google link below stays visible until the feed has a real rating and count. */
+.ci-reviews-home-wrap,.ci-reviews-panel{position:relative}
+.ci-google-reviews:not([data-reviews-valid="true"]){position:absolute;left:0;top:0;visibility:hidden;pointer-events:none;opacity:0}
+.ci-google-reviews[data-reviews-valid="true"]{position:relative;visibility:visible;opacity:1}
+.ci-reviews-fallback{width:100%;display:flex;flex-direction:column;align-items:center;text-align:center;gap:14px;padding:clamp(20px,4vw,38px);border:2px solid #f1d171;border-radius:15px;background:#fff}
+.ci-reviews-fallback p{color:var(--muted);line-height:1.65;margin:0}
+.ci-reviews-fallback[hidden]{display:none!important}
+@media(max-width:760px){.ci-reviews-fallback{padding:22px 16px}}
