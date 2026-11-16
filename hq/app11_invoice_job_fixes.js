@@ -12,10 +12,17 @@ function chipInInvoiceJobRef(inv){return inv?.jobReference||chipInInvoiceJob(inv
 function chipInInvoiceCustomerRef(inv){return inv?.customerReference||chipInInvoiceJob(inv)?.customerReference||''}
 function chipInInvoiceNotes(inv){const j=chipInInvoiceJob(inv),n=String(inv?.notes||'');return j?.notes&&(!n||n==='Thank you for your business.')?j.notes:n}
 function chipInClientEmail(inv){return String(clientById(inv?.clientId)?.email||'').trim()}
+function chipInInvoiceSchedule(inv){
+ if(!inv?.paymentSchedule||inv.paymentSchedule==='standard'||!window.ChipInQuotes?.paymentDetails)return null;
+ const job=chipInInvoiceJob(inv);
+ return window.ChipInQuotes.paymentDetails({category:job?.category||'Other',paymentSchedule:inv.paymentSchedule},invoiceTotals(inv).total);
+}
 function chipInInvoiceEmailSubject(inv){return `Invoice ${inv.number} from ${state.settings.tradingName||state.settings.legalName||'Chip In'}`}
 function chipInInvoiceEmailBody(inv){
   const c=clientById(inv.clientId)||{},name=c.contact||c.name||'there',terms=chipInInvoiceTerms(inv),total=invoiceTotals(inv).total;
-  return `Hi ${name},\n\nPlease find invoice ${inv.number} for ${money(total)}. It is due on ${fmtDate(inv.dueDate)} (${terms} day${terms===1?'':'s'} payment terms).\n\nKind regards,\n${state.settings.tradingName||state.settings.legalName||'Chip In'}`;
+  const schedule=chipInInvoiceSchedule(inv);
+  const request=schedule?'Agreed payment arrangement:\n'+schedule.milestones.map(m=>m.name+': '+money(m.amount)).join('\n')+'\n'+schedule.note:'It is due on '+fmtDate(inv.dueDate)+' ('+terms+' day'+(terms===1?'':'s')+' payment terms).';
+  return 'Hi '+name+'\n\nPlease find invoice '+inv.number+' for '+money(total)+'.\n\n'+request+'\n\nKind regards,\n'+(state.settings.tradingName||state.settings.legalName||'Chip In');
 }
 
 chipInJobAmount=function(v){
@@ -95,8 +102,19 @@ openInvoiceForm=function(id,jobId){
     if(custRef&&!custRef.value)custRef.value=linkedJob.customerReference||'';
   }
   const terms=chipInInvoiceTerms(inv),grid=form.querySelector('.form-grid');
+  if(grid&&!$('[name="paymentSchedule"]',form)){
+   const current=inv?.paymentSchedule||'standard',choices=[
+    ['standard','Standard invoice due date'],['before-launch','100% before launch / delivery'],
+    ['split-50','50% before work, 50% before launch'],['upfront','100% before work begins']
+   ];
+   grid.insertAdjacentHTML('beforeend','<div class="field full"><label>Payment arrangement</label><select name="paymentSchedule">'+
+    choices.map(x=>'<option value="'+x[0]+'"'+(current===x[0]?' selected':'')+'>'+x[1]+'</option>').join('')+
+    '</select><p class="sub">Record each payment against the full invoice. For staged projects, set any internal due date to the agreed collection date.</p></div>');
+  }
   if(grid&&!$('[name="paymentTermsDays"]',form))grid.insertAdjacentHTML('beforeend',`<div class="field"><label>Payment terms</label><input type="number" min="0" step="1" name="paymentTermsDays" value="${terms}"><div class="rate-source">Days from invoice date</div></div>`);
-  const issue=$('[name="issueDate"]',form),due=$('[name="dueDate"]',form),termInput=$('[name="paymentTermsDays"]',form);
+  const issue=$('[name="issueDate"]',form),due=$('[name="dueDate"]',form),termInput=$('[name="paymentTermsDays"]',form),scheduleInput=$('[name="paymentSchedule"]',form);
+  const showTerms=()=>{if(termInput?.closest('.field'))termInput.closest('.field').style.display=scheduleInput?.value==='standard'?'':'none';};
+  if(scheduleInput){scheduleInput.addEventListener('change',showTerms);showTerms();}
   const updateDue=()=>{if(issue?.value&&due&&termInput)due.value=addDays(issue.value,Number(termInput.value||0))};
   if(issue)issue.onchange=updateDue;if(termInput)termInput.onchange=updateDue;
   const oldSubmit=form.onsubmit;
@@ -114,8 +132,16 @@ invoicePreviewHTML=function(inv){
   const j=chipInInvoiceJob(inv),view={...inv,jobReference:chipInInvoiceJobRef(inv),customerReference:chipInInvoiceCustomerRef(inv),notes:chipInInvoiceNotes(inv),paymentTermsDays:chipInInvoiceTerms(inv)};
   if(chipInInvoiceIsFlattened(inv,j))view.items=chipInInvoiceItemsForJob(j);
   let html=chipInPrevInvoicePreviewHTML(view);
-  const terms=`<strong>Payment terms:</strong> ${view.paymentTermsDays} day${view.paymentTermsDays===1?'':'s'} from invoice date<br>`;
-  return html.replace('<div class="invoice-footer">',`<div class="invoice-footer">${terms}`);
+  const pay=chipInInvoiceSchedule(view);
+  if(pay){
+   const milestones='<section class="hq-quote-payments"><h4>Payment arrangement</h4>'+
+    pay.milestones.map(m=>'<div class="hq-quote-tally"><span>'+esc(m.name)+'</span><b>'+money(m.amount)+'</b></div>').join('')+
+    '<p class="hq-quote-tax-note">'+esc(pay.note)+'</p></section>';
+   return html.replace(' · Due '+fmtDate(view.dueDate),' · Payment by milestones')
+    .replace('<div class="invoice-footer">',milestones+'<div class="invoice-footer">');
+  }
+  const terms='<strong>Payment terms:</strong> '+view.paymentTermsDays+' day'+(view.paymentTermsDays===1?'':'s')+' from invoice date<br>';
+  return html.replace('<div class="invoice-footer">','<div class="invoice-footer">'+terms);
 };
 
 invoiceRows=function(rows){return rows.map(i=>{const c=clientById(i.clientId),t=invoiceTotals(i),s=invoiceStatus(i);return `<tr><td><strong class="mono">${esc(i.number)}</strong></td><td>${esc(c?.name||'—')}</td><td>${fmtDate(i.issueDate)}<div class="muted">due ${fmtDate(i.dueDate)}</div></td><td>${money(t.total)}</td><td>${money(outstanding(i))}</td><td>${statusBadge(s)}</td><td class="right"><div class="row-actions"><button class="btn small secondary" data-action="view-invoice" data-id="${i.id}">Open</button><button class="btn small secondary" data-action="edit-invoice" data-id="${i.id}">Edit</button><button class="btn small secondary" data-action="email-invoice" data-id="${i.id}">Email</button>${s==='Draft'?`<button class="btn small" data-action="send-invoice" data-id="${i.id}">Mark sent</button>`:''}${s!=='Paid'&&s!=='Draft'?`<button class="btn small gold" data-action="pay-invoice" data-id="${i.id}">Payment</button>`:''}<button class="icon-btn" data-action="delete-invoice" data-id="${i.id}">×</button></div></td></tr>`}).join('')};
@@ -145,13 +171,26 @@ pdfBlob=function(inv){
   if(chipInInvoiceIsFlattened(inv,j))view.items=chipInInvoiceItemsForJob(j);
   const t=invoiceTotals(view);
   try{if(LOGO_PDF_DATA_URL)d.addImage(LOGO_PDF_DATA_URL,'PNG',15,13,58,17)}catch{}
-  d.setTextColor(10,47,87);d.setFontSize(24);d.setFont(undefined,'bold');d.text('INVOICE',195,22,{align:'right'});d.setFontSize(9);d.setFont(undefined,'normal');d.setTextColor(95,102,116);d.text(view.number,195,28,{align:'right'});d.text(`Issued ${fmtDate(view.issueDate)}   Due ${fmtDate(view.dueDate)}`,195,33,{align:'right'});
+  d.setTextColor(10,47,87);d.setFontSize(24);d.setFont(undefined,'bold');d.text('INVOICE',195,22,{align:'right'});d.setFontSize(9);d.setFont(undefined,'normal');d.setTextColor(95,102,116);d.text(view.number,195,28,{align:'right'});d.text(chipInInvoiceSchedule(view)?'Issued '+fmtDate(view.issueDate)+' · Payment by milestones':`Issued ${fmtDate(view.issueDate)}   Due ${fmtDate(view.dueDate)}`,195,33,{align:'right'});
   const refs=[view.jobReference?`Job ref: ${view.jobReference}`:'',view.customerReference?`Customer ref / PO: ${view.customerReference}`:''].filter(Boolean).join('   ');if(refs)d.text(refs,195,38,{align:'right'});
   d.setDrawColor(220);d.line(15,43,195,43);d.setTextColor(23,32,51);d.setFont(undefined,'bold');d.text('FROM',15,52);d.text('BILL TO',110,52);d.setFont(undefined,'normal');d.text(`${s.legalName||''} trading as ${s.tradingName||'Chip In'}\n${s.address||''}\n${s.email||''}${s.phone?'\n'+s.phone:''}`,15,58,{maxWidth:80});d.text(`${c.name||''}${c.contact?'\n'+c.contact:''}${c.address?'\n'+c.address:''}${c.email?'\n'+c.email:''}`,110,58,{maxWidth:80});
   let y=91;d.setFillColor(244,246,250);d.rect(15,y,180,8,'F');d.setFont(undefined,'bold');d.text('Description',18,y+5.5);d.text('Qty',135,y+5.5,{align:'right'});d.text('Rate',165,y+5.5,{align:'right'});d.text('Amount',192,y+5.5,{align:'right'});d.setFont(undefined,'normal');y+=12;
   (view.items||[]).forEach(x=>{const lines=d.splitTextToSize(x.description,105);d.text(lines,18,y);d.text(String(x.qty),135,y,{align:'right'});d.text(money(x.rate),165,y,{align:'right'});d.text(money(Number(x.qty||0)*Number(x.rate||0)),192,y,{align:'right'});y+=Math.max(8,lines.length*5+2)});
   y+=5;d.line(115,y,195,y);y+=7;d.text('Subtotal',145,y,{align:'right'});d.text(money(t.subtotal),192,y,{align:'right'});if(s.vatRegistered){y+=6;d.text(`VAT ${view.vatRate}%`,145,y,{align:'right'});d.text(money(t.vat),192,y,{align:'right'})}y+=8;d.setFont(undefined,'bold');d.setFontSize(12);d.text('TOTAL',145,y,{align:'right'});d.text(money(t.total),192,y,{align:'right'});
-  d.setFontSize(8.5);d.setFont(undefined,'normal');d.setTextColor(90,97,110);d.text(`Payment terms: ${view.paymentTermsDays} day${view.paymentTermsDays===1?'':'s'} from invoice date\nPayment by bank transfer\nAccount name: ${s.bankName||''}\nSort code: ${s.sortCode||''}   Account number: ${s.accountNumber||''}`,15,255);
+  const schedule=chipInInvoiceSchedule(view);
+  if(schedule){
+   const noteLines=d.splitTextToSize(schedule.note,175),needed=14+schedule.milestones.length*6+noteLines.length*4.3;
+   if(y+needed>240){d.addPage();y=21;}else y+=10;
+   d.setFontSize(10);d.setFont(undefined,'bold');d.setTextColor(10,47,87);d.text('PAYMENT ARRANGEMENT',15,y);y+=8;
+   for(const m of schedule.milestones){
+    d.setFontSize(9);d.setFont(undefined,'normal');d.setTextColor(23,32,51);
+    d.text(m.name,18,y);d.setFont(undefined,'bold');d.text(money(m.amount),192,y,{align:'right'});y+=6;
+   }
+   d.setFont(undefined,'normal');d.setFontSize(8);d.setTextColor(90,97,110);d.text(noteLines,18,y);
+  }
+  d.setFontSize(8.5);d.setFont(undefined,'normal');d.setTextColor(90,97,110);
+  d.setPage(1);
+  d.text((schedule?'Payment by agreed milestones':'Payment terms: '+view.paymentTermsDays+' day'+(view.paymentTermsDays===1?'':'s')+' from invoice date')+'\nPayment by bank transfer\nAccount name: '+(s.bankName||'')+'\nSort code: '+(s.sortCode||'')+'   Account number: '+(s.accountNumber||''),15,255);
   if(view.notes)d.text(d.splitTextToSize(view.notes,75),110,255);
   return d.output('blob');
 };
