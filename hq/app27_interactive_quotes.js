@@ -74,7 +74,7 @@ async function publish(id){
   if(client){client.pipelineStage='Quote';client.updatedAt=new Date().toISOString();}
   await saveState();
   render();window.ChipInQuotes.openPreview(q.id);
-  toast(r.email?.status==='queued'?'Quotation published and email queued automatically for Gmail delivery.':'Quotation published. Email delivery status is not yet confirmed; check before relying on it.');
+  toast(r.email?.status==='queued'?'Quotation published and email queued. Check that Gmail confirms sending; the background sender may need approval.':'Quotation published. Email delivery is not confirmed; check before relying on it.');
  }catch(e){toast(e.message);}
 }
 async function synchronize(showToast=false){
@@ -168,14 +168,14 @@ function previewActions(q){
  if(!actions)return;
  const button=document.createElement('button');button.type='button';button.className='btn small secondary';
  if(q.interactive?.url){
-  const deliveryNote=document.createElement('p');deliveryNote.className='muted';deliveryNote.style.cssText='width:100%;margin:6px 0';deliveryNote.textContent='Published quotations are automatically queued for delivery from jamesbutt.chipin@gmail.com. Gmail runs hourly. Queued means not yet sent. Use Open email draft if you need to send immediately yourself.';actions.append(deliveryNote);
+  const deliveryNote=document.createElement('p');deliveryNote.className='muted';deliveryNote.style.cssText='width:100%;margin:6px 0';deliveryNote.textContent='Publishing queues your customer email. Sending is handled by a separate Gmail task that can pause for approval, so Queued does not mean Sent. For immediate manual sending, open the Gmail draft.';actions.append(deliveryNote);
   button.textContent='Copy customer quote link';button.onclick=()=>navigator.clipboard.writeText(q.interactive.url).then(()=>toast('Secure client quote link copied')).catch(()=>toast('Could not copy the link.'));
   actions.append(button);
   const client=clientById(q.clientId);
   if(client?.email){
    if(!q.interactive.email || q.interactive.email.status==='failed'){
     const sendButton=document.createElement('button');sendButton.type='button';sendButton.className='btn small gold';
-    sendButton.textContent='Send this quotation email';
+    sendButton.textContent='Queue quotation email';
     sendButton.onclick=()=>queueCustomerEmail(q.id);
     actions.append(sendButton);
    }else{
