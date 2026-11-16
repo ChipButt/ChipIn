@@ -173,13 +173,13 @@ function previewActions(q){
     mailStatus.textContent=q.interactive.email.status==='sent'?'Sent by Gmail to '+q.interactive.email.recipient+' at '+new Date(q.interactive.email.sentAt).toLocaleString('en-GB'):'Email queued: awaiting Gmail send';
     actions.append(mailStatus);
    }
-   const emailButton=document.createElement('button');emailButton.type='button';emailButton.className='btn small secondary';emailButton.textContent='Open email draft';
-   emailButton.onclick=()=>{
-    const subject='Your quotation from Chip In Works — '+q.number;
-    const body='Hello '+(client.contact||client.name||'')+',\n\nPlease review your personalised quotation, select any optional services and confirm when you are happy to proceed:\n\n'+q.interactive.url+'\n\nThe quotation is valid until '+fmtDate(q.validUntil)+'.\n\nKind regards,\nChip In Works';
-    toast('An email draft will open. Press Send in your email app; HQ cannot verify delivery.');
-    window.location.href='mailto:'+encodeURIComponent(client.email)+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body);
-   };
+   // Open Gmail Compose directly instead of a mailto: handler, which fails on many computers.
+   const emailButton=document.createElement('a');emailButton.className='btn small secondary';emailButton.textContent='Open Gmail draft';
+   const subject='Your quotation from Chip In Works — '+q.number;
+   const body='Hello '+(client.contact||client.name||'')+',\n\nThank you for your interest in Chip In Works.\n\nPlease review your personalised quotation using the secure link below. You can select any optional services and confirm your choices directly on the page:\n\n'+q.interactive.url+'\n\nQuotation reference: '+q.number+'\nValid until: '+q.validUntil+'\n\nIf you have any questions, just reply to this email.\n\nKind regards,\nChip In Works\njamesbutt.chipin@gmail.com';
+   emailButton.href='https://mail.google.com/mail/?view=cm&fs=1&to='+encodeURIComponent(client.email)+'&su='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body);
+   emailButton.target='_blank';emailButton.rel='noopener noreferrer';
+   emailButton.title='Opens a prefilled Gmail compose window. Review and press Send in Gmail.';
    actions.append(emailButton);
   }
   const stateInfo=document.createElement('p');stateInfo.className='muted';stateInfo.style.cssText='width:100%;margin-top:8px';
