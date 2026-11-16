@@ -29,8 +29,9 @@ function planFromJob(job,kind,source){
  const frequency=kind==='care'?'monthly':'annual';
  const first=kind==='care' ? job.servicePricing?.billingOptions?.monthlyFirst!==false : job.servicePricing?.billingOptions?.domainFirst!==false;
  const anchorDate=cleanStart(job.startDate);
- const detail=kind==='care' ? (source?.name||'Website care') : 'Domain registration and renewal';
- const title=kind==='care'?(source?.name||'Website care'):'Domain renewal';
+ const suggested=clean(job.suggestedDomain||'');
+ const detail=kind==='care' ? (source?.name||'Website care') : 'Domain registration and renewal'+(suggested?' — '+suggested:'');
+ const title=kind==='care'?(source?.name||'Website care'):'Domain renewal'+(suggested?' — '+suggested:'');
  const prior=registry().find(c=>c.jobId===job.id&&c.kind===kind);
  if(!source||!Number.isFinite(Number(source.amount))||Number(source.amount)<=0) {
   if(prior){prior.active=false;prior.updatedAt=new Date().toISOString();}
