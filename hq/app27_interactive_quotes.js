@@ -103,7 +103,7 @@ function mountQuotes(){
  const ready=portalReady(),accepted=quotes().filter(q=>q.interactive?.acceptance&&!q.invoiceId);
  const bar=document.createElement('div');bar.className='hq-quote-online-bar';bar.id='hqQuoteOnlineBar';
  bar.innerHTML='<div><strong>Interactive customer quotations</strong><p class="muted" style="margin:5px 0 0">'+(ready?'Connected to Cloudflare · customer choices and approvals appear here':'One-time secure connection required before sending interactive quotation links')+'</p></div><div class="row-actions">'+
- (ready?'<button class="btn small secondary" id="hqQuoteCheck">Check replies</button>':'<button class="btn small" id="hqQuotePair">Connect quotations</button>')+'</div>';
+ '<a class="btn small secondary" href="'+BASE+'/demo" target="_blank" rel="noopener noreferrer">Try customer demo</a>'+ (ready?'<button class="btn small secondary" id="hqQuoteCheck">Check replies</button>':'<button class="btn small" id="hqQuotePair">Connect quotations</button>')+'</div>';
  host.prepend(bar);
  document.getElementById('hqQuoteCheck')?.addEventListener('click',()=>synchronize(true));
  document.getElementById('hqQuotePair')?.addEventListener('click',pairForm);
