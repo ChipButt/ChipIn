@@ -432,7 +432,7 @@ function downloadPDF(q){
  ensure(18);
  doc.setDrawColor(10,47,87);doc.setLineWidth(.65);doc.line(106,y-3,195,y-3);
  doc.setTextColor(10,47,87);doc.setFont(undefined,'bold');doc.setFontSize(11);
- doc.text('INITIAL AMOUNT',108,y+3);
+ doc.text('TOTAL INITIAL QUOTE',108,y+3);
  doc.text(n(gross(q,p.upfront)),192,y+3,{align:'right'});
  y+=17;bodyColor();
  const pay=paymentDetails(q,gross(q,p.upfront));
