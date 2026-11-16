@@ -68,6 +68,25 @@ const DEMO = validate({
  defaultCare:0,defaultExtras:[]
 });
 
+
+const GMAIL_FROM = 'jamesbutt.chipin@gmail.com';
+const SINGLE_LINE = s => clean(s,250).replace(/[\r\n\t]+/g,' ').replace(/\s+/g,' ').trim();
+const EMAIL_TEST = /^[^\s@<>;,]+@[^\s@<>;,]+\.[^\s@<>;,]+$/;
+const OUTBOX_URL = 'https://chipin-hq-quotes.goldplushighdefinition.workers.dev';
+function quoteEmail(q,proposal){
+ const recipient=clean(proposal.clientEmail,240).toLowerCase();
+ if(!EMAIL_TEST.test(recipient))throw Error('The client has no valid email address on this published quote.');
+ const contact=SINGLE_LINE(proposal.clientContact||proposal.clientName||'there');
+ const number=SINGLE_LINE(proposal.number||q.number);
+ const quoteUrl=OUTBOX_URL+'/q/'+q.view_token;
+ const date=SINGLE_LINE(proposal.validUntil);
+ return {
+  recipient,sender:GMAIL_FROM,
+  subject:'Your quotation from Chip In Works - '+number,
+  body:'Hello '+contact+',\n\nThank you for your interest in Chip In Works.\n\nPlease review your personalised quotation using the secure link below. You can select any optional services and confirm your choices directly on the page:\n\n'+quoteUrl+'\n\nQuotation reference: '+number+'\nValid until: '+date+'\n\nIf you have any questions, just reply to this email.\n\nKind regards,\nChip In Works\n'+GMAIL_FROM
+ };
+}
+
 async function admin(r,env){const h=r.headers.get('Authorization')||'';return h.startsWith('Bearer ')&&constantTime(h.slice(7),env.ADMIN_KEY||'')}
 async function showQuote(req,env,token){
  if(!/^[0-9a-f]{54}$/.test(token))return new Response('Quote not found',{status:404});
@@ -106,6 +125,20 @@ export default {async fetch(req,env){
  if(m==='POST'&&p.startsWith('/api/admin/')){
    if(!await admin(req,env))return bad('Unauthorised: connect HQ first',401,c);
    const v=await body(req);
+
+   if(p==='/api/admin/send-email'){
+    // Explicit HQ user action; no SMTP or Gmail token is ever given to a browser.
+    const quoteId=clean(v.id,110);
+    const q=await env.DB.prepare('SELECT id,number,view_token,status,valid_until,proposal_json FROM quotes WHERE id=?').bind(quoteId).first();
+    if(!q)return bad('Published quote not found',404,c);
+    if(q.status!=='published'||q.valid_until<now().slice(0,10))return bad('This quote is no longer open for sending',409,c);
+    const existing=await env.DB.prepare('SELECT recipient,status,created_at,sent_at,gmail_message_id,last_error FROM quote_email_outbox WHERE quote_id=?').bind(quoteId).first();
+    if(existing)return json({ok:true,email:{recipient:existing.recipient,status:existing.status,createdAt:existing.created_at,sentAt:existing.sent_at,gmailMessageId:existing.gmail_message_id,error:existing.last_error},alreadyQueued:true},200,c);
+    const mail=quoteEmail(q,JSON.parse(q.proposal_json)),timestamp=now();
+    await env.DB.prepare("INSERT INTO quote_email_outbox(quote_id,recipient,sender,subject,body,status,created_at) VALUES(?,?,?,?,?,'queued',?) ON CONFLICT(quote_id) DO NOTHING").bind(q.id,mail.recipient,mail.sender,mail.subject,mail.body,timestamp).run();
+    const record=await env.DB.prepare('SELECT recipient,status,created_at,sent_at,gmail_message_id,last_error FROM quote_email_outbox WHERE quote_id=?').bind(q.id).first();
+    return json({ok:true,email:{recipient:record.recipient,status:record.status,createdAt:record.created_at,sentAt:record.sent_at,gmailMessageId:record.gmail_message_id,error:record.last_error},message:record.status==='queued'?'Email queued for secure Gmail dispatch. This is not yet sent.':'Existing delivery record returned.'},202,c);
+   }
    if(p==='/api/admin/publish'){
     const doc=validate(v.proposal);
     const old=await env.DB.prepare('SELECT view_token,status FROM quotes WHERE id=?').bind(doc.id).first();
@@ -117,8 +150,8 @@ export default {async fetch(req,env){
    if(p==='/api/admin/sync'){
     const ids=Array.isArray(v.ids)?v.ids.slice(0,100).map(String).filter(x=>/^qte_[\da-z_-]{4,95}$/i.test(x)):[];
     if(!ids.length)return json({ok:true,quotes:[]},200,c);
-    const rows=await env.DB.prepare('SELECT id,status,view_token,first_opened_at,accepted_at,acceptance_json FROM quotes WHERE id IN ('+ids.map(()=>'?').join(',')+')').bind(...ids).all();
-    return json({ok:true,quotes:rows.results.map(x=>({id:x.id,status:x.status,url:u.origin+'/q/'+x.view_token,firstOpenedAt:x.first_opened_at,acceptedAt:x.accepted_at,acceptance:x.acceptance_json?JSON.parse(x.acceptance_json):null}))},200,c);
+    const rows=await env.DB.prepare('SELECT q.id,q.status,q.view_token,q.first_opened_at,q.accepted_at,q.acceptance_json,e.recipient AS mail_recipient,e.status AS mail_status,e.created_at AS mail_created_at,e.sent_at AS mail_sent_at,e.gmail_message_id AS mail_message_id,e.last_error AS mail_error FROM quotes q LEFT JOIN quote_email_outbox e ON e.quote_id=q.id WHERE q.id IN ('+ids.map(()=>'?').join(',')+')').bind(...ids).all();
+    return json({ok:true,quotes:rows.results.map(x=>({id:x.id,status:x.status,url:u.origin+'/q/'+x.view_token,firstOpenedAt:x.first_opened_at,acceptedAt:x.accepted_at,acceptance:x.acceptance_json?JSON.parse(x.acceptance_json):null,email:x.mail_status?{recipient:x.mail_recipient,status:x.mail_status,createdAt:x.mail_created_at,sentAt:x.mail_sent_at,gmailMessageId:x.mail_message_id,error:x.mail_error}:null}))},200,c);
    }
    if(p==='/api/admin/revoke'){
     const r=await env.DB.prepare("UPDATE quotes SET status='revoked',updated_at=? WHERE id=? AND status='published'").bind(now(),clean(v.id,110)).run();
