@@ -60,3 +60,7 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:
 .hq-quote-preview .hq-quote-domain-note{background:none;border:0;border-left:2px solid #d6dde7;border-radius:0;margin:17px 0;padding:3px 0 3px 12px}
 .hq-quote-terms{border-top:1px solid #e3e9ef;padding-top:16px}
 @media(max-width:700px){.hq-quote-item{grid-template-columns:minmax(0,1fr) auto;gap:12px}.hq-quote-item-price{font-size:12px}.hq-quote-grand strong{font-size:20px}.hq-quote-investment{max-width:none}}
+
+/* Keep all sidebar sections reachable, even in shorter windows and on mobile. */
+.sidebar .nav{min-height:0;overflow-y:auto;scrollbar-width:thin}.sidebar-foot{flex-shrink:0}
+@media(max-width:700px){.sidebar .nav{overflow-x:auto;overflow-y:hidden;justify-content:flex-start;scrollbar-width:none}.sidebar .nav::-webkit-scrollbar{display:none}.sidebar .nav button{flex:0 0 69px;min-width:69px}}
