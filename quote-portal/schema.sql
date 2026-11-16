@@ -23,3 +23,20 @@ CREATE TABLE IF NOT EXISTS pair_codes (
   expires_at TEXT NOT NULL,
   used_at TEXT
 );
+
+-- Client quote email dispatch via the connected Gmail account.
+CREATE TABLE IF NOT EXISTS quote_email_outbox (
+ quote_id TEXT PRIMARY KEY,
+ recipient TEXT NOT NULL,
+ sender TEXT NOT NULL,
+ subject TEXT NOT NULL,
+ body TEXT NOT NULL,
+ status TEXT NOT NULL DEFAULT 'queued' CHECK(status IN ('queued','sending','sent','failed','cancelled')),
+ created_at TEXT NOT NULL,
+ sent_at TEXT,
+ gmail_message_id TEXT,
+ last_error TEXT,
+ last_attempt_at TEXT,
+ FOREIGN KEY(quote_id) REFERENCES quotes(id)
+);
+CREATE INDEX IF NOT EXISTS idx_quote_email_outbox_status ON quote_email_outbox(status,created_at);
