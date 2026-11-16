@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en-GB"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow,noarchive"><title>Chip In Works | Your quotation</title>
+<style>
+:root{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#182c43;background:#f5f7fa}*{box-sizing:border-box}body{margin:0}header{background:#082f54;color:#fff;padding:23px max(22px,calc((100vw - 1010px)/2))}header strong{font-size:29px;letter-spacing:-1px}header small{display:block;opacity:.78;letter-spacing:2.3px;font-size:11px}
+main{max-width:1010px;margin:auto;padding:38px 22px 65px}h1{font-size:clamp(27px,4vw,42px);letter-spacing:-1.1px;margin:5px 0 8px}h2{font-size:19px;letter-spacing:-.3px;color:#11375d;margin:0 0 15px}p{line-height:1.6}.muted{color:#637487;font-size:13px}.intro{margin-bottom:29px}.sheet{background:#fff;padding:31px 34px;margin:19px 0;border-radius:12px;border:1px solid #e2e8ed;box-shadow:0 5px 30px #0d2e5010}.row{display:grid;grid-template-columns:minmax(0,1fr) 140px;gap:16px;padding:17px 0;border-bottom:1px solid #e9edf1}.row:last-child{border-bottom:0}.row strong,.choice strong{font-size:15px}.row p,.choice p{font-size:13px;color:#596b7b;margin:5px 0 0}.price{text-align:right;white-space:nowrap;font-weight:650}.price small{font-size:11px;color:#6b7b8d;font-weight:400;display:block}
+.choice{display:grid;grid-template-columns:24px 1fr 125px;gap:14px;padding:18px 0;border-bottom:1px solid #e9edf1;cursor:pointer}.choice:last-child{border:0}.choice input{accent-color:#0c5a92;width:18px;height:18px;margin:2px 0 0}.choice .price{font-size:15px}.calc{background:#edf3f8;border-radius:10px;padding:22px 24px}.calcrow{display:flex;justify-content:space-between;gap:15px;padding:7px 0;font-size:13px}.grand{display:flex;align-items:center;justify-content:space-between;gap:15px;border-top:1px solid #bacbd9;padding-top:16px;margin-top:10px;font-size:22px;font-weight:750}.payment{font-size:13px;color:#435d71;margin-top:16px}.note{border-left:3px solid #c8a368;padding:9px 13px;background:#fffaf1;font-size:12px}.hidden{display:none!important}a{color:#126393;text-decoration:underline;overflow-wrap:anywhere}
+label.field{display:block;font-size:13px;font-weight:650;margin:15px 0 7px}input[type=text],input[type=email]{width:100%;padding:14px 13px;border:1px solid #cbd5df;border-radius:7px;font:inherit}label.confirm{display:flex;align-items:flex-start;gap:10px;font-size:13px;line-height:1.65;margin:20px 0}label.confirm input{margin-top:5px}button{border:0;background:#0d416d;color:#fff;font-size:15px;font-weight:650;padding:15px 25px;border-radius:7px;cursor:pointer}button:disabled{opacity:.55;cursor:wait}.actions{display:flex;justify-content:flex-end}.error{color:#a32928;font-weight:600}.success{background:#eff8f3;border:1px solid #c7dfd0;border-radius:10px;padding:30px;line-height:1.7}.footer{color:#778698;font-size:12px;text-align:center;padding:30px 0}
+@media(max-width:670px){main{padding:25px 11px}.sheet{padding:22px 17px}.choice{grid-template-columns:22px minmax(0,1fr) 89px;gap:9px}.choice .price,.price{font-size:13px}.row{grid-template-columns:1fr auto}header{padding:17px 20px}.grand{font-size:19px}}
+</style></head>
+<body><header><strong>CHIP IN</strong><small>WORKS · YOUR PROPOSAL</small></header><main>
+<div class="intro"><div class="muted" id="number"></div><h1 id="title">Your quotation</h1><p id="welcome"></p><p class="muted" id="dates"></p></div>
+<div id="closed" class="note hidden"></div><div id="done" class="success hidden"></div>
+<div id="proposal">
+<section class="sheet"><h2>Your website & included services</h2><div id="included"></div><div id="domain"></div></section>
+<section class="sheet" id="careSheet"><h2>Optional website care</h2><p class="muted">Choose the level of ongoing support that suits your business, or select no care plan.</p><div id="care"></div></section>
+<section class="sheet" id="extraSheet"><h2>Other optional extras</h2><p class="muted">Only services you select will be added to the quotation.</p><div id="extras"></div></section>
+<section class="sheet"><h2>Your quotation summary</h2><div class="calc"><div id="breakdown"></div><div class="grand"><span>Initial total</span><span id="total"></span></div><p id="payment" class="payment"></p></div><p id="recurring" class="muted"></p></section>
+<section class="sheet"><h2>Confirm and accept</h2><p class="muted">Your final selections will be sent securely to Chip In Works. No payment is taken here.</p>
+<label class="field" for="signer">Your full name</label><input id="signer" type="text" maxlength="120" autocomplete="name">
+<label class="field" for="email">Your email address</label><input id="email" type="email" maxlength="240" autocomplete="email">
+<label class="confirm"><input type="checkbox" id="agree"><span>I am authorised to accept this quotation and agree to the selected services, prices, payment schedule and scope described above.</span></label>
+<p id="error" class="error"></p><div class="actions"><button type="button" id="accept">Accept quotation</button></div></section>
+</div><div class="footer">Chip In Works · This is a private quotation. Please keep your personal link confidential.</div>
+</main><script type="application/json" id="seed">__DATA__</script>
+<script>
+(function(){'use strict';
+var d=JSON.parse(document.getElementById('seed').textContent),p=d.proposal;
+var el=function(id){return document.getElementById(id)};
+var node=function(tag,cls,text){var x=document.createElement(tag);if(cls)x.className=cls;if(text!==undefined)x.textContent=text;return x};
+var fmt=function(n){return new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP'}).format(n/100)};
+var date=function(s){return s?new Date(s+'T12:00:00Z').toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'}):''};
+el('number').textContent=p.number;el('title').textContent=p.title;
+el('welcome').textContent='Prepared for '+p.clientName+'. Please review your proposal and select any additional services you would like.';
+el('dates').textContent='Issued '+date(p.issuedAt)+' · Valid until '+date(p.validUntil);
+el('signer').value=p.clientContact||'';el('email').value=p.clientEmail||'';
+function price(item){var a=node('div','price',fmt(item.pence));if(item.frequency!=='one-off')a.append(node('small',null,'per '+(item.frequency==='monthly'?'month':'year')));return a}
+function listed(item){var row=node('div','row'),main=node('div');main.append(node('strong',null,item.name));if(item.description)main.append(node('p',null,item.description));row.append(main,price(item));el('included').append(row)}
+p.required.forEach(listed);
+if(p.domain&&p.domain.mode!=='own'){
+ listed(p.domain);
+ var t=p.domain.available?'The suggested domain '+p.domain.suggested+' was checked as available on '+date(p.domain.checkedOn)+'. It is not registered or reserved yet. Availability can change until registration.':'Domain availability has not been confirmed. It will be checked before registration.';
+ el('domain').append(node('p','muted',t));
+}else if(p.domain&&p.domain.mode==='own')el('domain').append(node('p','muted','Your existing domain will be supplied by you. No domain registration fee is included.'));
+p.includedExtras.forEach(listed);
+if(p.demoUrl){var demo=node('p'),a=node('a',null,'View your proposed website demo');a.href=p.demoUrl;a.target='_blank';a.rel='noopener noreferrer';a.referrerPolicy='no-referrer';demo.append(a);el('domain').append(demo)}
+var careIndex=Number(p.defaultCare||0),extras=new Set(p.defaultExtras||[]);
+function select(parent,type,id,name,description,item,chosen){
+ var label=node('label','choice'),input=node('input'),main=node('div');input.type=type;input.value=id;if(type==='radio')input.name='care';input.checked=chosen;
+ main.append(node('strong',null,name));if(description)main.append(node('p',null,description));
+ label.append(input,main,item?price(item):node('div','price',fmt(0)));parent.append(label);
+ input.addEventListener('change',function(){if(type==='radio')careIndex=Number(id);else if(input.checked)extras.add(String(id));else extras.delete(String(id));render()});
+}
+function render(){
+ var care=el('care');care.replaceChildren();select(care,'radio',0,'No care plan','I will manage ongoing website changes myself.',null,careIndex===0);
+ p.careOptions.forEach(function(x){select(care,'radio',x.id,x.name,x.description,x,careIndex===x.id)});
+ el('careSheet').classList.toggle('hidden',p.careOptions.length===0);
+ var opts=el('extras');opts.replaceChildren();p.optionalExtras.forEach(function(x){select(opts,'checkbox',x.id,x.name,x.description,x,extras.has(String(x.id)))});
+ el('extraSheet').classList.toggle('hidden',p.optionalExtras.length===0);
+ var net=0,renew=[];function add(x){if(x.frequency==='one-off'||x.includeFirst)net+=x.pence;if(x.frequency!=='one-off')renew.push(x.name+': '+fmt(x.pence)+'/'+(x.frequency==='monthly'?'month':'year'))}
+ p.required.forEach(add);if(p.domain?.mode!=='own')add(p.domain);p.includedExtras.forEach(add);
+ var chosen=p.careOptions.find(function(x){return x.id===careIndex});if(chosen)add(chosen);
+ p.optionalExtras.forEach(function(x){if(extras.has(String(x.id)))add(x)});
+ var tax=p.vatRegistered?Math.round(net*p.vatRate/100):0,total=net+tax;
+ var lines=el('breakdown');lines.replaceChildren();
+ function sum(name,value){var x=node('div','calcrow');x.append(node('span',null,name),node('strong',null,fmt(value)));lines.append(x)}
+ sum('Chosen services',net);if(p.vatRegistered)sum('VAT ('+p.vatRate+'%)',tax);
+ el('total').textContent=fmt(total);
+ var pay=p.paymentSchedule==='split-50'?'50% before work starts ('+fmt(Math.round(total/2))+') and 50% before launch ('+fmt(total-Math.round(total/2))+').':p.paymentSchedule==='upfront'?'Full payment before work begins.':'Full payment before launch.';
+ el('payment').textContent=pay+' The website and domain will not go live until the initial balance is paid in full.';
+ el('recurring').textContent=renew.length?'Ongoing charges: '+renew.join('; ')+'.':'No recurring subscriptions selected.';
+}
+render();
+if(d.status==='accepted'){el('proposal').classList.add('hidden');el('done').classList.remove('hidden');el('done').textContent='Thank you. Your quotation was accepted on '+new Date(d.acceptedAt).toLocaleDateString('en-GB')+'. Your selections have been sent to Chip In Works.'}
+else if(d.status!=='published'||d.expired){el('proposal').classList.add('hidden');el('closed').classList.remove('hidden');el('closed').textContent=d.expired?'This quotation has expired. Please contact Chip In Works for an updated quotation.':'This quotation is no longer available.'}
+el('accept').onclick=async function(){
+ var btn=el('accept'),signer=el('signer').value.trim(),email=el('email').value.trim();el('error').textContent='';
+ if(signer.length<2||!email.includes('@')||!el('agree').checked){el('error').textContent='Enter your full name and email, then tick the confirmation box.';return}
+ btn.disabled=true;btn.textContent='Submitting...';
+ try{var response=await fetch('/api/q/'+encodeURIComponent(d.token)+'/accept',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({careIndex:careIndex,extraIds:Array.from(extras),signer:signer,email:email,agreed:true})}),saved=await response.json();
+ if(!response.ok)throw Error(saved.error||'Unable to accept the quotation.');
+ el('proposal').classList.add('hidden');el('done').classList.remove('hidden');el('done').textContent='Quotation accepted. Thank you, '+signer+'. Your confirmed initial total is '+fmt(saved.initialPence)+'. Chip In Works will be in touch.';
+ }catch(e){el('error').textContent=e.message;btn.disabled=false;btn.textContent='Accept quotation'}
+};
+})();
+</script></body></html>
