@@ -148,7 +148,7 @@ invoicePreviewHTML=function(inv){
    const milestones='<section class="hq-quote-payments"><h4>Payment arrangement</h4>'+
     pay.milestones.map(m=>'<div class="hq-quote-tally"><span>'+esc(m.name)+'</span><b>'+money(m.amount)+'</b></div>').join('')+
     '<p class="hq-quote-tax-note">'+esc(pay.note)+'</p></section>';
-   return html.replace(' · Due '+fmtDate(view.dueDate),' · Payment by milestones')
+   return html.replace(' · Due '+fmtDate(view.dueDate),' · Agreed payment terms')
     .replace('<div class="invoice-footer">',milestones+'<div class="invoice-footer">');
   }
   const terms='<strong>Payment terms:</strong> '+view.paymentTermsDays+' day'+(view.paymentTermsDays===1?'':'s')+' from invoice date<br>';
@@ -182,7 +182,7 @@ pdfBlob=function(inv){
   if(chipInInvoiceIsFlattened(inv,j))view.items=chipInInvoiceItemsForJob(j);
   const t=invoiceTotals(view);
   try{if(LOGO_PDF_DATA_URL)d.addImage(LOGO_PDF_DATA_URL,'PNG',15,13,58,17)}catch{}
-  d.setTextColor(10,47,87);d.setFontSize(24);d.setFont(undefined,'bold');d.text('INVOICE',195,22,{align:'right'});d.setFontSize(9);d.setFont(undefined,'normal');d.setTextColor(95,102,116);d.text(view.number,195,28,{align:'right'});d.text(chipInInvoiceSchedule(view)?'Issued '+fmtDate(view.issueDate)+' · Payment by milestones':`Issued ${fmtDate(view.issueDate)}   Due ${fmtDate(view.dueDate)}`,195,33,{align:'right'});
+  d.setTextColor(10,47,87);d.setFontSize(24);d.setFont(undefined,'bold');d.text('INVOICE',195,22,{align:'right'});d.setFontSize(9);d.setFont(undefined,'normal');d.setTextColor(95,102,116);d.text(view.number,195,28,{align:'right'});d.text(chipInInvoiceSchedule(view)?'Issued '+fmtDate(view.issueDate)+' · Agreed payment terms':`Issued ${fmtDate(view.issueDate)}   Due ${fmtDate(view.dueDate)}`,195,33,{align:'right'});
   const refs=[view.jobReference?`Job ref: ${view.jobReference}`:'',view.customerReference?`Customer ref / PO: ${view.customerReference}`:''].filter(Boolean).join('   ');if(refs)d.text(refs,195,38,{align:'right'});
   d.setDrawColor(220);d.line(15,43,195,43);d.setTextColor(23,32,51);d.setFont(undefined,'bold');d.text('FROM',15,52);d.text('BILL TO',110,52);d.setFont(undefined,'normal');d.text(`${s.legalName||''} trading as ${s.tradingName||'Chip In'}\n${s.address||''}\n${s.email||''}${s.phone?'\n'+s.phone:''}`,15,58,{maxWidth:80});d.text(`${c.name||''}${c.contact?'\n'+c.contact:''}${c.address?'\n'+c.address:''}${c.email?'\n'+c.email:''}`,110,58,{maxWidth:80});
   let y=91;d.setFillColor(244,246,250);d.rect(15,y,180,8,'F');d.setFont(undefined,'bold');d.text('Description',18,y+5.5);d.text('Qty',135,y+5.5,{align:'right'});d.text('Rate',165,y+5.5,{align:'right'});d.text('Amount',192,y+5.5,{align:'right'});d.setFont(undefined,'normal');y+=12;
@@ -201,7 +201,7 @@ pdfBlob=function(inv){
   }
   d.setFontSize(8.5);d.setFont(undefined,'normal');d.setTextColor(90,97,110);
   d.setPage(1);
-  d.text((schedule?'Payment by agreed milestones':'Payment terms: '+view.paymentTermsDays+' day'+(view.paymentTermsDays===1?'':'s')+' from invoice date')+'\nPayment by bank transfer\nAccount name: '+(s.bankName||'')+'\nSort code: '+(s.sortCode||'')+'   Account number: '+(s.accountNumber||''),15,255);
+  d.text((schedule?'Payment as agreed below':'Payment terms: '+view.paymentTermsDays+' day'+(view.paymentTermsDays===1?'':'s')+' from invoice date')+'\nPayment by bank transfer\nAccount name: '+(s.bankName||'')+'\nSort code: '+(s.sortCode||'')+'   Account number: '+(s.accountNumber||''),15,255);
   if(view.notes)d.text(d.splitTextToSize(view.notes,75),110,255);
   return d.output('blob');
 };
