@@ -41,4 +41,19 @@ Deploy only to the designated Cloudflare account. Preserve both the `DB` binding
 
 ## Important limitations
 
-Emailing a quotation opens the owner's email app to send the link; it does **not** send unattended email. HQ checks for responses when opened and periodically while active. A full automatic email/push notification service would need a separate, explicitly configured email delivery provider.
+## Email delivery from Gmail
+
+- Confirmed sender: `jamesbutt.chipin@gmail.com`. The authenticated Gmail connector remains in ChatGPT; its OAuth token is **not** copied into Cloudflare or browser JavaScript.
+- **Publish interactive quote** creates the private URL. It does not send any email.
+- After publishing, the owner clicks **Queue Gmail email (hourly delivery)** in HQ. The authenticated Worker writes an immutable message into `quote_email_outbox` in D1, using the recipient stored in the published snapshot.
+- An hourly user-authorised ChatGPT automation reads queued D1 rows, verifies the quote remains open, checks Gmail Sent for prior duplicate dispatch and sends through the connected Gmail account. It records Gmail's returned message ID and UTC send time in D1 only after a successful send.
+- HQ automatically synchronises the delivery status from D1 while open and unlocked. **Queued** never means sent. **Sent by Gmail** means Gmail accepted a message, not that it reached the client's inbox.
+- Immediate delivery is available by selecting **Open email draft** and manually pressing Send in Gmail. HQ cannot automatically verify a manually sent draft.
+- There is no unattended immediate Gmail API connection in HQ. Automatic dispatch depends on the connected apps and the hourly automation succeeding; if those services are unavailable, queued messages remain pending.
+- An hourly ChatGPT acceptance watcher separately checks for new accepted client quotations. HQ also checks for acceptances while open.
+
+To run a safe local regression check, run `node quote-portal/queue.test.mjs`. It uses an in-memory fake database and never sends messages. GitHub Action `Verify Chip In quotation emails` runs this on updates.
+
+## Important limitations
+
+Gmail-backed dispatch can take up to an hour or longer if the automation runs late or needs retrying. This is not instant transactional email. Do not promise an email was delivered before `quote_email_outbox` has a confirmed Gmail message ID. Never send emails just because a quote has been published; a separate explicit queue action is required.
