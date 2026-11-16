@@ -300,9 +300,9 @@ function quoteHTML(q){
 function openPreview(id){
  const q=byId(id);if(!q)return;
  const status=validity(q),locked=q.status!=='Draft';
- openModal('<div class="section-title hq-quote-preview-actions"><div><h2>'+esc(q.number)+'</h2><p>'+esc(clientById(q.clientId)?.name||'')+' · '+statusBadge(status)+'</p></div><div class="row-actions">'+
+ openModal('<div class="section-title hq-quote-preview-actions"><div><h2>'+esc(q.number)+'</h2><p>'+esc(clientById(q.clientId)?.name||'')+' · '+statusBadge(status)+(q.interactive?.url&&status==='Sent'?'<span class="muted"> · Link published; email delivery unconfirmed</span>':'')+'</p></div><div class="row-actions">'+
  '<button class="btn small secondary" id="hqQuotePDF">Download PDF</button>'+
- (!locked?'<button class="btn small secondary" id="hqQuoteEdit">Edit draft</button><button class="btn small" id="hqQuoteSent">Mark as sent</button>':'')+
+ (!locked?'<button class="btn small secondary" id="hqQuoteEdit">Edit draft</button><button class="btn small" id="hqQuoteSent">I sent it separately</button>':'')+
  (q.status==='Sent'&&!q.interactive?.url?'<button class="btn small gold" id="hqQuoteAccept">Accept quote</button><button class="btn small secondary" id="hqQuoteDecline">Declined</button>':'')+
  (q.status==='Accepted'?'<button class="btn small gold" id="hqQuoteInvoice">Open draft invoice</button>':'')+
  '</div></div>'+quoteHTML(q),true);
@@ -322,7 +322,7 @@ function stage(q,s){
 }
 async function setSent(q){
  if(q.status!=='Draft')return; q.status='Sent';q.sentDate=TODAY();stage(q,'Quote');
- await saveState();render();openPreview(q.id);toast('Quote marked sent. Email the downloaded PDF separately.');
+ await saveState();render();openPreview(q.id);toast('Recorded as sent in HQ only. No email was sent by HQ.');
 }
 async function setDeclined(q){
  if(q.status!=='Sent')return;q.status='Declined';q.declinedDate=TODAY();
@@ -506,7 +506,7 @@ function renderQuotes(){
   const query=clean(document.getElementById('hqQuoteSearch').value).toLowerCase(),filter=document.getElementById('hqQuoteFilter').value;
   const rows=list.filter(q=>(!filter||validity(q)===filter)&&[q.number,q.title,clientById(q.clientId)?.name].join(' ').toLowerCase().includes(query));
   document.getElementById('hqQuoteTable').innerHTML=rows.length?'<div class="table-wrap"><table><thead><tr><th>Quote</th><th>Client</th><th>Issued / expiry</th><th>Initial estimate</th><th>Status</th><th></th></tr></thead><tbody>'+rows.map(q=>
-   '<tr><td><strong class="mono">'+esc(q.number)+'</strong><div>'+esc(q.title)+'</div></td><td>'+esc(clientById(q.clientId)?.name||'—')+'</td><td>'+fmtDate(q.issueDate)+'<div class="muted">valid until '+fmtDate(q.validUntil)+'</div></td><td>'+money(gross(q,plan(q).upfront))+'</td><td>'+statusBadge(validity(q))+'</td><td class="right"><button class="btn small secondary" data-q-open="'+esc(q.id)+'">Open</button></td></tr>').join('')+'</tbody></table></div>':empty('No matching quotes. Create your first proposal.');
+   '<tr><td><strong class="mono">'+esc(q.number)+'</strong><div>'+esc(q.title)+'</div></td><td>'+esc(clientById(q.clientId)?.name||'—')+'</td><td>'+fmtDate(q.issueDate)+'<div class="muted">valid until '+fmtDate(q.validUntil)+'</div></td><td>'+money(gross(q,plan(q).upfront))+'</td><td>'+statusBadge(validity(q))+(q.interactive?.url&&validity(q)==='Sent'?'<div class="muted">Link published · delivery unconfirmed</div>':'')+'</td><td class="right"><button class="btn small secondary" data-q-open="'+esc(q.id)+'">Open</button></td></tr>').join('')+'</tbody></table></div>':empty('No matching quotes. Create your first proposal.');
   document.querySelectorAll('[data-q-open]').forEach(b=>b.onclick=()=>openPreview(b.dataset.qOpen));
  };
  document.getElementById('hqQuoteFilter').onchange=draw;document.getElementById('hqQuoteSearch').oninput=draw;draw();
