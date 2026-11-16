@@ -65,7 +65,7 @@ console.log('PASS: unauthorised blocked; one queued email only; Gmail sender/rec
 const publishProposal={
  id:'qte_mock_publish_2026',number:'QTE-QA-NEW',title:'Sample website quotation',
  clientName:'Synthetic Publication Client',clientContact:'QA Customer',clientEmail:'not-a-customer@example.test',
- issuedAt:'2026-11-16',validUntil:'2027-04-01',paymentSchedule:'split-50',
+ issuedAt:'2026-11-16',validUntil:'2027-04-01',paymentSchedule:'split-50',emailTemplate:{subject:'Your personal quotation {quoteNumber}',body:'Hello {clientName},\n\nHere is your secure quotation: {quoteLink}\nPlease respond by {validUntil}.'},
  required:[{id:'web',name:'Standard Website Design',amount:250,frequency:'one-off'}],
  includedExtras:[],optionalExtras:[],careOptions:[],defaultCare:0,defaultExtras:[],domain:{mode:'own'}
 };
@@ -98,4 +98,9 @@ assert.ok(batchStatements[0].sql.startsWith('INSERT INTO quotes('));
 assert.ok(batchStatements[1].sql.startsWith('INSERT INTO quote_email_outbox('));
 assert.equal(batchStatements[1].args[1],publishProposal.clientEmail);
 assert.ok(batchStatements[1].args[4].includes(newPublished.data.url));
+assert.equal(batchStatements[1].args[3],'Your personal quotation QTE-QA-NEW');
+assert.ok(batchStatements[1].args[4].startsWith('Hello QA Customer,\n\nHere is your secure quotation:'));
+assert.ok(batchStatements[1].args[4].includes('2027-04-01'));
+assert.ok(!batchStatements[1].args[4].includes('{quoteLink}'));
+
 console.log('PASS: Publishing one quotation atomically queues exactly one email, using the same personalised link.');
