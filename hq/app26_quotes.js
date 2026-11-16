@@ -28,6 +28,8 @@ function quoteDemoHTML(q){
  return link?'<section class="hq-quote-demo"><h3>See your proposed website</h3><p>A demo has been prepared so you can explore the proposed design and layout before deciding. Please feel free to follow this link to view your demo website:</p><p><a href="'+esc(link)+'" target="_blank" rel="noopener noreferrer">'+esc(link)+'</a></p><p class="muted">This is a demonstration of the proposed website, not a live or finished website.</p></section>':'';
 }
 
+const QUOTE_EMAIL_DEFAULT_SUBJECT="Your quotation from Chip In Works - {quoteNumber}";
+const QUOTE_EMAIL_DEFAULT_BODY="Hello {clientName},\n\nThank you for your interest in Chip In Works.\n\nPlease review your personalised quotation using the secure link below. You can select any optional services and confirm your choices directly on the page:\n\n{quoteLink}\n\nQuotation reference: {quoteNumber}\nValid until: {validUntil}\n\nIf you have any questions, just reply to this email.\n\nKind regards,\nChip In Works\njamesbutt.chipin@gmail.com";
 const PAYMENT_PLANS={
  'before-launch':'Full payment before launch',
  'split-50':'50% before work begins, 50% before launch',
@@ -181,6 +183,9 @@ function formHTML(q={}){
  '<p class="sub">An offered optional extra appears in the proposal but not in the agreed total or recurring billing.</p>'+
  '<div id="hqQuoteExtraRows">'+(q.extras||[]).map(extraRow).join('')+'</div></div>'+
  '<div class="field full"><label>Proposal notes / scope and terms</label><textarea name="notes" rows="4">'+esc(q.notes||'Prices are subject to the scope agreed. Subscription services renew at the intervals shown until cancelled under the agreed terms.')+'</textarea></div>'+
+ '<div class="field full" id="hqQuoteEmail"><h3>Customer quotation email</h3><p class="sub">Edit the email before publishing. Publish &amp; email will queue this message for sending. You can use {clientName}, {quoteNumber}, {validUntil} and {quoteLink} to insert the customer and quotation details.</p>'+
+ field('Email subject','<input name="quoteEmailSubject" maxlength="200" required value="'+esc(q.emailTemplate?.subject||QUOTE_EMAIL_DEFAULT_SUBJECT)+'">')+
+ '<div class="field full"><label>Email message</label><textarea name="quoteEmailBody" rows="11" maxlength="4000" required>'+esc(q.emailTemplate?.body||QUOTE_EMAIL_DEFAULT_BODY)+'</textarea></div></div>'+
  '<div class="field full"><h3>Quote summary</h3><div id="hqQuoteLiveSummary"></div></div></div>'+
  '<div class="form-actions"><button type="button" class="btn secondary" data-close-modal>Cancel</button><button class="btn gold" type="submit">Save draft quote</button></div></form>';
 }
@@ -206,6 +211,7 @@ function values(form,validate){
  }).filter(x=>x.name||x.description||x.amount);
  const q={clientId:fd.get('clientId'),category,title:clean(fd.get('title')),issueDate:fd.get('issueDate'),validUntil:fd.get('validUntil'),
   notes:clean(fd.get('notes')),paymentSchedule:fd.get('paymentSchedule')||'before-launch',choices,checked,otherBase:fd.get('otherBase'),baseLines,domain,care,extras,demo,
+  emailTemplate:{subject:clean(fd.get('quoteEmailSubject')),body:clean(fd.get('quoteEmailBody'))},
   vatRegistered:!!state.settings.vatRegistered,vatRate:Number(state.settings.defaultVatRate||0)};
  if(validate){
   if(!clientById(q.clientId))throw Error('Choose a client first.');
@@ -214,6 +220,7 @@ function values(form,validate){
   if(baseLines.some(x=>!Number.isFinite(x.amount)||x.amount<0))throw Error('Enter a valid project price.');
   if(website&&!['own','monthly','annual'].includes(mode))throw Error('Choose a domain arrangement.');
   if(website&&mode!=='own'&&(!clean(fd.get('domainAmount'))||!Number.isFinite(rawDomain)||rawDomain<=0))throw Error('Enter an agreed domain price greater than zero.');
+  if(website&&(!q.emailTemplate.subject||!q.emailTemplate.body||q.emailTemplate.subject.length>200||q.emailTemplate.body.length>4000))throw Error('Enter valid email subject and message wording.');
    if(suggestion&&!/^(?=.{1,253}$)[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$/.test(suggestion))throw Error('Enter only the domain, e.g. examplebusiness.co.uk.');
    if(availabilityChecked&&!suggestion)throw Error('Enter a suggested domain before marking its availability as checked.');
    if(demoEnabled){
@@ -247,6 +254,7 @@ function openForm(id,clientId){
   const name=cat.value;
   document.getElementById('hqQuoteWebsite').style.display=name==='Website Design'?'':'none';
    document.getElementById('hqQuoteDemo').style.display=name==='Website Design'?'':'none';
+  document.getElementById('hqQuoteEmail').style.display=name==='Website Design'?'':'none';
   catalogueOptions(form,q,restore);
   form.querySelectorAll('#hqQuoteOptions input,#hqQuoteOptions select').forEach(n=>n.addEventListener('change',recalc));
   if(!existing&&form.elements.namedItem('title').value==='Website Design & Services')form.elements.namedItem('title').value=name==='Website Design'?'Website Design & Services':name;
