@@ -3,12 +3,12 @@ const LOGO_DATA_URL = "chip_in_logo_TRUE_TRANSPARENT.png";
 let LOGO_PDF_DATA_URL = null;
 const APP_VERSION = '1.0.0';
 const NAV = [
-  ['dashboard','▦','Dashboard'],['sales','↗','Sales Assistant'],['clients','◎','Clients'],['jobs','◫','Jobs'],['invoices','£','Invoices'],
+  ['dashboard','▦','Dashboard'],['sales','↗','Sales Assistant'],['clients','◎','Clients'],['jobs','◫','Jobs'],['quotes','▤','Quotes'],['invoices','£','Invoices'],
   ['expenses','−','Expenses'],['tax','%','Tax'],['documents','▤','Documents'],['settings','⚙','Settings']
 ];
 const PAGE_META = {
   dashboard:['Dashboard','What needs your attention today.'], sales:['Sales Assistant','Who to contact, when to do it and what to say.'], clients:['Clients','People and businesses you work for.'],
-  jobs:['Jobs','Every piece of work follows the same process.'], invoices:['Invoices','Generate, send and track what you are owed.'],
+  jobs:['Jobs','Every piece of work follows the same process.'], quotes:['Quotes','Proposals, optional extras and payment arrangements.'], invoices:['Invoices','Generate, send and track what you are owed.'],
   expenses:['Expenses','Record business spending and keep the evidence.'], tax:['Tax','A live estimate based on the records in Chip In HQ.'],
   documents:['Documents','Backups, exports and your year-end tax pack.'], settings:['Settings','Your business identity, invoice details and tax assumptions.']
 };
@@ -66,7 +66,7 @@ function dataURLToBlob(dataURL){const [m,b64]=dataURL.split(',');const type=(m.m
 function isBusinessIdentityComplete(){const s=state.settings;return !!(s.legalName&&s.address&&s.email&&s.bankName&&s.sortCode&&s.accountNumber)}
 
 function renderNav(){const n=$('#nav');n.innerHTML=NAV.map(([id,icon,label])=>`<button class="${page===id?'active':''}" data-nav="${id}"><span class="nav-icon">${icon}</span><span>${label}</span></button>`).join('');$$('[data-nav]').forEach(b=>b.onclick=()=>{page=b.dataset.nav;render();});}
-function render(){renderNav();const [t,st]=PAGE_META[page];$('#pageTitle').textContent=t;$('#pageSubtitle').textContent=st;renderTopActions();const fn={dashboard:renderDashboard,sales:(window.renderSales||function(){document.getElementById('content').innerHTML='<div class="card"><p class="muted">Sales Assistant is still loading. Refresh once if this remains visible.</p></div>';}),clients:renderClients,jobs:renderJobs,invoices:renderInvoices,expenses:renderExpenses,tax:renderTax,documents:renderDocuments,settings:renderSettings}[page];fn();wirePageActions();}
+function render(){renderNav();const [t,st]=PAGE_META[page];$('#pageTitle').textContent=t;$('#pageSubtitle').textContent=st;renderTopActions();const fn={dashboard:renderDashboard,sales:(window.renderSales||function(){document.getElementById('content').innerHTML='<div class="card"><p class="muted">Sales Assistant is still loading. Refresh once if this remains visible.</p></div>';}),clients:renderClients,jobs:renderJobs,invoices:renderInvoices,quotes:(window.ChipInQuotes?.renderQuotes||function(){document.getElementById('content').innerHTML='<div class="card"><h3>Quotes could not load</h3><p>The Quotes module has not loaded. Reconnect and refresh this page.</p><button class="btn secondary" onclick="location.reload()">Retry loading Quotes</button></div>';}),expenses:renderExpenses,tax:renderTax,documents:renderDocuments,settings:renderSettings}[page];fn();wirePageActions();}
 function renderTopActions(){const el=$('#topActions');const map={dashboard:`<button class="btn secondary" data-action="new-expense">+ Expense</button><button class="btn" data-action="new-job">+ Job</button>`,sales:'',clients:`<button class="btn" data-action="new-client">+ Client</button>`,jobs:`<button class="btn" data-action="new-job">+ Job</button>`,invoices:`<button class="btn" data-action="new-invoice">+ Invoice</button>`,expenses:`<button class="btn" data-action="new-expense">+ Expense</button>`,documents:`<button class="btn" data-action="download-backup">Backup now</button>`,settings:''};el.innerHTML=map[page]||'';}
 function wirePageActions(){$$('[data-action]').forEach(el=>el.onclick=()=>handleAction(el.dataset.action,el.dataset.id));}
 function openModal(html,wide=false){$('#modalBody').innerHTML=html;$('.modal-card').classList.toggle('wide',wide);$('#modal').classList.remove('hidden');$('#modal').setAttribute('aria-hidden','false');$$('[data-close-modal]').forEach(x=>x.onclick=closeModal);}
