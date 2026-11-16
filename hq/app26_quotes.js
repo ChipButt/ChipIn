@@ -77,26 +77,39 @@ function domainAvailability(q){
  return '<p class="hq-quote-domain-note"><strong>Suggested domain:</strong> '+esc(d.suggested)+'<span> — '+(d.availabilityChecked?('Checked as available'+(d.checkedOn?' on '+fmtDate(d.checkedOn):'')+'; not yet registered'):'Availability not confirmed')+'. Domain availability can change until registration.</span></p>';
 }
 function quoteSections(q){
- const p=plan(q),recurring=p.extras.filter(x=>isIncluded(x)&&x.frequency!=='one-off');
+ const p=plan(q);
+ const includedExtras=[...(p.care?[p.care]:[]),...p.extras.filter(isIncluded)];
+ const optionalExtras=[...careAlternatives(q),...p.offered];
  return [
-  {title:q.category==='Website Design'?'Your website build — one-off cost':'One-off project costs',items:p.base},
-  ...(p.domain?[{title:'Essential domain registration and renewal',items:[p.domain]}]:[]),
-  ...(p.care?[{title:'Your selected optional website care plan',items:[p.care]}]:[]),
-  ...(careAlternatives(q).length?[{title:'Other optional website care plans — not included',items:careAlternatives(q)}]:[]),
-  ...(recurring.length?[{title:'Other agreed recurring services',items:recurring}]:[]),
-  ...(p.extras.filter(x=>isIncluded(x)&&x.frequency==='one-off').length?[{title:'Agreed one-off extras',items:p.extras.filter(x=>isIncluded(x)&&x.frequency==='one-off')}]:[]),
-  ...(p.offered.length?[{title:'Other optional extras — not included',items:p.offered}]:[])
+  {title:q.category==='Website Design'?'Website design & build':'Project services',items:p.base},
+  ...(p.domain?[{title:'Domain registration & renewal',items:[p.domain]}]:[]),
+  ...(includedExtras.length?[{title:'Selected services & extras',items:includedExtras}]:[]),
+  ...(optionalExtras.length?[{title:'Optional upgrades',items:optionalExtras,optional:true}]:[])
  ];
 }
 function priceBreakdown(q){
- const p=plan(q);
- const itemHTML=x=>'<div class="hq-quote-line"><div class="hq-quote-summary-row"><strong>'+esc(x.name)+'</strong><b>'+money(x.amount)+(x.frequency==='one-off'?'':' / '+(x.frequency==='monthly'?'month':'year'))+'</b></div>'+(explanation(q,x)?'<p class="hq-quote-explanation">'+esc(explanation(q,x))+'</p>':'')+'</div>';
- const section=(title,items)=>'<div class="hq-quote-summary-block"><strong>'+esc(title)+'</strong>'+items.map(itemHTML).join('')+'</div>';
- const sections=quoteSections(q).map(s=>section(s.title,s.items)).join('');
- return sections+domainAvailability(q)+
-  '<div class="hq-quote-total"><span>Due for initial invoice</span><strong>'+money(gross(q,p.upfront))+'</strong></div>'+
-  (vatPct(q)?'<p class="muted">Includes '+vatPct(q)+'% VAT on '+money(p.upfront)+' net.</p>':'<p class="muted">VAT not charged.</p>')+
-  '<p class="muted">Only agreed project charges, essential domain costs and selected options are included in the initial total. Other optional plans and extras shown above are not charged unless you choose them. Selected monthly and annual services renew at the intervals shown; their first periods appear in the initial total only where selected.</p>';
+ const p=plan(q),sections=quoteSections(q);
+ const initialOneOff=round(p.chosen.filter(x=>x.frequency==='one-off').reduce((n,x)=>n+x.amount,0));
+ const initialPeriods=round(p.upfront-initialOneOff);
+ const vat=round(gross(q,p.upfront)-p.upfront);
+ const recurring=p.chosen.filter(x=>x.frequency!=='one-off');
+ const cadence=x=>x.frequency==='monthly'?'month':'year';
+ const itemHTML=(x,optional)=>'<div class="hq-quote-item'+(optional?' hq-quote-item-optional':'')+'"><div class="hq-quote-item-detail"><strong>'+esc(x.name)+'</strong>'+
+  (explanation(q,x)?'<p class="hq-quote-explanation">'+esc(explanation(q,x))+'</p>':'')+'</div>'+
+  '<div class="hq-quote-item-price">'+money(x.amount)+(x.frequency==='one-off'?'':'<small> / '+cadence(x)+'</small>')+'</div></div>';
+ const section=s=>'<section class="hq-quote-section'+(s.optional?' hq-quote-section-optional':'')+'"><h4>'+esc(s.title)+'</h4>'+
+  (s.optional?'<p class="hq-quote-section-intro">Available if useful. These options are not selected and are not included in the quoted total.</p>':'')+
+  s.items.map(x=>itemHTML(x,s.optional)).join('')+'</section>';
+ const summary='<section class="hq-quote-investment"><h4>Investment summary</h4>'+
+  '<div class="hq-quote-tally"><span>One-off project costs & selected extras</span><b>'+money(initialOneOff)+'</b></div>'+
+  (initialPeriods?'<div class="hq-quote-tally"><span>First subscription / domain periods</span><b>'+money(initialPeriods)+'</b></div>':'')+
+  (vatPct(q)?'<div class="hq-quote-tally"><span>VAT ('+vatPct(q)+'%)</span><b>'+money(vat)+'</b></div>':'')+
+  '<div class="hq-quote-grand"><span>Initial amount payable on acceptance</span><strong>'+money(gross(q,p.upfront))+'</strong></div>'+
+  '<p class="hq-quote-tax-note">'+(vatPct(q)?'VAT included in the total.':'VAT not charged.')+' No invoice is issued until the quote is accepted.</p></section>';
+ const renewals=recurring.length?'<p class="hq-quote-renewals"><strong>Ongoing charges:</strong> '+recurring.map(x=>esc(x.name)+' — '+money(x.amount)+' / '+cadence(x)).join('; ')+'. These are billed at the intervals shown, separately from one-off project work.</p>':'';
+ const ownDomain=q.category==='Website Design'&&q.domain?.mode==='own'?domainAvailability(q):'';
+ return '<div class="hq-quote-proposal">'+sections.filter(s=>!s.optional).map(section).join('')+ownDomain+summary+renewals+
+  sections.filter(s=>s.optional).map(section).join('')+'</div>';
 }
 function extraRow(x={}){
  const id=x.id||uid('charge');
@@ -256,7 +269,7 @@ function quoteHTML(q){
  const s=state.settings,c=clientById(q.clientId),p=plan(q);
  return '<div class="invoice-preview hq-quote-preview"><div class="invoice-head"><img src="'+LOGO_DATA_URL+'" alt="Chip In"><div class="invoice-title"><h2>QUOTATION</h2><div class="num mono">'+esc(q.number)+'</div><div class="num">Issued '+fmtDate(q.issueDate)+' · Valid until '+fmtDate(q.validUntil)+'</div></div></div>'+
  '<div class="invoice-parties"><div><h4>From</h4><p><strong>'+esc(s.legalName||'')+' trading as '+esc(s.tradingName||'Chip In')+'</strong>\n'+esc(s.address||'')+'\n'+esc(s.email||'')+'</p></div><div><h4>Prepared for</h4><p><strong>'+esc(c?.name||'Client')+'</strong>\n'+esc(c?.contact||'')+'\n'+esc(c?.address||'')+'\n'+esc(c?.email||'')+'</p></div></div>'+
- '<h3>'+esc(q.title)+'</h3><div class="hq-quote-summary-block">'+priceBreakdown(q)+'</div>'+
+ '<h3 class="hq-quote-project-title">'+esc(q.title)+'</h3>'+priceBreakdown(q)+
  '<div class="hq-quote-terms"><strong>Scope & terms</strong><p>'+esc(q.notes||'').replace(/\n/g,'<br>')+'</p><p>Any offered optional extras are subject to separate approval. Future subscription charges follow the billing frequencies above.</p></div>'+quoteDemoHTML(q)+'</div>';
 }
 function openPreview(id){
@@ -344,46 +357,77 @@ function downloadPDF(q){
  let y=16;
  try{if(LOGO_PDF_DATA_URL)doc.addImage(LOGO_PDF_DATA_URL,'PNG',15,12,55,16);}catch(e){}
  doc.setTextColor(10,47,87);doc.setFontSize(23);doc.setFont(undefined,'bold');doc.text('QUOTATION',195,22,{align:'right'});
- doc.setFontSize(9);doc.setFont(undefined,'normal');doc.text(q.number,195,29,{align:'right'});doc.text('Valid until '+fmtDate(q.validUntil),195,35,{align:'right'});
- doc.setDrawColor(218,226,238);doc.line(15,42,195,42);
- bodyColor();doc.text('FROM',15,51);doc.text('PREPARED FOR',110,51);
- doc.text(doc.splitTextToSize((s.legalName||'')+' trading as '+(s.tradingName||'Chip In')+'\n'+(s.address||'')+'\n'+(s.email||''),79),15,57);
- doc.text(doc.splitTextToSize((c.name||'')+'\n'+(c.contact||'')+'\n'+(c.address||'')+'\n'+(c.email||''),80),110,57);
- y=91;
- const ensure=needed=>{if(y+needed>275){doc.addPage();y=18;}};
- const heading=name=>{ensure(13);doc.setFillColor(241,246,251);doc.rect(15,y,180,8,'F');doc.setFont(undefined,'bold');doc.setFontSize(10);doc.setTextColor(10,47,87);doc.text(name,18,y+5.5);y+=13;bodyColor();};
- const line=(name,amt,period,detail='')=>{
-  const titleLines=doc.splitTextToSize(name,126),detailLines=detail?doc.splitTextToSize(detail,170):[];
-  ensure(titleLines.length*5+detailLines.length*4.2+10);
-  bodyColor();doc.text(titleLines,18,y);
-  doc.text(n(amt)+(period?' / '+period:''),192,y,{align:'right'});
+ doc.setFontSize(9);doc.setFont(undefined,'normal');doc.text(q.number,195,29,{align:'right'});
+ doc.text('Issued '+fmtDate(q.issueDate),195,35,{align:'right'});
+ doc.text('Valid until '+fmtDate(q.validUntil),195,40,{align:'right'});
+ doc.setDrawColor(218,226,238);doc.line(15,46,195,46);
+ bodyColor();doc.text('FROM',15,55);doc.text('PREPARED FOR',110,55);
+ doc.text(doc.splitTextToSize((s.legalName||'')+' trading as '+(s.tradingName||'Chip In')+'\n'+(s.address||'')+'\n'+(s.email||''),79),15,61);
+ doc.text(doc.splitTextToSize((c.name||'')+'\n'+(c.contact||'')+'\n'+(c.address||'')+'\n'+(c.email||''),80),110,61);
+ y=94;
+ const ensure=needed=>{if(y+needed>278){doc.addPage();y=19;}};
+ const heading=name=>{
+  ensure(16);doc.setFont(undefined,'bold');doc.setFontSize(10);doc.setTextColor(10,47,87);
+  doc.text(name,15,y+4);doc.setDrawColor(215,223,232);doc.setLineWidth(.25);doc.line(15,y+7.5,195,y+7.5);
+  y+=13;bodyColor();
+ };
+ const line=(name,amt,period,detail='',optional=false)=>{
+  const titleLines=doc.splitTextToSize(name,128),detailLines=detail?doc.splitTextToSize(detail,128):[];
+  const rowHeight=Math.max(6,titleLines.length*5)+detailLines.length*4.1+6;
+  ensure(rowHeight);
+  bodyColor();if(optional)doc.setTextColor(81,94,108);
+  doc.setFont(undefined,'bold');doc.text(titleLines,18,y);
+  doc.setFont(undefined,'normal');doc.text(n(amt)+(period?' / '+period:''),192,y,{align:'right'});
   y+=Math.max(6,titleLines.length*5);
   if(detailLines.length){
-   doc.setTextColor(86,97,111);doc.setFontSize(8);
-   doc.text(detailLines,18,y);
-   y+=detailLines.length*4.2+3;
+   doc.setTextColor(86,97,111);doc.setFontSize(8);doc.text(detailLines,18,y);
+   y+=detailLines.length*4.1+3;
   }else y+=3;
   bodyColor();
  };
- const block=(title,items)=>{if(!items.length)return;heading(title);items.forEach(x=>line(x.name,x.amount,x.frequency==='one-off'?'':x.frequency==='monthly'?'month':'year',explanation(q,x)));};
- ensure(15);doc.setTextColor(10,47,87);doc.setFont(undefined,'bold');doc.setFontSize(13);doc.text(doc.splitTextToSize(q.title,175),15,y);y+=15;
- quoteSections(q).forEach(group=>block(group.title,group.items));
+ const groups=quoteSections(q);
+ const block=s=>{if(!s.items.length)return;heading(s.optional?'Optional upgrades — not included':s.title);s.items.forEach(x=>line(x.name,x.amount,x.frequency==='one-off'?'':x.frequency==='monthly'?'month':'year',explanation(q,x),!!s.optional));};
+ ensure(20);
+ const titleLines=doc.splitTextToSize(q.title,178);
+ doc.setTextColor(10,47,87);doc.setFont(undefined,'bold');doc.setFontSize(14);
+ doc.text(titleLines,15,y);y+=titleLines.length*6+8;bodyColor();
+ groups.filter(s=>!s.optional).forEach(block);
  if(q.category==='Website Design'&&q.domain?.mode==='own'){
   heading('Domain arrangement');
-  const note=doc.splitTextToSize('Client will supply an existing domain name. No Chip In registration or renewal fee is included.',170);
-  ensure(note.length*5+4);bodyColor();doc.text(note,18,y);y+=note.length*5+4;
+  const own='You will supply an existing domain name. No Chip In domain registration or renewal fee is included.';
+  const note=doc.splitTextToSize(own,169);
+  ensure(note.length*5+6);bodyColor();doc.text(note,18,y);y+=note.length*5+6;
  }
- heading('Initial invoice summary');
- line('Initial amount excluding VAT',p.upfront);
- if(q.vatRegistered)line('VAT at '+vatPct(q)+'%',round(gross(q,p.upfront)-p.upfront));
- line('INITIAL AMOUNT INCLUDING VAT',gross(q,p.upfront));
-
- if(q.notes){ensure(18);heading('Scope and terms');const lines=doc.splitTextToSize(q.notes,172);for(const str of lines){ensure(6);doc.text(str,18,y);y+=5;}}
- ensure(18);doc.setFontSize(8);doc.setTextColor(90,97,110);
- doc.text('Other optional care plans and extras are not included in this price unless selected. Included editing time does not roll over; recurring charges follow the intervals shown.',15,y,{maxWidth:178});
+ const initialOneOff=round(p.chosen.filter(x=>x.frequency==='one-off').reduce((n,x)=>n+x.amount,0));
+ const initialPeriods=round(p.upfront-initialOneOff);
+ heading('Investment summary');
+ line('One-off project costs and selected extras',initialOneOff);
+ if(initialPeriods)line('First subscription / domain periods',initialPeriods);
+ if(q.vatRegistered)line('VAT ('+vatPct(q)+'%)',round(gross(q,p.upfront)-p.upfront));
+ ensure(18);
+ doc.setDrawColor(10,47,87);doc.setLineWidth(.65);doc.line(106,y-3,195,y-3);
+ doc.setTextColor(10,47,87);doc.setFont(undefined,'bold');doc.setFontSize(11);
+ doc.text('INITIAL AMOUNT',108,y+3);
+ doc.text(n(gross(q,p.upfront)),192,y+3,{align:'right'});
+ y+=17;bodyColor();
+ const renewals=p.chosen.filter(x=>x.frequency!=='one-off');
+ if(renewals.length){
+  const renewalsText='Ongoing charges: '+renewals.map(x=>x.name+' — '+n(x.amount)+' / '+(x.frequency==='monthly'?'month':'year')).join('; ')+'.';
+  const txt=doc.splitTextToSize(renewalsText,175);
+  ensure(txt.length*4.4+7);doc.setTextColor(86,97,111);doc.setFontSize(8);doc.text(txt,18,y);y+=txt.length*4.4+7;bodyColor();
+ }
+ groups.filter(s=>s.optional).forEach(block);
+ if(q.notes){
+  heading('Scope and terms');
+  const lines=doc.splitTextToSize(q.notes,174);
+  for(const str of lines){ensure(6);bodyColor();doc.text(str,18,y);y+=5;}
+ }
+ const notice='Optional upgrades above are not included unless separately agreed. Included website update time does not roll over. Recurring services follow the intervals shown.';
+ const noticeLines=doc.splitTextToSize(notice,176);
+ ensure(noticeLines.length*4.2+8);doc.setFontSize(8);doc.setTextColor(90,97,110);doc.text(noticeLines,17,y);y+=noticeLines.length*4.2+9;
  const link=demoLink(q);
  if(link){
-  y+=14;ensure(26);heading('View your proposed website demo');
+  ensure(31);heading('View your proposed website demo');
   bodyColor();
   doc.text('Please feel free to follow this link to explore your proposed website:',18,y);
   y+=8;
