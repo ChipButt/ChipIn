@@ -28,7 +28,7 @@ function statusLine(q){
  if(c.acceptance&&!q.invoiceId)return 'Customer accepted — review required';
  if(c.acceptance&&q.invoiceId)return 'Accepted & invoiced';
  if(c.firstOpenedAt)return 'Opened by customer';
- return 'Sent — awaiting customer';
+ return 'Published — awaiting customer (email not sent by HQ)';
 }
 function collect(q){
  if(q.category!=='Website Design')throw Error('Interactive service selection is currently available for website quotations only.');
@@ -71,7 +71,7 @@ async function publish(id){
   if(client){client.pipelineStage='Quote';client.updatedAt=new Date().toISOString();}
   await saveState();
   render();window.ChipInQuotes.openPreview(q.id);
-  toast('Interactive quote published. Copy the secure customer link to send it.');
+  toast('Client link published. This does not send an email; copy it or open an email draft.');
  }catch(e){toast(e.message);}
 }
 async function synchronize(showToast=false){
@@ -102,8 +102,8 @@ function mountQuotes(){
  if(!host||!host.querySelector('#hqQuoteTable'))return;
  const ready=portalReady(),accepted=quotes().filter(q=>q.interactive?.acceptance&&!q.invoiceId);
  const bar=document.createElement('div');bar.className='hq-quote-online-bar';bar.id='hqQuoteOnlineBar';
- bar.innerHTML='<div><strong>Interactive customer quotations</strong><p class="muted" style="margin:5px 0 0">'+(ready?'Connected to Cloudflare · customer choices and approvals appear here':'One-time secure connection required before sending interactive quotation links')+'</p></div><div class="row-actions">'+
- '<a class="btn small secondary" href="'+BASE+'/demo" target="_blank" rel="noopener noreferrer">Try customer demo</a>'+ (ready?'<button class="btn small secondary" id="hqQuoteCheck">Check replies</button>':'<button class="btn small" id="hqQuotePair">Connect quotations</button>')+'</div>';
+ bar.innerHTML='<div><strong>Interactive customer quotations</strong><p class="muted" style="margin:5px 0 0">'+(ready?'Connected · replies checked automatically while HQ is open and unlocked (about every 90 seconds)':'One-time secure connection required before sending interactive quotation links')+'</p></div><div class="row-actions">'+
+ '<a class="btn small secondary" href="'+BASE+'/demo" target="_blank" rel="noopener noreferrer">Try customer demo</a>'+ (ready?'<button class="btn small secondary" id="hqQuoteCheck">Check now</button>':'<button class="btn small" id="hqQuotePair">Connect quotations</button>')+'</div>';
  host.prepend(bar);
  document.getElementById('hqQuoteCheck')?.addEventListener('click',()=>synchronize(true));
  document.getElementById('hqQuotePair')?.addEventListener('click',pairForm);
@@ -138,14 +138,16 @@ function previewActions(q){
  if(!actions)return;
  const button=document.createElement('button');button.type='button';button.className='btn small secondary';
  if(q.interactive?.url){
+  const deliveryNote=document.createElement('p');deliveryNote.className='muted';deliveryNote.style.cssText='width:100%;margin:6px 0';deliveryNote.textContent='Publishing makes the link available. HQ does not email it automatically. Use Open email draft and press Send in your email app, or copy the link.';actions.append(deliveryNote);
   button.textContent='Copy customer quote link';button.onclick=()=>navigator.clipboard.writeText(q.interactive.url).then(()=>toast('Secure client quote link copied')).catch(()=>toast('Could not copy the link.'));
   actions.append(button);
   const client=clientById(q.clientId);
   if(client?.email){
-   const emailButton=document.createElement('button');emailButton.type='button';emailButton.className='btn small secondary';emailButton.textContent='Email customer link';
+   const emailButton=document.createElement('button');emailButton.type='button';emailButton.className='btn small secondary';emailButton.textContent='Open email draft';
    emailButton.onclick=()=>{
     const subject='Your quotation from Chip In Works — '+q.number;
     const body='Hello '+(client.contact||client.name||'')+',\n\nPlease review your personalised quotation, select any optional services and confirm when you are happy to proceed:\n\n'+q.interactive.url+'\n\nThe quotation is valid until '+fmtDate(q.validUntil)+'.\n\nKind regards,\nChip In Works';
+    toast('An email draft will open. Press Send in your email app; HQ cannot verify delivery.');
     window.location.href='mailto:'+encodeURIComponent(client.email)+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body);
    };
    actions.append(emailButton);
@@ -189,10 +191,13 @@ renderDashboard=function(){
  panel.querySelector('button').onclick=()=>{page='quotes';render();};
 };
 // Check for customer acceptances while HQ is open. Only published quote IDs are queried.
-window.setInterval(()=>{
- if(!portalReady()||document.visibilityState==='hidden'||inFlight||Date.now()-lastChecked<60000)return;
+function autoCheckOnReturn(){
+ if(!portalReady()||inFlight||Date.now()-lastChecked<60000)return;
  if(quotes().some(q=>q.interactive?.url&&!q.invoiceId))void synchronize(false);
-},90000);
+}
+window.setInterval(()=>{if(document.visibilityState!=='hidden')autoCheckOnReturn()},90000);
+window.addEventListener('focus',autoCheckOnReturn);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')autoCheckOnReturn()});
 const css=document.createElement('style');
 css.textContent='.hq-quote-dashboard-alert{display:flex;align-items:center;justify-content:space-between;gap:15px;border:1px solid #c7d9e9;background:#eef6fc;border-radius:12px;padding:15px;margin-bottom:18px;flex-wrap:wrap}.hq-quote-dashboard-alert p{margin:5px 0 0;color:var(--muted);font-size:12px}.hq-quote-online-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;background:#f5f9fd;border:1px solid #dce7f0;border-radius:12px;margin-bottom:16px;flex-wrap:wrap}.hq-quote-accepted-notice{background:#fff;border:1px solid #d6e4ed;border-radius:12px;padding:16px;margin-bottom:15px}.hq-quote-accepted-notice h3{margin:0 0 8px;font-size:17px}.hq-quote-notice-row{display:flex;justify-content:space-between;align-items:center;gap:10px;border-top:1px solid #e5ecf3;padding:11px 0;flex-wrap:wrap}';
 document.head.appendChild(css);
