@@ -1,0 +1,27 @@
+name: Verify Chip In quotation emails
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'quote-portal/**'
+      - 'hq/app26_quotes.js'
+      - 'hq/app27_interactive_quotes.js'
+      - '.github/workflows/quote-email-test.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate quotation scripts
+        run: |
+          node --check hq/app26_quotes.js
+          node --check hq/app27_interactive_quotes.js
+          node --check quote-portal/worker.js
+      - name: Test Gmail quote queue without sending messages
+        run: node quote-portal/queue.test.mjs
