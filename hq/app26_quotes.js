@@ -255,6 +255,10 @@ function openForm(id,clientId){
   document.getElementById('hqQuoteWebsite').style.display=name==='Website Design'?'':'none';
    document.getElementById('hqQuoteDemo').style.display=name==='Website Design'?'':'none';
   document.getElementById('hqQuoteEmail').style.display=name==='Website Design'?'':'none';
+  for(const inputName of ['quoteEmailSubject','quoteEmailBody']){
+   const control=form.elements.namedItem(inputName);
+   if(control){control.disabled=name!=='Website Design';control.required=name==='Website Design';}
+  }
   catalogueOptions(form,q,restore);
   form.querySelectorAll('#hqQuoteOptions input,#hqQuoteOptions select').forEach(n=>n.addEventListener('change',recalc));
   if(!existing&&form.elements.namedItem('title').value==='Website Design & Services')form.elements.namedItem('title').value=name==='Website Design'?'Website Design & Services':name;
