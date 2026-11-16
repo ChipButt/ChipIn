@@ -300,7 +300,7 @@ function quoteHTML(q){
 function openPreview(id){
  const q=byId(id);if(!q)return;
  const status=validity(q),locked=q.status!=='Draft';
- openModal('<div class="section-title hq-quote-preview-actions"><div><h2>'+esc(q.number)+'</h2><p>'+esc(clientById(q.clientId)?.name||'')+' · '+statusBadge(status)+(q.interactive?.url&&status==='Sent'?'<span class="muted"> · Link published; email delivery unconfirmed</span>':'')+'</p></div><div class="row-actions">'+
+ openModal('<div class="section-title hq-quote-preview-actions"><div><h2>'+esc(q.number)+'</h2><p>'+esc(clientById(q.clientId)?.name||'')+' · '+statusBadge(q.interactive?.url&&status==='Sent'?'Published':status)+(q.interactive?.url&&status==='Sent'?'<span class="muted"> · Link published; email delivery unconfirmed</span>':'')+'</p></div><div class="row-actions">'+
  '<button class="btn small secondary" id="hqQuotePDF">Download PDF</button>'+
  (!locked?'<button class="btn small secondary" id="hqQuoteEdit">Edit draft</button><button class="btn small" id="hqQuoteSent">I sent it separately</button>':'')+
  (q.status==='Sent'&&!q.interactive?.url?'<button class="btn small gold" id="hqQuoteAccept">Accept quote</button><button class="btn small secondary" id="hqQuoteDecline">Declined</button>':'')+
@@ -500,13 +500,13 @@ function downloadPDF(q){
 }
 function renderQuotes(){
  const list=quotes().slice().sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''));
- document.getElementById('content').innerHTML='<div class="toolbar"><select id="hqQuoteFilter">'+option('','All quote statuses','')+codes.map(s=>option(s,s,'')).join('')+option('Expired','Expired','')+'</select><input id="hqQuoteSearch" class="search" placeholder="Search quotes…"></div>'+
+ document.getElementById('content').innerHTML='<div class="toolbar"><select id="hqQuoteFilter">'+option('','All quote statuses','')+codes.map(s=>option(s,s==='Sent'?'Sent / Published':s,'')).join('')+option('Expired','Expired','')+'</select><input id="hqQuoteSearch" class="search" placeholder="Search quotes…"></div>'+
  '<div id="hqQuoteTable"></div>';
  const draw=()=>{
   const query=clean(document.getElementById('hqQuoteSearch').value).toLowerCase(),filter=document.getElementById('hqQuoteFilter').value;
   const rows=list.filter(q=>(!filter||validity(q)===filter)&&[q.number,q.title,clientById(q.clientId)?.name].join(' ').toLowerCase().includes(query));
   document.getElementById('hqQuoteTable').innerHTML=rows.length?'<div class="table-wrap"><table><thead><tr><th>Quote</th><th>Client</th><th>Issued / expiry</th><th>Initial estimate</th><th>Status</th><th></th></tr></thead><tbody>'+rows.map(q=>
-   '<tr><td><strong class="mono">'+esc(q.number)+'</strong><div>'+esc(q.title)+'</div></td><td>'+esc(clientById(q.clientId)?.name||'—')+'</td><td>'+fmtDate(q.issueDate)+'<div class="muted">valid until '+fmtDate(q.validUntil)+'</div></td><td>'+money(gross(q,plan(q).upfront))+'</td><td>'+statusBadge(validity(q))+(q.interactive?.url&&validity(q)==='Sent'?'<div class="muted">Link published · delivery unconfirmed</div>':'')+'</td><td class="right"><button class="btn small secondary" data-q-open="'+esc(q.id)+'">Open</button></td></tr>').join('')+'</tbody></table></div>':empty('No matching quotes. Create your first proposal.');
+   '<tr><td><strong class="mono">'+esc(q.number)+'</strong><div>'+esc(q.title)+'</div></td><td>'+esc(clientById(q.clientId)?.name||'—')+'</td><td>'+fmtDate(q.issueDate)+'<div class="muted">valid until '+fmtDate(q.validUntil)+'</div></td><td>'+money(gross(q,plan(q).upfront))+'</td><td>'+statusBadge(q.interactive?.url&&validity(q)==='Sent'?'Published':validity(q))+(q.interactive?.url&&validity(q)==='Sent'?'<div class="muted">Link published · delivery unconfirmed</div>':'')+'</td><td class="right"><button class="btn small secondary" data-q-open="'+esc(q.id)+'">Open</button></td></tr>').join('')+'</tbody></table></div>':empty('No matching quotes. Create your first proposal.');
   document.querySelectorAll('[data-q-open]').forEach(b=>b.onclick=()=>openPreview(b.dataset.qOpen));
  };
  document.getElementById('hqQuoteFilter').onchange=draw;document.getElementById('hqQuoteSearch').oninput=draw;draw();
