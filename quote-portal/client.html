@@ -15,7 +15,7 @@ label.field{display:block;font-size:13px;font-weight:650;margin:15px 0 7px}input
 <section class="sheet" id="careSheet"><h2>Optional website care</h2><p class="muted">Choose the level of ongoing support that suits your business, or select no care plan.</p><div id="care"></div></section>
 <section class="sheet" id="extraSheet"><h2>Other optional extras</h2><p class="muted">Only services you select will be added to the quotation.</p><div id="extras"></div></section>
 <section class="sheet"><h2>Your quotation summary</h2><div class="calc"><div id="breakdown"></div><div class="grand"><span>Initial total</span><span id="total"></span></div><p id="payment" class="payment"></p></div><p id="recurring" class="muted"></p></section>
-<section class="sheet" id="scopeSheet"><h2>Project scope & terms</h2><p id="scopeText" style="white-space:pre-wrap"></p></section><section class="sheet"><h2>Confirm and accept</h2><p class="muted">Your final selections will be sent securely to Chip In Works. No payment is taken here.</p>
+<section class="sheet" id="scopeSheet"><h2>Project scope & terms</h2><p id="scopeText" style="white-space:pre-wrap"></p></section><section class="sheet hidden" id="demoSheet"><h2>View your proposed website</h2><p class="muted">A demonstration has been prepared for you to explore the proposed layout and design before the project begins.</p><div id="demoLink"></div><p class="muted">This demonstration is not a live or completed website.</p></section><section class="sheet"><h2>Confirm and accept</h2><p class="muted">Your final selections will be sent securely to Chip In Works. No payment is taken here.</p>
 <label class="field" for="signer">Your full name</label><input id="signer" type="text" maxlength="120" autocomplete="name">
 <label class="field" for="email">Your email address</label><input id="email" type="email" maxlength="240" autocomplete="email">
 <label class="confirm"><input type="checkbox" id="agree"><span>I am authorised to accept this quotation and agree to the selected services, prices, payment schedule and scope described above.</span></label>
@@ -42,7 +42,7 @@ if(p.domain&&p.domain.mode!=='own'){
  el('domain').append(node('p','muted',t));
 }else if(p.domain&&p.domain.mode==='own')el('domain').append(node('p','muted','Your existing domain will be supplied by you. No domain registration fee is included.'));
 p.includedExtras.forEach(listed);
-if(p.demoUrl){var demo=node('p'),a=node('a',null,'View your proposed website demo');a.href=p.demoUrl;a.target='_blank';a.rel='noopener noreferrer';a.referrerPolicy='no-referrer';demo.append(a);el('domain').append(demo)}
+if(p.demoUrl){var demo=node('p'),a=node('a',null,'View your proposed website demo');a.href=p.demoUrl;a.target='_blank';a.rel='noopener noreferrer';a.referrerPolicy='no-referrer';demo.append(a);el('demoSheet').classList.remove('hidden');el('demoLink').append(demo)}
 var careIndex=Number(p.defaultCare||0),extras=new Set(p.defaultExtras||[]);
 function select(parent,type,id,name,description,item,chosen){
  var label=node('label','choice'),input=node('input'),main=node('div');input.type=type;input.value=id;if(type==='radio')input.name='care';input.checked=chosen;
