@@ -8,6 +8,7 @@ label.field{display:block;font-size:13px;font-weight:650;margin:15px 0 7px}input
 @media(max-width:670px){main{padding:25px 11px}.sheet{padding:22px 17px}.choice{grid-template-columns:22px minmax(0,1fr) 89px;gap:9px}.choice .price,.price{font-size:13px}.row{grid-template-columns:1fr auto}header{padding:17px 20px}.grand{font-size:19px}}
 </style></head>
 <body><header><strong>CHIP IN</strong><small>WORKS · YOUR PROPOSAL</small></header><main>
+<div class="note hidden" id="demoNotice" style="margin-bottom:22px"><strong>DEMO ONLY</strong> — Try selecting packages and accepting this sample quotation. No genuine client record, invoice or notification will be created. The prices shown are illustrative.</div>
 <div class="intro"><div class="muted" id="number"></div><h1 id="title">Your quotation</h1><p id="welcome"></p><p class="muted" id="dates"></p></div>
 <div id="closed" class="note hidden"></div><div id="done" class="success hidden"></div>
 <div id="proposal">
@@ -29,6 +30,7 @@ var el=function(id){return document.getElementById(id)};
 var node=function(tag,cls,text){var x=document.createElement(tag);if(cls)x.className=cls;if(text!==undefined)x.textContent=text;return x};
 var fmt=function(n){return new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP'}).format(n/100)};
 var date=function(s){return s?new Date(s+'T12:00:00Z').toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'}):''};
+if(d.demo)el('demoNotice').classList.remove('hidden');
 el('number').textContent=p.number;el('title').textContent=p.title;
 el('welcome').textContent='Prepared for '+p.clientName+'. Please review your proposal and select any additional services you would like.';
 el('dates').textContent='Issued '+date(p.issuedAt)+' · Valid until '+date(p.validUntil);
@@ -76,9 +78,9 @@ el('accept').onclick=async function(){
  var btn=el('accept'),signer=el('signer').value.trim(),email=el('email').value.trim();el('error').textContent='';
  if(signer.length<2||!email.includes('@')||!el('agree').checked){el('error').textContent='Enter your full name and email, then tick the confirmation box.';return}
  btn.disabled=true;btn.textContent='Submitting...';
- try{var response=await fetch('/api/q/'+encodeURIComponent(d.token)+'/accept',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({careIndex:careIndex,extraIds:Array.from(extras),signer:signer,email:email,agreed:true})}),saved=await response.json();
+ try{var response=await fetch(d.demo?'/api/demo/accept':'/api/q/'+encodeURIComponent(d.token)+'/accept',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({careIndex:careIndex,extraIds:Array.from(extras),signer:signer,email:email,agreed:true})}),saved=await response.json();
  if(!response.ok)throw Error(saved.error||'Unable to accept the quotation.');
- el('proposal').classList.add('hidden');el('done').classList.remove('hidden');el('done').textContent='Quotation accepted. Thank you, '+signer+'. Your confirmed initial total is '+fmt(saved.initialPence)+'. Chip In Works will be in touch.';
+ el('proposal').classList.add('hidden');el('done').classList.remove('hidden');el('done').textContent=d.demo?'DEMONSTRATION COMPLETE — You selected a package with an initial total of '+fmt(saved.initialPence)+'. In the real system, Chip In HQ would now receive an acceptance for review before a job and draft invoice were created. Nothing has been submitted or saved.':'Quotation accepted. Thank you, '+signer+'. Your confirmed initial total is '+fmt(saved.initialPence)+'. Chip In Works will be in touch.';
  }catch(e){el('error').textContent=e.message;btn.disabled=false;btn.textContent='Accept quotation'}
 };
 })();
