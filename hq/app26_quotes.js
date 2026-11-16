@@ -19,6 +19,14 @@ const number=()=>{
 const option=(value,label,selected)=>'<option value="'+esc(value)+'"'+(String(value)===String(selected)?' selected':'')+'>'+esc(label)+'</option>';
 const field=(label,html)=>'<div class="field"><label>'+esc(label)+'</label>'+html+'</div>';
 const catNames=()=>[...Object.keys(pricing().catalog),'Other'];
+function demoLink(q){
+ if(q?.category!=='Website Design'||!q.demo?.enabled||!q.demo?.url)return '';
+ try{const u=new URL(q.demo.url);return ['http:','https:'].includes(u.protocol)&&u.hostname&&!u.username&&!u.password?u.href:'';}catch{return '';}
+}
+function quoteDemoHTML(q){
+ const link=demoLink(q);
+ return link?'<section class="hq-quote-demo"><h3>See your proposed website</h3><p>A demo has been prepared so you can explore the proposed design and layout before deciding. Please feel free to follow this link to view your demo website:</p><p><a href="'+esc(link)+'" target="_blank" rel="noopener noreferrer">'+esc(link)+'</a></p><p class="muted">This is a demonstration of the proposed website, not a live or finished website.</p></section>':'';
+}
 function plan(q){
  const base=(q.baseLines||[]).map(x=>({name:x.name,amount:round(x.amount),frequency:'one-off',includeFirst:true,mode:'required',kind:'base'}));
  const domain=q.domain&&q.domain.mode!=='own'?{name:'Domain registration and renewal'+(q.domain.suggested?' — '+q.domain.suggested:''),amount:round(q.domain.amount),frequency:q.domain.mode,includeFirst:q.domain.includeFirst!==false,mode:'required',kind:'domain'}:null;
@@ -131,6 +139,7 @@ function formHTML(q={}){
  '<label class="hq-quote-first"><input type="checkbox" name="domainFirst" '+(domain.includeFirst!==false?'checked':'')+'> Include first domain period in initial invoice</label>'+
  field('Website care plan','<select name="careIndex">'+careGroup.choices.map((x,i)=>option(i,x.label,careIndex)).join('')+'</select>')+
  '<label class="hq-quote-first"><input type="checkbox" name="careFirst" '+(care.includeFirst!==false?'checked':'')+'> Include first care month in initial invoice</label></div></div>'+
+ '<div class="field full" id="hqQuoteDemo"><h3>Proposed website demo</h3><label class="hq-quote-first"><input type="checkbox" name="demoEnabled" '+(q.demo?.enabled?'checked':'')+'> Yes — include a demo website link in this quote</label><div id="hqQuoteDemoUrlRow">'+field('Demo website URL','<input type="url" name="demoUrl" autocomplete="url" placeholder="https://demo.example.co.uk/" value="'+esc(q.demo?.url||'')+'"><p class="sub">This link appears at the end of the quote and is clickable in the PDF.</p>')+'</div></div>'+
  '<div class="field full"><div class="hq-quote-extra-head"><h3>Additional services and extras</h3><button type="button" class="btn small secondary" id="hqQuoteAddExtra">+ Add extra</button></div>'+
  '<p class="sub">An offered optional extra appears in the proposal but not in the agreed total or recurring billing.</p>'+
  '<div id="hqQuoteExtraRows">'+(q.extras||[]).map(extraRow).join('')+'</div></div>'+
@@ -152,12 +161,14 @@ function values(form,validate){
  const availabilityChecked=website&&mode!=='own'&&!!fd.get('domainAvailabilityChecked');
  const domain=website?{mode,amount:mode==='own'?0:round(rawDomain),includeFirst:!!fd.get('domainFirst'),suggested:suggestion,availabilityChecked,checkedOn:availabilityChecked?(form.dataset.domainCheckedOn||TODAY()):null}:null;
  const care=website?{name:chosenCare.label,amount:round(chosenCare.price),choiceIndex:careIndex,includeFirst:!!fd.get('careFirst')}:null;
+ const demoEnabled=website&&!!fd.get('demoEnabled'),rawDemoUrl=clean(fd.get('demoUrl'));
+ const demo={enabled:demoEnabled,url:demoEnabled?rawDemoUrl:''};
  const extras=Array.from(form.querySelectorAll('[data-quote-extra]')).map(row=>{
   const val=k=>row.querySelector('[data-q-'+k+']');
   return {id:row.dataset.quoteExtra,name:clean(val('name').value),description:clean(val('description').value),amount:round(val('amount').value),frequency:val('frequency').value,mode:val('mode').value,includeFirst:val('first').checked};
  }).filter(x=>x.name||x.description||x.amount);
  const q={clientId:fd.get('clientId'),category,title:clean(fd.get('title')),issueDate:fd.get('issueDate'),validUntil:fd.get('validUntil'),
-  notes:clean(fd.get('notes')),choices,checked,otherBase:fd.get('otherBase'),baseLines,domain,care,extras,
+  notes:clean(fd.get('notes')),choices,checked,otherBase:fd.get('otherBase'),baseLines,domain,care,extras,demo,
   vatRegistered:!!state.settings.vatRegistered,vatRate:Number(state.settings.defaultVatRate||0)};
  if(validate){
   if(!clientById(q.clientId))throw Error('Choose a client first.');
@@ -167,6 +178,10 @@ function values(form,validate){
   if(website&&mode!=='own'&&(!clean(fd.get('domainAmount'))||!Number.isFinite(rawDomain)||rawDomain<=0))throw Error('Enter an agreed domain price greater than zero.');
    if(suggestion&&!/^(?=.{1,253}$)[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$/.test(suggestion))throw Error('Enter only the domain, e.g. examplebusiness.co.uk.');
    if(availabilityChecked&&!suggestion)throw Error('Enter a suggested domain before marking its availability as checked.');
+   if(demoEnabled){
+    if(!rawDemoUrl)throw Error('Enter the demo website link or untick the demo option.');
+    if(!demoLink({category,demo}))throw Error('Enter a valid http:// or https:// demo website address.');
+   }
   for(const row of form.querySelectorAll('[data-quote-extra]')){
    const amt=row.querySelector('[data-q-amount]').value,name=clean(row.querySelector('[data-q-name]').value),desc=clean(row.querySelector('[data-q-description]').value);
    if((name||amt||desc)&&(!name||amt===''||!Number.isFinite(Number(amt))||Number(amt)<0))throw Error('Each extra requires a name and a valid price.');
@@ -181,6 +196,9 @@ function openForm(id,clientId){
  const q=existing||{clientId:clientId||'',category:'Website Design'};
  openModal(formHTML(q),true);
  const form=document.getElementById('hqQuoteForm'),cat=form.elements.namedItem('category');
+ const demoToggle=form.elements.namedItem('demoEnabled'),demoInput=form.elements.namedItem('demoUrl'),demoRow=form.querySelector('#hqQuoteDemoUrlRow');
+ const showDemo=()=>{demoRow.style.display=demoToggle.checked?'':'none';demoInput.disabled=!demoToggle.checked;demoInput.required=demoToggle.checked;};
+ demoToggle.addEventListener('change',showDemo);showDemo();
  form.dataset.domainCheckedOn=q.domain?.checkedOn||'';
  const suggestedInput=form.elements.namedItem('suggestedDomain'),checkedInput=form.elements.namedItem('domainAvailabilityChecked');
  suggestedInput.addEventListener('input',()=>{
@@ -190,6 +208,7 @@ function openForm(id,clientId){
  function categoryChanged(restore){
   const name=cat.value;
   document.getElementById('hqQuoteWebsite').style.display=name==='Website Design'?'':'none';
+   document.getElementById('hqQuoteDemo').style.display=name==='Website Design'?'':'none';
   catalogueOptions(form,q,restore);
   form.querySelectorAll('#hqQuoteOptions input,#hqQuoteOptions select').forEach(n=>n.addEventListener('change',recalc));
   if(!existing&&form.elements.namedItem('title').value==='Website Design & Services')form.elements.namedItem('title').value=name==='Website Design'?'Website Design & Services':name;
@@ -238,7 +257,7 @@ function quoteHTML(q){
  return '<div class="invoice-preview hq-quote-preview"><div class="invoice-head"><img src="'+LOGO_DATA_URL+'" alt="Chip In"><div class="invoice-title"><h2>QUOTATION</h2><div class="num mono">'+esc(q.number)+'</div><div class="num">Issued '+fmtDate(q.issueDate)+' · Valid until '+fmtDate(q.validUntil)+'</div></div></div>'+
  '<div class="invoice-parties"><div><h4>From</h4><p><strong>'+esc(s.legalName||'')+' trading as '+esc(s.tradingName||'Chip In')+'</strong>\n'+esc(s.address||'')+'\n'+esc(s.email||'')+'</p></div><div><h4>Prepared for</h4><p><strong>'+esc(c?.name||'Client')+'</strong>\n'+esc(c?.contact||'')+'\n'+esc(c?.address||'')+'\n'+esc(c?.email||'')+'</p></div></div>'+
  '<h3>'+esc(q.title)+'</h3><div class="hq-quote-summary-block">'+priceBreakdown(q)+'</div>'+
- '<div class="hq-quote-terms"><strong>Scope & terms</strong><p>'+esc(q.notes||'').replace(/\n/g,'<br>')+'</p><p>Any offered optional extras are subject to separate approval. Future subscription charges follow the billing frequencies above.</p></div></div>';
+ '<div class="hq-quote-terms"><strong>Scope & terms</strong><p>'+esc(q.notes||'').replace(/\n/g,'<br>')+'</p><p>Any offered optional extras are subject to separate approval. Future subscription charges follow the billing frequencies above.</p></div>'+quoteDemoHTML(q)+'</div>';
 }
 function openPreview(id){
  const q=byId(id);if(!q)return;
@@ -362,6 +381,21 @@ function downloadPDF(q){
  if(q.notes){ensure(18);heading('Scope and terms');const lines=doc.splitTextToSize(q.notes,172);for(const str of lines){ensure(6);doc.text(str,18,y);y+=5;}}
  ensure(18);doc.setFontSize(8);doc.setTextColor(90,97,110);
  doc.text('Other optional care plans and extras are not included in this price unless selected. Included editing time does not roll over; recurring charges follow the intervals shown.',15,y,{maxWidth:178});
+ const link=demoLink(q);
+ if(link){
+  y+=14;ensure(26);heading('View your proposed website demo');
+  bodyColor();
+  doc.text('Please feel free to follow this link to explore your proposed website:',18,y);
+  y+=8;
+  for(const urlText of doc.splitTextToSize(link,160)){
+   ensure(7);doc.setTextColor(15,89,165);doc.setFontSize(9);
+   doc.text(urlText,18,y);
+   doc.link(18,y-4,Math.min(doc.getTextWidth(urlText)+2,173),6,{url:link});
+   y+=6;
+  }
+  bodyColor();ensure(12);
+  doc.text('Demo only — the finished website may differ as agreed during the project.',18,y,{maxWidth:173});
+ }
  doc.save(q.number+'.pdf');
 }
 function renderQuotes(){
@@ -411,7 +445,7 @@ renderClients=function(){
  });
 };
 const css=document.createElement('style');
-css.textContent='.hq-quote-line{padding:9px 0;border-top:1px solid #e6ebf1}.hq-quote-line:first-of-type{border-top:0}.hq-quote-explanation{font-size:12px;color:#46576a;line-height:1.6;margin:5px 0 2px;white-space:normal}.hq-quote-domain-note{margin:9px 0;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:#f7f9fc;font-size:12px;line-height:1.55}.hq-quote-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.hq-quote-check{display:block;margin:8px 0;font-size:12px}.hq-quote-check input,.hq-quote-first input{width:auto}.hq-quote-first{display:flex;align-items:center;gap:8px;font-size:12px;margin:10px 0}.hq-quote-extra-head{display:flex;justify-content:space-between;align-items:center;gap:12px}.hq-quote-extra-head h3{margin:0}.hq-quote-extra{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;background:#f7f9fc;border:1px solid var(--line);padding:12px;border-radius:12px;margin:10px 0}.hq-quote-extra-note{grid-column:1/-1}.hq-quote-extra .hq-quote-first{margin:0}.hq-quote-summary-block{margin:12px 0;padding:12px;border:1px solid var(--line);border-radius:11px}.hq-quote-summary-block>strong{display:block;margin-bottom:8px;font-size:13px}.hq-quote-summary-row{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;padding:5px 0;font-size:12px}.hq-quote-summary-row b{white-space:nowrap}.hq-quote-total{display:flex;justify-content:space-between;gap:12px;border-top:1px solid var(--line);padding:16px 4px 6px;font-weight:700}.hq-quote-total strong{font-size:20px;color:var(--navy)}.hq-quote-preview-actions{flex-wrap:wrap}.hq-quote-preview .hq-quote-summary-block{background:#fff}.hq-quote-terms{margin-top:16px;font-size:12px;white-space:pre-wrap}.hq-quote-terms p{line-height:1.6}@media(max-width:700px){.hq-quote-options,.hq-quote-extra{grid-template-columns:1fr}.hq-quote-preview-actions .row-actions{flex-wrap:wrap}.hq-quote-summary-row{flex-wrap:wrap}}';
+css.textContent='.hq-quote-demo{border-top:1px solid var(--line);margin-top:20px;padding:16px 0 4px}.hq-quote-demo h3{margin:0 0 8px}.hq-quote-demo p{margin:8px 0;line-height:1.6}.hq-quote-demo a{color:#1767aa;overflow-wrap:anywhere;text-decoration:underline}.hq-quote-line{padding:9px 0;border-top:1px solid #e6ebf1}.hq-quote-line:first-of-type{border-top:0}.hq-quote-explanation{font-size:12px;color:#46576a;line-height:1.6;margin:5px 0 2px;white-space:normal}.hq-quote-domain-note{margin:9px 0;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:#f7f9fc;font-size:12px;line-height:1.55}.hq-quote-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.hq-quote-check{display:block;margin:8px 0;font-size:12px}.hq-quote-check input,.hq-quote-first input{width:auto}.hq-quote-first{display:flex;align-items:center;gap:8px;font-size:12px;margin:10px 0}.hq-quote-extra-head{display:flex;justify-content:space-between;align-items:center;gap:12px}.hq-quote-extra-head h3{margin:0}.hq-quote-extra{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;background:#f7f9fc;border:1px solid var(--line);padding:12px;border-radius:12px;margin:10px 0}.hq-quote-extra-note{grid-column:1/-1}.hq-quote-extra .hq-quote-first{margin:0}.hq-quote-summary-block{margin:12px 0;padding:12px;border:1px solid var(--line);border-radius:11px}.hq-quote-summary-block>strong{display:block;margin-bottom:8px;font-size:13px}.hq-quote-summary-row{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;padding:5px 0;font-size:12px}.hq-quote-summary-row b{white-space:nowrap}.hq-quote-total{display:flex;justify-content:space-between;gap:12px;border-top:1px solid var(--line);padding:16px 4px 6px;font-weight:700}.hq-quote-total strong{font-size:20px;color:var(--navy)}.hq-quote-preview-actions{flex-wrap:wrap}.hq-quote-preview .hq-quote-summary-block{background:#fff}.hq-quote-terms{margin-top:16px;font-size:12px;white-space:pre-wrap}.hq-quote-terms p{line-height:1.6}@media(max-width:700px){.hq-quote-options,.hq-quote-extra{grid-template-columns:1fr}.hq-quote-preview-actions .row-actions{flex-wrap:wrap}.hq-quote-summary-row{flex-wrap:wrap}}';
 document.head.appendChild(css);
 window.ChipInQuotes={plan,openForm,openPreview,renderQuotes,values};
 })();
