@@ -203,9 +203,10 @@ async function accept(q){
    id:x.id||uid('charge'),name:x.name,description:x.description||'',amount:x.amount,
    frequency:x.frequency,includeFirst:x.includeFirst!==false
  }));
- if(web&&p.domain?.frequency==='monthly')custom.push({id:uid('charge'),name:'Domain registration and renewal',description:'Required domain service',amount:p.domain.amount,frequency:'monthly',includeFirst:p.domain.includeFirst});
+ const standardAnnualDomain=web&&p.domain?.frequency==='annual'&&Math.abs(p.domain.amount-25)<0.005;
+ if(web&&p.domain&&!standardAnnualDomain)custom.push({id:uid('charge'),name:'Domain registration and renewal',description:'Required domain service',amount:p.domain.amount,frequency:p.domain.frequency,includeFirst:p.domain.includeFirst});
  const lines=p.base.map(x=>({name:x.name,amount:x.amount}));
- if(web&&p.domain?.frequency==='annual'&&p.domain.includeFirst)lines.push({name:'First year — domain registration and renewal',amount:p.domain.amount});
+ if(standardAnnualDomain&&p.domain.includeFirst)lines.push({name:'First year — domain registration and renewal',amount:p.domain.amount});
  if(web&&p.care?.includeFirst)lines.push({name:'First month — '+p.care.name,amount:p.care.amount});
  const base=round(lines.reduce((sum,x)=>sum+x.amount,0));
  const extraInitial=round(custom.reduce((sum,x)=>sum+(x.frequency==='one-off'||x.includeFirst?x.amount:0),0));
@@ -216,9 +217,9 @@ async function accept(q){
   startDate:TODAY(),endDate:'',description:q.title,notes:q.notes||'',
   rateType:'day',rate:0,days:1,discount:0,overrideAmount:upfront,amount:upfront,
   pricingModel:'package',pricingBaseAmount:base,customCharges:custom,
-  servicePricing:{version:2,category:q.category,choices:q.choices||{},checked:q.checked||[],lines,base,
+  servicePricing:{version:2,category:q.category,choices:{...(q.choices||{}),...(web?{webDomain:standardAnnualDomain?1:0,webCare:q.care?.choiceIndex||0}:{})},checked:q.checked||[],lines,base,
    monthlyCare:web&&p.care?{name:p.care.name,amount:p.care.amount,interval:'monthly'}:null,
-   annualDomain:web&&p.domain?.frequency==='annual'?{name:'Domain registration and renewal',amount:p.domain.amount,interval:'annual'}:null,
+   annualDomain:standardAnnualDomain?{name:'Domain registration and renewal',amount:p.domain.amount,interval:'annual'}:null,
    billingOptions:{monthlyFirst:p.care?.includeFirst!==false,domainFirst:p.domain?.includeFirst!==false}},
   sourceQuoteId:q.id,createdAt:new Date().toISOString()
  };
