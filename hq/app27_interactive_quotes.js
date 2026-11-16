@@ -26,6 +26,9 @@ function statusLine(q){
  const c=q.interactive;
  if(!c?.url)return 'Not published';
  if(c.acceptance&&!q.invoiceId)return 'Customer accepted — review required';
+ if(c.email?.status==='sent')return 'Email sent by Gmail to '+c.email.recipient;
+ if(c.email?.status==='queued'||c.email?.status==='sending')return 'Email awaiting Gmail dispatch — not yet sent';
+ if(c.email?.status==='failed')return 'Email sending needs attention — not sent';
  if(c.acceptance&&q.invoiceId)return 'Accepted & invoiced';
  if(c.firstOpenedAt)return 'Opened by customer';
  return 'Published — awaiting customer (email not sent by HQ)';
@@ -90,6 +93,7 @@ async function synchronize(showToast=false){
    }
    if(record.status==='revoked'&&q.interactive.status!=='revoked'){q.interactive.status='revoked';changed=true;}
    if(record.firstOpenedAt&&!q.interactive.firstOpenedAt){q.interactive.firstOpenedAt=record.firstOpenedAt;changed=true;}
+   if(record.email && JSON.stringify(q.interactive.email||null)!==JSON.stringify(record.email)) {q.interactive.email=record.email;changed=true;}
   }
   if(changed){await saveState();if(page==='quotes'||page==='dashboard')render();}
   if(accepted&&!showToast)toast(accepted+' customer quotation'+(accepted===1?' has':'s have')+' been accepted.');
@@ -132,17 +136,43 @@ function pairForm(){
   }catch(e){toast(e.message);button.disabled=false;}
  };
 }
+
+async function queueCustomerEmail(id){
+ const q=byId(id);
+ if(!q?.interactive?.url)return toast('Publish the interactive quotation before emailing it.');
+ if(!portalReady())return toast('Unlock HQ and connect interactive quotations first.');
+ try{
+  const result=await call('/api/admin/send-email',{id});
+  q.interactive.email=result.email;
+  await saveState();
+  render();window.ChipInQuotes.openPreview(q.id);
+  if(result.email.status==='sent')toast('Gmail previously confirmed sending this quote.');
+  else if(result.email.status==='queued')toast('Quotation queued. Gmail dispatch runs hourly; the email has NOT been sent yet.');
+  else toast('Existing Gmail delivery status: '+result.email.status);
+ }catch(e){toast('Email not queued: '+e.message);}
+}
+
 function previewActions(q){
  if(!q||q.category!=='Website Design')return;
  const actions=document.querySelector('.hq-quote-preview-actions .row-actions');
  if(!actions)return;
  const button=document.createElement('button');button.type='button';button.className='btn small secondary';
  if(q.interactive?.url){
-  const deliveryNote=document.createElement('p');deliveryNote.className='muted';deliveryNote.style.cssText='width:100%;margin:6px 0';deliveryNote.textContent='Publishing makes the link available. HQ does not email it automatically. Use Open email draft and press Send in your email app, or copy the link.';actions.append(deliveryNote);
+  const deliveryNote=document.createElement('p');deliveryNote.className='muted';deliveryNote.style.cssText='width:100%;margin:6px 0';deliveryNote.textContent='Send via connected Gmail ('+'jamesbutt.chipin@gmail.com'+'): use Queue Gmail email for automatic hourly dispatch, or Open email draft to send immediately yourself. Queued is NOT sent.';actions.append(deliveryNote);
   button.textContent='Copy customer quote link';button.onclick=()=>navigator.clipboard.writeText(q.interactive.url).then(()=>toast('Secure client quote link copied')).catch(()=>toast('Could not copy the link.'));
   actions.append(button);
   const client=clientById(q.clientId);
   if(client?.email){
+   if(!q.interactive.email || q.interactive.email.status==='failed'){
+    const sendButton=document.createElement('button');sendButton.type='button';sendButton.className='btn small gold';
+    sendButton.textContent='Queue Gmail email (hourly delivery)';
+    sendButton.onclick=()=>queueCustomerEmail(q.id);
+    actions.append(sendButton);
+   }else{
+    const mailStatus=document.createElement('span');mailStatus.className='muted';
+    mailStatus.textContent=q.interactive.email.status==='sent'?'Sent by Gmail to '+q.interactive.email.recipient+' at '+new Date(q.interactive.email.sentAt).toLocaleString('en-GB'):'Email queued: awaiting Gmail send';
+    actions.append(mailStatus);
+   }
    const emailButton=document.createElement('button');emailButton.type='button';emailButton.className='btn small secondary';emailButton.textContent='Open email draft';
    emailButton.onclick=()=>{
     const subject='Your quotation from Chip In Works — '+q.number;
@@ -201,5 +231,5 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
 const css=document.createElement('style');
 css.textContent='.hq-quote-dashboard-alert{display:flex;align-items:center;justify-content:space-between;gap:15px;border:1px solid #c7d9e9;background:#eef6fc;border-radius:12px;padding:15px;margin-bottom:18px;flex-wrap:wrap}.hq-quote-dashboard-alert p{margin:5px 0 0;color:var(--muted);font-size:12px}.hq-quote-online-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;background:#f5f9fd;border:1px solid #dce7f0;border-radius:12px;margin-bottom:16px;flex-wrap:wrap}.hq-quote-accepted-notice{background:#fff;border:1px solid #d6e4ed;border-radius:12px;padding:16px;margin-bottom:15px}.hq-quote-accepted-notice h3{margin:0 0 8px;font-size:17px}.hq-quote-notice-row{display:flex;justify-content:space-between;align-items:center;gap:10px;border-top:1px solid #e5ecf3;padding:11px 0;flex-wrap:wrap}';
 document.head.appendChild(css);
-window.ChipInQuotePortal={mountQuotes,previewActions,pairForm,publish,synchronize,review,collect,portalReady,base:BASE};
+window.ChipInQuotePortal={mountQuotes,previewActions,pairForm,publish,synchronize,review,collect,portalReady,queueCustomerEmail,base:BASE};
 })();
