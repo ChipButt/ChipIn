@@ -153,16 +153,14 @@ async function queueCustomerEmail(id){
 }
 
 function draftContent(q,client){
- const defaults={
-  subject:'Your quotation from Chip In Works - {quoteNumber}',
-  body:'Hello {clientName},\\n\\nThank you for your interest in Chip In Works.\\n\\nPlease review your personalised quotation using the secure link below. You can select any optional services and confirm your choices directly on the page:\\n\\n{quoteLink}\\n\\nQuotation reference: {quoteNumber}\\nValid until: {validUntil}\\n\\nIf you have any questions, just reply to this email.\\n\\nKind regards,\\nChip In Works\\njamesbutt.chipin@gmail.com'
- };
- const values={clientName:client.contact||client.name||'there',quoteNumber:q.number,quoteLink:q.interactive.url,validUntil:q.validUntil};
- const expand=value=>String(value).replace(/\\{(clientName|quoteNumber|quoteLink|validUntil)\\}/g,(_,name)=>values[name]);
- const subject=expand(q.emailTemplate?.subject||defaults.subject);
- let body=expand(q.emailTemplate?.body||defaults.body).replace(/\\\\n/g,'\\n');
- if(!body.includes(q.interactive.url))body+='\\n\\nView your quotation:\\n'+q.interactive.url;
- return {subject,body};
+ const defaultSubject="Your quotation from Chip In Works - {quoteNumber}";
+ const defaultBody="Hello {clientName},\n\nThank you for your interest in Chip In Works.\n\nPlease review your personalised quotation using the secure link below. You can select any optional services and confirm your choices directly on the page:\n\n{quoteLink}\n\nQuotation reference: {quoteNumber}\nValid until: {validUntil}\n\nIf you have any questions, just reply to this email.\n\nKind regards,\nChip In Works\njamesbutt.chipin@gmail.com";
+ const variables={clientName:client.contact||client.name||'there',quoteNumber:q.number,quoteLink:q.interactive.url,validUntil:q.validUntil};
+ const expand=value=>String(value).replace(/\{(clientName|quoteNumber|quoteLink|validUntil)\}/g,(_,name)=>variables[name]);
+ const subject=expand(q.emailTemplate?.subject||defaultSubject);
+ let content=expand(q.emailTemplate?.body||defaultBody);
+ if(!content.includes(q.interactive.url))content+='\n\nView your quotation:\n'+q.interactive.url;
+ return {subject,body:content};
 }
 function previewActions(q){
  if(!q||q.category!=='Website Design')return;
