@@ -29,20 +29,66 @@ function plan(q){
  const upfront=round(chosen.reduce((sum,x)=>sum+((x.frequency==='one-off'||x.includeFirst!==false)?x.amount:0),0));
  return {chosen,offered,base,domain,care,extras,upfront,monthly:chosen.filter(x=>x.frequency==='monthly'),annual:chosen.filter(x=>x.frequency==='annual')};
 }
+const WEB_STANDARD_DESCRIPTION='A tailored small-business website with pages to suit your business: home, about, menus or services, opening hours, events and contact or visit information where relevant. Includes mobile-friendly design, clear ways for customers to get in touch, a client editor where appropriate and one review amendment before launch.';
+const CARE_INFO=[
+ {title:'Website Health',time:'30 minutes',price:25,description:'Monthly page, link and contact-form checks; desktop and mobile functionality checks; domain and SSL expiry checks; a versioned website backup; plus 30 minutes of routine website content updates each month.',benefit:'Ideal when your site changes only occasionally. Small changes and regular checks help customers find current information without you handling every update.'},
+ {title:'Website Care',time:'1 hour (60 minutes)',price:49,description:'Everything in Website Health, with 1 hour (60 minutes) of website updates per month in total. Covers routine menu, price, text, photo and opening-hours changes, normally within three working days once content is supplied.',benefit:'Useful when prices, menus or opening times change regularly, keeping your website accurate without paying separately for every small update.'},
+ {title:'Website Partner',time:'2 hours (120 minutes)',price:89,description:'Everything in Website Care, with 2 hours (120 minutes) of website updates per month in total. Includes minor layout and content improvements, priority routine updates normally within two working days, and a quarterly improvement review.',benefit:'Best for businesses regularly promoting events, offers or new content and wanting more frequent updates and priority attention.'}
+];
+const careInfo=x=>{
+ if(x?.choiceIndex>0)return CARE_INFO[x.choiceIndex-1]||null;
+ if(Number(x?.amount)>0)return CARE_INFO.find(a=>a.price===Number(x.amount))||null;
+ return null;
+};
+function careAlternatives(q){
+ if(q.category!=='Website Design')return [];
+ const selected=careInfo(q.care);
+ return CARE_INFO.filter(c=>!selected||selected.price!==c.price).map(c=>({name:c.title,amount:c.price,frequency:'monthly',mode:'offered',kind:'care-option',careInfo:c}));
+}
+function explanation(q,item){
+ if(q.category==='Website Design'&&item.kind==='base'){
+  if(/Standard Package/i.test(item.name))return WEB_STANDARD_DESCRIPTION;
+  if(/Extra page capacity/i.test(item.name))return 'Adds room for more pages beyond the standard package, so customers can find more of your services or information without crowding the main pages.';
+ }
+ if(item.kind==='domain'){
+  const d=q.domain||{};
+  const check=d.suggested?(d.availabilityChecked?' The suggested domain '+d.suggested+' was checked as available'+(d.checkedOn?' on '+fmtDate(d.checkedOn):'')+'.':' Availability of '+d.suggested+' has not been confirmed.'):'';
+  return 'A domain is the address customers use to find your website. This charge covers initial registration and renewal at the stated interval.'+check+' It is not registered or reserved yet; availability may change before purchase.';
+ }
+ if(item.kind==='care'||item.kind==='care-option'){
+  const info=item.careInfo||careInfo(q.care);
+  return info?info.description+' Why choose it? '+info.benefit+' Included editing time does not roll over; plans run month to month.':'Optional routine website support and updates.';
+ }
+ return clean(item.description||'');
+}
 function domainAvailability(q){
  const d=q.domain;
- if(!d||d.mode==='own'||!d.suggested)return '';
+ if(q.category!=='Website Design')return '';
+ if(!d||d.mode==='own')return '<p class="hq-quote-domain-note"><strong>Domain provided by client:</strong> No domain registration or renewal fee is included. You will need to supply a suitable existing domain and access needed to connect it to the website.</p>';
+ if(!d.suggested)return '<p class="hq-quote-domain-note">Your chosen domain name will be confirmed before purchase. Registration is not complete until the name is purchased.</p>';
  return '<p class="hq-quote-domain-note"><strong>Suggested domain:</strong> '+esc(d.suggested)+'<span> — '+(d.availabilityChecked?('Checked as available'+(d.checkedOn?' on '+fmtDate(d.checkedOn):'')+'; not yet registered'):'Availability not confirmed')+'. Domain availability can change until registration.</span></p>';
+}
+function quoteSections(q){
+ const p=plan(q),recurring=p.extras.filter(x=>isIncluded(x)&&x.frequency!=='one-off');
+ return [
+  {title:q.category==='Website Design'?'Your website build — one-off cost':'One-off project costs',items:p.base},
+  ...(p.domain?[{title:'Essential domain registration and renewal',items:[p.domain]}]:[]),
+  ...(p.care?[{title:'Your selected optional website care plan',items:[p.care]}]:[]),
+  ...(careAlternatives(q).length?[{title:'Other optional website care plans — not included',items:careAlternatives(q)}]:[]),
+  ...(recurring.length?[{title:'Other agreed recurring services',items:recurring}]:[]),
+  ...(p.extras.filter(x=>isIncluded(x)&&x.frequency==='one-off').length?[{title:'Agreed one-off extras',items:p.extras.filter(x=>isIncluded(x)&&x.frequency==='one-off')}]:[]),
+  ...(p.offered.length?[{title:'Other optional extras — not included',items:p.offered}]:[])
+ ];
 }
 function priceBreakdown(q){
  const p=plan(q);
- const first=label=>'<div class="hq-quote-summary-row"><span>'+esc(label)+'</span></div>';
- const section=(title,items)=>items.length?'<div class="hq-quote-summary-block"><strong>'+esc(title)+'</strong>'+items.map(x=>'<div class="hq-quote-summary-row"><span>'+esc(x.name)+(x.description?' — '+esc(x.description):'')+'</span><b>'+money(x.amount)+(x.frequency==='one-off'?'':' / '+(x.frequency==='monthly'?'month':'year'))+'</b></div>').join('')+'</div>':'';
- return section('One-off project costs',p.base)+section('Required / selected subscriptions',p.chosen.filter(x=>x.frequency!=='one-off'))+section('Additional one-off charges',p.extras.filter(x=>isIncluded(x)&&x.frequency==='one-off'))+
- section('Offered optional extras — not included',p.offered)+domainAvailability(q)+
- '<div class="hq-quote-total"><span>Due for initial invoice</span><strong>'+money(gross(q,p.upfront))+'</strong></div>'+
- (vatPct(q)?'<p class="muted">Includes '+vatPct(q)+'% VAT on '+money(p.upfront)+' net.</p>':'<p class="muted">VAT not charged.</p>')+
- '<p class="muted">Ongoing commitments are charged '+(p.monthly.length?'monthly':'')+(p.monthly.length&&p.annual.length?' and ':'')+(p.annual.length?'annually':'')+'. First periods appear in the initial total where selected. Optional extras above are not charged unless agreed.</p>';
+ const itemHTML=x=>'<div class="hq-quote-line"><div class="hq-quote-summary-row"><strong>'+esc(x.name)+'</strong><b>'+money(x.amount)+(x.frequency==='one-off'?'':' / '+(x.frequency==='monthly'?'month':'year'))+'</b></div>'+(explanation(q,x)?'<p class="hq-quote-explanation">'+esc(explanation(q,x))+'</p>':'')+'</div>';
+ const section=(title,items)=>'<div class="hq-quote-summary-block"><strong>'+esc(title)+'</strong>'+items.map(itemHTML).join('')+'</div>';
+ const sections=quoteSections(q).map(s=>section(s.title,s.items)).join('');
+ return sections+domainAvailability(q)+
+  '<div class="hq-quote-total"><span>Due for initial invoice</span><strong>'+money(gross(q,p.upfront))+'</strong></div>'+
+  (vatPct(q)?'<p class="muted">Includes '+vatPct(q)+'% VAT on '+money(p.upfront)+' net.</p>':'<p class="muted">VAT not charged.</p>')+
+  '<p class="muted">Only agreed project charges, essential domain costs and selected options are included in the initial total. Other optional plans and extras shown above are not charged unless you choose them. Selected monthly and annual services renew at the intervals shown; their first periods appear in the initial total only where selected.</p>';
 }
 function extraRow(x={}){
  const id=x.id||uid('charge');
