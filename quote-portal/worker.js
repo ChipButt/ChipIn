@@ -46,6 +46,28 @@ function total(p,s){
  const vatPence=p.vatRegistered?Math.round(netPence*p.vatRate/100):0;
  return {careIndex,extraIds,netPence,vatPence,initialPence:netPence+vatPence,recurring};
 }
+
+const DEMO = validate({
+ id:'qte_demo_sample_website',number:'QTE-DEMO',title:'Website Design & Services — Demonstration',
+ clientName:'The Example Inn (sample business)',clientContact:'Demo Customer',clientEmail:'demo@example.test',
+ issuedAt:'2026-11-16',validUntil:'2027-12-31',paymentSchedule:'split-50',
+ vatRegistered:false,vatRate:0,
+ notes:'Demo proposal only. A typical website includes responsive design, appropriate pages for the business, and agreed contact details. Optional subscriptions renew at their stated frequency. The domain will not be registered until purchased. This demonstration does not create a binding agreement.',
+ required:[{id:'website',name:'Standard Website Design',description:'A tailored mobile-friendly business website with the agreed home, services or menus, about, opening hours and contact pages, plus one review amendment.',amount:250,frequency:'one-off',includeFirst:true}],
+ domain:{mode:'annual',amount:25,includeFirst:true,suggested:'the-example-inn.co.uk',availabilityChecked:false},
+ includedExtras:[],
+ optionalExtras:[
+  {id:'extra-page',name:'Additional website page',description:'A dedicated extra page for a special service, menu or event.',amount:40,frequency:'one-off',includeFirst:true},
+  {id:'launch-seo',name:'Search visibility setup',description:'Additional search engine optimisation work beyond the standard website build.',amount:65,frequency:'one-off',includeFirst:true}
+ ],
+ careOptions:[
+  {id:1,name:'Website Health',description:'Monthly checks and 30 minutes of routine content updates each month.',amount:25,frequency:'monthly',includeFirst:true},
+  {id:2,name:'Website Care',description:'Regular checks and 60 minutes of updates each month.',amount:49,frequency:'monthly',includeFirst:true},
+  {id:3,name:'Website Partner',description:'Regular checks, priority updates and 120 minutes of work each month, plus a quarterly review.',amount:89,frequency:'monthly',includeFirst:true}
+ ],
+ defaultCare:0,defaultExtras:[]
+});
+
 async function admin(r,env){const h=r.headers.get('Authorization')||'';return h.startsWith('Bearer ')&&constantTime(h.slice(7),env.ADMIN_KEY||'')}
 async function showQuote(req,env,token){
  if(!/^[0-9a-f]{54}$/.test(token))return new Response('Quote not found',{status:404});
@@ -61,6 +83,18 @@ export default {async fetch(req,env){
  if(m==='OPTIONS'&&p.startsWith('/api/'))return new Response(null,{status:204,headers:c});
  if(m==='GET'&&p==='/api/health')return json({ok:true,service:'chipin-interactive-quotes',version:'1.0.0'});
  if(m==='GET'&&p==='/')return new Response('Chip In Works quotation service',{headers:{'Content-Type':'text/plain','Cache-Control':'no-store'}});
+
+ if(m==='GET'&&p==='/demo'){
+  const payload=JSON.stringify({token:'demo',demo:true,proposal:DEMO,status:'published',expired:false}).replace(/</g,'\\u003c');
+  return new Response(UI.replace('__DATA__',payload),{headers:{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store','Referrer-Policy':'no-referrer','X-Content-Type-Options':'nosniff','X-Frame-Options':'DENY','Content-Security-Policy':"default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'"}});
+ }
+ if(m==='POST'&&p==='/api/demo/accept'){
+  const choice=await body(req),signer=clean(choice.signer,120),email=clean(choice.email,240);
+  if(!choice.agreed||signer.length<2||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return bad('Enter your name, email and confirmation');
+  const result=total(DEMO,choice);
+  return json({ok:true,demo:true,initialPence:result.initialPence,recurring:result.recurring,careIndex:result.careIndex,extraIds:result.extraIds,acceptedAt:now()});
+ }
+
  if(m==='GET'&&p.startsWith('/q/'))return showQuote(req,env,p.slice(3));
  if(m==='POST'&&p==='/api/pair'){
    const v=await body(req),code=clean(v.code,90);
