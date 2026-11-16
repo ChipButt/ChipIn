@@ -144,8 +144,14 @@ export default {async fetch(req,env){
     const old=await env.DB.prepare('SELECT view_token,status FROM quotes WHERE id=?').bind(doc.id).first();
     if(old)return json({ok:true,status:old.status,url:u.origin+'/q/'+old.view_token,alreadyPublished:true},200,c);
     const token=secureRandom(),t=now();
-    await env.DB.prepare('INSERT INTO quotes(id,number,view_token,customer_name,status,proposal_json,issued_at,valid_until,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?)').bind(doc.id,doc.number,token,doc.clientName,'published',JSON.stringify(doc),doc.issuedAt,doc.validUntil,t,t).run();
-    return json({ok:true,status:'published',url:u.origin+'/q/'+token},201,c);
+    // One action: store the published quotation and its email queue record atomically.
+    // Queued means awaiting Gmail; it is not a claim that an email has been sent.
+    const mail=quoteEmail({number:doc.number,view_token:token},doc);
+    await env.DB.batch([
+     env.DB.prepare('INSERT INTO quotes(id,number,view_token,customer_name,status,proposal_json,issued_at,valid_until,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?)').bind(doc.id,doc.number,token,doc.clientName,'published',JSON.stringify(doc),doc.issuedAt,doc.validUntil,t,t),
+     env.DB.prepare("INSERT INTO quote_email_outbox(quote_id,recipient,sender,subject,body,status,created_at) VALUES(?,?,?,?,?,'queued',?)").bind(doc.id,mail.recipient,mail.sender,mail.subject,mail.body,t)
+    ]);
+    return json({ok:true,status:'published',url:u.origin+'/q/'+token,email:{recipient:mail.recipient,status:'queued',createdAt:t,sentAt:null,gmailMessageId:null,error:null}},201,c);
    }
    if(p==='/api/admin/sync'){
     const ids=Array.isArray(v.ids)?v.ids.slice(0,100).map(String).filter(x=>/^qte_[\da-z_-]{4,95}$/i.test(x)):[];
