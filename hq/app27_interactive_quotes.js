@@ -58,7 +58,7 @@ function collect(q){
   vatRegistered:!!q.vatRegistered,vatRate:Number(q.vatRate||0),notes:q.notes||'',
   required,domain,includedExtras,optionalExtras,careOptions,
   defaultCare:Number(q.care?.choiceIndex||0),defaultExtras:[],
-  demoUrl:q.demo?.enabled?q.demo.url||'':''};
+  demoUrl:q.demo?.enabled?q.demo.url||'':'',emailTemplate:q.emailTemplate||null};
 }
 async function publish(id){
  const q=byId(id);
@@ -152,6 +152,18 @@ async function queueCustomerEmail(id){
  }catch(e){toast('Email not queued: '+e.message);}
 }
 
+function draftContent(q,client){
+ const defaults={
+  subject:'Your quotation from Chip In Works - {quoteNumber}',
+  body:'Hello {clientName},\\n\\nThank you for your interest in Chip In Works.\\n\\nPlease review your personalised quotation using the secure link below. You can select any optional services and confirm your choices directly on the page:\\n\\n{quoteLink}\\n\\nQuotation reference: {quoteNumber}\\nValid until: {validUntil}\\n\\nIf you have any questions, just reply to this email.\\n\\nKind regards,\\nChip In Works\\njamesbutt.chipin@gmail.com'
+ };
+ const values={clientName:client.contact||client.name||'there',quoteNumber:q.number,quoteLink:q.interactive.url,validUntil:q.validUntil};
+ const expand=value=>String(value).replace(/\\{(clientName|quoteNumber|quoteLink|validUntil)\\}/g,(_,name)=>values[name]);
+ const subject=expand(q.emailTemplate?.subject||defaults.subject);
+ let body=expand(q.emailTemplate?.body||defaults.body).replace(/\\\\n/g,'\\n');
+ if(!body.includes(q.interactive.url))body+='\\n\\nView your quotation:\\n'+q.interactive.url;
+ return {subject,body};
+}
 function previewActions(q){
  if(!q||q.category!=='Website Design')return;
  const actions=document.querySelector('.hq-quote-preview-actions .row-actions');
@@ -175,9 +187,8 @@ function previewActions(q){
    }
    // Open Gmail Compose directly instead of a mailto: handler, which fails on many computers.
    const emailButton=document.createElement('a');emailButton.className='btn small secondary';emailButton.textContent='Open Gmail draft';
-   const subject='Your quotation from Chip In Works — '+q.number;
-   const body='Hello '+(client.contact||client.name||'')+',\n\nThank you for your interest in Chip In Works.\n\nPlease review your personalised quotation using the secure link below. You can select any optional services and confirm your choices directly on the page:\n\n'+q.interactive.url+'\n\nQuotation reference: '+q.number+'\nValid until: '+q.validUntil+'\n\nIf you have any questions, just reply to this email.\n\nKind regards,\nChip In Works\njamesbutt.chipin@gmail.com';
-   emailButton.href='https://mail.google.com/mail/?view=cm&fs=1&to='+encodeURIComponent(client.email)+'&su='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body);
+   const draft=draftContent(q,client);
+   emailButton.href='https://mail.google.com/mail/?view=cm&fs=1&to='+encodeURIComponent(client.email)+'&su='+encodeURIComponent(draft.subject)+'&body='+encodeURIComponent(draft.body);
    emailButton.target='_blank';emailButton.rel='noopener noreferrer';
    emailButton.title='Opens a prefilled Gmail compose window. Review and press Send in Gmail.';
    actions.append(emailButton);
