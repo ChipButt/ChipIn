@@ -60,3 +60,42 @@ quote.status='accepted';
 const closed=await post('/api/admin/send-email',{id:quoteId});
 assert.equal(closed.status,409);assert.equal(insertCount,1);
 console.log('PASS: unauthorised blocked; one queued email only; Gmail sender/recipient/link verified; sync shows only confirmed send; accepted quotes blocked.');
+
+
+const publishProposal={
+ id:'qte_mock_publish_2026',number:'QTE-QA-NEW',title:'Sample website quotation',
+ clientName:'Synthetic Publication Client',clientContact:'QA Customer',clientEmail:'not-a-customer@example.test',
+ issuedAt:'2026-11-16',validUntil:'2027-04-01',paymentSchedule:'split-50',
+ required:[{id:'web',name:'Standard Website Design',amount:250,frequency:'one-off'}],
+ includedExtras:[],optionalExtras:[],careOptions:[],defaultCare:0,defaultExtras:[],domain:{mode:'own'}
+};
+let batchCalls=0,batchStatements=[];
+const publishDb={
+ prepare(sql){
+  let args=[];
+  return {
+   bind(...values){args=values;return this},
+   async first(){if(sql.startsWith('SELECT view_token,status FROM quotes'))return null;throw Error('Unexpected publish lookup '+sql)},
+   get sql(){return sql},get args(){return args}
+  };
+ },
+ async batch(statements){batchCalls++;batchStatements=statements.map(x=>({sql:x.sql,args:x.args}));return statements.map(()=>({success:true}))}
+};
+const newPublished=await (async()=>{
+ const request=new Request('https://chipin-hq-quotes.goldplushighdefinition.workers.dev/api/admin/publish',{
+  method:'POST',headers:{'Content-Type':'application/json',Authorization:auth,Origin:'https://chipinworks.co.uk'},
+  body:JSON.stringify({proposal:publishProposal})
+ });
+ const response=await app.fetch(request,{DB:publishDb,ADMIN_KEY:'test-admin-secret'});
+ return {status:response.status,data:await response.json()};
+})();
+assert.equal(newPublished.status,201,JSON.stringify(newPublished.data));
+assert.equal(newPublished.data.email.status,'queued');
+assert.equal(newPublished.data.email.recipient,publishProposal.clientEmail);
+assert.equal(batchCalls,1,'Publishing must atomically queue the email');
+assert.equal(batchStatements.length,2,'Both quote and email must be in one D1 batch');
+assert.ok(batchStatements[0].sql.startsWith('INSERT INTO quotes('));
+assert.ok(batchStatements[1].sql.startsWith('INSERT INTO quote_email_outbox('));
+assert.equal(batchStatements[1].args[1],publishProposal.clientEmail);
+assert.ok(batchStatements[1].args[4].includes(newPublished.data.url));
+console.log('PASS: Publishing one quotation atomically queues exactly one email, using the same personalised link.');
