@@ -91,7 +91,8 @@ async function synchronize(showToast=false){
    if(record.status==='revoked'&&q.interactive.status!=='revoked'){q.interactive.status='revoked';changed=true;}
    if(record.firstOpenedAt&&!q.interactive.firstOpenedAt){q.interactive.firstOpenedAt=record.firstOpenedAt;changed=true;}
   }
-  if(changed){await saveState();if(page==='quotes')render();}
+  if(changed){await saveState();if(page==='quotes'||page==='dashboard')render();}
+  if(accepted&&!showToast)toast(accepted+' customer quotation'+(accepted===1?' has':'s have')+' been accepted.');
   if(showToast)toast(accepted?accepted+' customer quotation'+(accepted===1?' has':'s have')+' been accepted.': 'Quotation status checked.');
  }catch(e){if(showToast)toast('Could not check customer quotations: '+e.message);else console.warn('Quote status check:',e);}
  finally{inFlight=false;}
