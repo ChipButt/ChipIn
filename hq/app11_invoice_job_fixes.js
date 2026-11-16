@@ -163,7 +163,7 @@ function chipInShareInvoice(inv){
  if(!inv)return toast('Invoice not found.');
  const email=chipInClientEmail(inv);
  if(!email)return toast('This client does not have an email address saved.');
- if(!/^[^\\s@<>;,]+@[^\\s@<>;,]+\\.[^\\s@<>;,]+$/.test(email))return toast('The client email address is invalid. Correct it before emailing.');
+ if(!/^[^\s@<>;,]+@[^\s@<>;,]+\.[^\s@<>;,]+$/.test(email))return toast('The client email address is invalid. Correct it before emailing.');
  let pdf;
  try{pdf=pdfBlob(inv)}catch(error){console.error('Invoice PDF error:',error);return toast('Could not generate invoice PDF: '+error.message);}
  const subject=chipInInvoiceEmailSubject(inv);
