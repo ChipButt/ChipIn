@@ -287,7 +287,7 @@
       d.text(noteLines,18,y);y+=noteLines.length*4.2+4;
     }
     const footerText=paymentSchedule17?'Payment per the agreed arrangement above':'Payment terms: '+view.paymentTermsDays+' day'+(view.paymentTermsDays===1?'':'s')+' from invoice date';
-    const bankLines=d.splitTextToSize(footerText+'\\nPayment by bank transfer\\nAccount name: '+(s.bankName||'')+'\\nSort code: '+(s.sortCode||'')+'   Account number: '+(s.accountNumber||''),90);
+    const bankLines=d.splitTextToSize(footerText+'\nPayment by bank transfer\nAccount name: '+(s.bankName||'')+'\nSort code: '+(s.sortCode||'')+'   Account number: '+(s.accountNumber||''),90);
     const notesLines=view.notes?d.splitTextToSize(view.notes,75):[];
     const footerHeight=Math.max(bankLines.length,notesLines.length)*4.3+4;
     if(y+13+footerHeight>280){d.addPage();y=22}else y+=13;
