@@ -21,7 +21,7 @@ const field=(label,html)=>'<div class="field"><label>'+esc(label)+'</label>'+htm
 const catNames=()=>[...Object.keys(pricing().catalog),'Other'];
 function plan(q){
  const base=(q.baseLines||[]).map(x=>({name:x.name,amount:round(x.amount),frequency:'one-off',includeFirst:true,mode:'required',kind:'base'}));
- const domain=q.domain&&q.domain.mode!=='own'?{name:'Domain registration and renewal',amount:round(q.domain.amount),frequency:q.domain.mode,includeFirst:q.domain.includeFirst!==false,mode:'required',kind:'domain'}:null;
+ const domain=q.domain&&q.domain.mode!=='own'?{name:'Domain registration and renewal'+(q.domain.suggested?' — '+q.domain.suggested:''),amount:round(q.domain.amount),frequency:q.domain.mode,includeFirst:q.domain.includeFirst!==false,mode:'required',kind:'domain'}:null;
  const care=q.care&&Number(q.care.amount)>0?{name:q.care.name||'Website care',amount:round(q.care.amount),frequency:'monthly',includeFirst:q.care.includeFirst!==false,mode:'included',kind:'care'}:null;
  const extras=(q.extras||[]).map(x=>({...x,amount:round(x.amount),kind:'extra',frequency:x.frequency||'one-off'}));
  const chosen=[...base,...(domain?[domain]:[]),...(care?[care]:[]),...extras.filter(isIncluded)];
@@ -29,12 +29,17 @@ function plan(q){
  const upfront=round(chosen.reduce((sum,x)=>sum+((x.frequency==='one-off'||x.includeFirst!==false)?x.amount:0),0));
  return {chosen,offered,base,domain,care,extras,upfront,monthly:chosen.filter(x=>x.frequency==='monthly'),annual:chosen.filter(x=>x.frequency==='annual')};
 }
+function domainAvailability(q){
+ const d=q.domain;
+ if(!d||d.mode==='own'||!d.suggested)return '';
+ return '<p class="hq-quote-domain-note"><strong>Suggested domain:</strong> '+esc(d.suggested)+'<span> — '+(d.availabilityChecked?('Checked as available'+(d.checkedOn?' on '+fmtDate(d.checkedOn):'')+'; not yet registered'):'Availability not confirmed')+'. Domain availability can change until registration.</span></p>';
+}
 function priceBreakdown(q){
  const p=plan(q);
  const first=label=>'<div class="hq-quote-summary-row"><span>'+esc(label)+'</span></div>';
  const section=(title,items)=>items.length?'<div class="hq-quote-summary-block"><strong>'+esc(title)+'</strong>'+items.map(x=>'<div class="hq-quote-summary-row"><span>'+esc(x.name)+(x.description?' — '+esc(x.description):'')+'</span><b>'+money(x.amount)+(x.frequency==='one-off'?'':' / '+(x.frequency==='monthly'?'month':'year'))+'</b></div>').join('')+'</div>':'';
  return section('One-off project costs',p.base)+section('Required / selected subscriptions',p.chosen.filter(x=>x.frequency!=='one-off'))+section('Additional one-off charges',p.extras.filter(x=>isIncluded(x)&&x.frequency==='one-off'))+
- section('Offered optional extras — not included',p.offered)+
+ section('Offered optional extras — not included',p.offered)+domainAvailability(q)+
  '<div class="hq-quote-total"><span>Due for initial invoice</span><strong>'+money(gross(q,p.upfront))+'</strong></div>'+
  (vatPct(q)?'<p class="muted">Includes '+vatPct(q)+'% VAT on '+money(p.upfront)+' net.</p>':'<p class="muted">VAT not charged.</p>')+
  '<p class="muted">Ongoing commitments are charged '+(p.monthly.length?'monthly':'')+(p.monthly.length&&p.annual.length?' and ':'')+(p.annual.length?'annually':'')+'. First periods appear in the initial total where selected. Optional extras above are not charged unless agreed.</p>';
@@ -76,6 +81,7 @@ function formHTML(q={}){
  '<div class="form-grid">'+
  field('Domain arrangement','<select name="domainMode">'+option('annual','Chip In domain — annual billing',domain.mode)+option('monthly','Chip In domain — monthly billing',domain.mode)+option('own','Client supplies their own domain',domain.mode)+'</select>')+
  field('Domain price (£ per selected period)','<input name="domainAmount" type="number" min="0" step="0.01" value="'+esc(domain.mode==='own'?0:domain.amount??25)+'">')+
+ '<div class="field full" id="hqSuggestedDomainRow"><label>Suggested domain name</label><input name="suggestedDomain" type="text" maxlength="253" autocomplete="off" spellcheck="false" placeholder="examplebusiness.co.uk" value="'+esc(domain.suggested||'')+'"><p class="sub">Enter a domain you have already checked. It will appear on the quote.</p><label class="hq-quote-first"><input name="domainAvailabilityChecked" type="checkbox" '+(domain.availabilityChecked?'checked':'')+'> I have checked this domain is available</label><p class="sub">Availability may change until the domain is registered.</p></div>'+
  '<label class="hq-quote-first"><input type="checkbox" name="domainFirst" '+(domain.includeFirst!==false?'checked':'')+'> Include first domain period in initial invoice</label>'+
  field('Website care plan','<select name="careIndex">'+careGroup.choices.map((x,i)=>option(i,x.label,careIndex)).join('')+'</select>')+
  '<label class="hq-quote-first"><input type="checkbox" name="careFirst" '+(care.includeFirst!==false?'checked':'')+'> Include first care month in initial invoice</label></div></div>'+
@@ -96,7 +102,9 @@ function values(form,validate){
  const mode=fd.get('domainMode'),rawDomain=Number(fd.get('domainAmount'));
  const careChoices=pricing().catalog['Website Design'].groups.find(g=>g.id==='webCare').choices;
  const careIndex=Number(fd.get('careIndex')||0),chosenCare=careChoices[careIndex]||careChoices[0];
- const domain=website?{mode,amount:mode==='own'?0:round(rawDomain),includeFirst:!!fd.get('domainFirst')}:null;
+ const suggestion=mode==='own'?'':clean(fd.get('suggestedDomain')).toLowerCase().replace(/\.$/,'');
+ const availabilityChecked=website&&mode!=='own'&&!!fd.get('domainAvailabilityChecked');
+ const domain=website?{mode,amount:mode==='own'?0:round(rawDomain),includeFirst:!!fd.get('domainFirst'),suggested:suggestion,availabilityChecked,checkedOn:availabilityChecked?(form.dataset.domainCheckedOn||TODAY()):null}:null;
  const care=website?{name:chosenCare.label,amount:round(chosenCare.price),choiceIndex:careIndex,includeFirst:!!fd.get('careFirst')}:null;
  const extras=Array.from(form.querySelectorAll('[data-quote-extra]')).map(row=>{
   const val=k=>row.querySelector('[data-q-'+k+']');
@@ -111,6 +119,8 @@ function values(form,validate){
   if(baseLines.some(x=>!Number.isFinite(x.amount)||x.amount<0))throw Error('Enter a valid project price.');
   if(website&&!['own','monthly','annual'].includes(mode))throw Error('Choose a domain arrangement.');
   if(website&&mode!=='own'&&(!clean(fd.get('domainAmount'))||!Number.isFinite(rawDomain)||rawDomain<=0))throw Error('Enter an agreed domain price greater than zero.');
+   if(suggestion&&!/^(?=.{1,253}$)[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$/.test(suggestion))throw Error('Enter only the domain, e.g. examplebusiness.co.uk.');
+   if(availabilityChecked&&!suggestion)throw Error('Enter a suggested domain before marking its availability as checked.');
   for(const row of form.querySelectorAll('[data-quote-extra]')){
    const amt=row.querySelector('[data-q-amount]').value,name=clean(row.querySelector('[data-q-name]').value),desc=clean(row.querySelector('[data-q-description]').value);
    if((name||amt||desc)&&(!name||amt===''||!Number.isFinite(Number(amt))||Number(amt)<0))throw Error('Each extra requires a name and a valid price.');
@@ -125,6 +135,11 @@ function openForm(id,clientId){
  const q=existing||{clientId:clientId||'',category:'Website Design'};
  openModal(formHTML(q),true);
  const form=document.getElementById('hqQuoteForm'),cat=form.elements.namedItem('category');
+ form.dataset.domainCheckedOn=q.domain?.checkedOn||'';
+ const suggestedInput=form.elements.namedItem('suggestedDomain'),checkedInput=form.elements.namedItem('domainAvailabilityChecked');
+ suggestedInput.addEventListener('input',()=>{
+  if(clean(suggestedInput.value).toLowerCase()!==(q.domain?.suggested||'')){checkedInput.checked=false;form.dataset.domainCheckedOn='';}
+ });
  function recalc(){try{document.getElementById('hqQuoteLiveSummary').innerHTML=priceBreakdown(values(form,false));}catch(e){document.getElementById('hqQuoteLiveSummary').textContent='Select a valid price.';}}
  function categoryChanged(restore){
   const name=cat.value;
@@ -137,8 +152,21 @@ function openForm(id,clientId){
  cat.onchange=()=>categoryChanged(null);
  categoryChanged(q);
  const domainMode=form.elements.namedItem('domainMode'),domainAmount=form.elements.namedItem('domainAmount'),oldDomain=q.domain?.mode||'annual';
- domainMode.onchange=()=>{const next=domainMode.value;domainAmount.disabled=next==='own';if(next==='own')domainAmount.value='0';else if(next==='annual'&&(!Number(domainAmount.value)||oldDomain==='own'))domainAmount.value='25';else if(next==='monthly')domainAmount.value='';recalc();};
- domainAmount.disabled=domainMode.value==='own';
+ const showDomain=()=>{
+  const supplied=domainMode.value!=='own';
+  domainAmount.disabled=!supplied;
+  form.querySelector('#hqSuggestedDomainRow').style.display=supplied?'':'none';
+  suggestedInput.disabled=!supplied;
+  checkedInput.disabled=!supplied;
+ };
+ domainMode.onchange=()=>{
+  const next=domainMode.value;
+  if(next==='own')domainAmount.value='0';
+  else if(next==='annual'&&(!Number(domainAmount.value)||oldDomain==='own'))domainAmount.value='25';
+  else if(next==='monthly')domainAmount.value='';
+  showDomain();recalc();
+ };
+ showDomain();
  document.getElementById('hqQuoteAddExtra').onclick=()=>{const host=document.getElementById('hqQuoteExtraRows');host.insertAdjacentHTML('beforeend',extraRow());recalc();host.lastElementChild.querySelector('[data-q-name]').focus();};
  form.addEventListener('click',event=>{const btn=event.target.closest('[data-q-remove]');if(btn){btn.closest('[data-quote-extra]').remove();recalc();}});
  form.addEventListener('input',recalc);form.addEventListener('change',recalc);
@@ -146,6 +174,8 @@ function openForm(id,clientId){
   event.preventDefault();
   try{
    const value=values(form,true);
+   if(value.domain?.availabilityChecked)
+    value.domain.checkedOn=existing?.domain?.availabilityChecked&&existing.domain.suggested===value.domain.suggested&&existing.domain.checkedOn?existing.domain.checkedOn:TODAY();
    if(existing)Object.assign(existing,value,{updatedAt:new Date().toISOString()});
    else {
     const record={id:uid('qte'),number:number(),status:'Draft',createdAt:new Date().toISOString(),...value};
@@ -204,9 +234,9 @@ async function accept(q){
    frequency:x.frequency,includeFirst:x.includeFirst!==false
  }));
  const standardAnnualDomain=web&&p.domain?.frequency==='annual'&&Math.abs(p.domain.amount-25)<0.005;
- if(web&&p.domain&&!standardAnnualDomain)custom.push({id:uid('charge'),name:'Domain registration and renewal',description:'Required domain service',amount:p.domain.amount,frequency:p.domain.frequency,includeFirst:p.domain.includeFirst});
+ if(web&&p.domain&&!standardAnnualDomain)custom.push({id:uid('charge'),name:p.domain.name,description:'Required domain service',amount:p.domain.amount,frequency:p.domain.frequency,includeFirst:p.domain.includeFirst});
  const lines=p.base.map(x=>({name:x.name,amount:x.amount}));
- if(standardAnnualDomain&&p.domain.includeFirst)lines.push({name:'First year — domain registration and renewal',amount:p.domain.amount});
+ if(standardAnnualDomain&&p.domain.includeFirst)lines.push({name:'First year — '+p.domain.name,amount:p.domain.amount});
  if(web&&p.care?.includeFirst)lines.push({name:'First month — '+p.care.name,amount:p.care.amount});
  const base=round(lines.reduce((sum,x)=>sum+x.amount,0));
  const extraInitial=round(custom.reduce((sum,x)=>sum+(x.frequency==='one-off'||x.includeFirst?x.amount:0),0));
@@ -219,9 +249,9 @@ async function accept(q){
   pricingModel:'package',pricingBaseAmount:base,customCharges:custom,
   servicePricing:{version:2,category:q.category,choices:{...(q.choices||{}),...(web?{webDomain:standardAnnualDomain?1:0,webCare:q.care?.choiceIndex||0}:{})},checked:q.checked||[],lines,base,
    monthlyCare:web&&p.care?{name:p.care.name,amount:p.care.amount,interval:'monthly'}:null,
-   annualDomain:standardAnnualDomain?{name:'Domain registration and renewal',amount:p.domain.amount,interval:'annual'}:null,
+   annualDomain:standardAnnualDomain?{name:p.domain.name,amount:p.domain.amount,interval:'annual'}:null,
    billingOptions:{monthlyFirst:p.care?.includeFirst!==false,domainFirst:p.domain?.includeFirst!==false}},
-  sourceQuoteId:q.id,createdAt:new Date().toISOString()
+  sourceQuoteId:q.id,suggestedDomain:q.domain?.suggested||'',createdAt:new Date().toISOString()
  };
  // Preserve normal job numbering when the existing job utility is available.
  if(typeof chipInEnsureJobReferences==='function')chipInEnsureJobReferences();
@@ -268,6 +298,12 @@ function downloadPDF(q){
  line('Initial amount excluding VAT',p.upfront);
  if(q.vatRegistered)line('VAT at '+vatPct(q)+'%',round(gross(q,p.upfront)-p.upfront));
  line('INITIAL AMOUNT INCLUDING VAT',gross(q,p.upfront));
+ if(q.domain?.suggested&&q.domain?.mode!=='own'){
+  heading('Suggested domain');
+  const status=q.domain.availabilityChecked?'Checked as available'+(q.domain.checkedOn?' on '+fmtDate(q.domain.checkedOn):''):'Availability not confirmed';
+  const domainLines=doc.splitTextToSize(q.domain.suggested+' — '+status+'. Not reserved until registered.',173);
+  for(const str of domainLines){ensure(6);bodyColor();doc.text(str,18,y);y+=5;}
+ }
  if(q.notes){ensure(18);heading('Scope and terms');const lines=doc.splitTextToSize(q.notes,172);for(const str of lines){ensure(6);doc.text(str,18,y);y+=5;}}
  ensure(18);doc.setFontSize(8);doc.setTextColor(90,97,110);
  doc.text('Optional extras are not charged unless accepted separately. Recurring services renew at the frequencies stated.',15,y,{maxWidth:178});
@@ -320,7 +356,7 @@ renderClients=function(){
  });
 };
 const css=document.createElement('style');
-css.textContent='.hq-quote-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.hq-quote-check{display:block;margin:8px 0;font-size:12px}.hq-quote-check input,.hq-quote-first input{width:auto}.hq-quote-first{display:flex;align-items:center;gap:8px;font-size:12px;margin:10px 0}.hq-quote-extra-head{display:flex;justify-content:space-between;align-items:center;gap:12px}.hq-quote-extra-head h3{margin:0}.hq-quote-extra{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;background:#f7f9fc;border:1px solid var(--line);padding:12px;border-radius:12px;margin:10px 0}.hq-quote-extra-note{grid-column:1/-1}.hq-quote-extra .hq-quote-first{margin:0}.hq-quote-summary-block{margin:12px 0;padding:12px;border:1px solid var(--line);border-radius:11px}.hq-quote-summary-block>strong{display:block;margin-bottom:8px;font-size:13px}.hq-quote-summary-row{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;padding:5px 0;font-size:12px}.hq-quote-summary-row b{white-space:nowrap}.hq-quote-total{display:flex;justify-content:space-between;gap:12px;border-top:1px solid var(--line);padding:16px 4px 6px;font-weight:700}.hq-quote-total strong{font-size:20px;color:var(--navy)}.hq-quote-preview-actions{flex-wrap:wrap}.hq-quote-preview .hq-quote-summary-block{background:#fff}.hq-quote-terms{margin-top:16px;font-size:12px;white-space:pre-wrap}.hq-quote-terms p{line-height:1.6}@media(max-width:700px){.hq-quote-options,.hq-quote-extra{grid-template-columns:1fr}.hq-quote-preview-actions .row-actions{flex-wrap:wrap}.hq-quote-summary-row{flex-wrap:wrap}}';
+css.textContent='.hq-quote-domain-note{margin:9px 0;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:#f7f9fc;font-size:12px;line-height:1.55}.hq-quote-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.hq-quote-check{display:block;margin:8px 0;font-size:12px}.hq-quote-check input,.hq-quote-first input{width:auto}.hq-quote-first{display:flex;align-items:center;gap:8px;font-size:12px;margin:10px 0}.hq-quote-extra-head{display:flex;justify-content:space-between;align-items:center;gap:12px}.hq-quote-extra-head h3{margin:0}.hq-quote-extra{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;background:#f7f9fc;border:1px solid var(--line);padding:12px;border-radius:12px;margin:10px 0}.hq-quote-extra-note{grid-column:1/-1}.hq-quote-extra .hq-quote-first{margin:0}.hq-quote-summary-block{margin:12px 0;padding:12px;border:1px solid var(--line);border-radius:11px}.hq-quote-summary-block>strong{display:block;margin-bottom:8px;font-size:13px}.hq-quote-summary-row{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;padding:5px 0;font-size:12px}.hq-quote-summary-row b{white-space:nowrap}.hq-quote-total{display:flex;justify-content:space-between;gap:12px;border-top:1px solid var(--line);padding:16px 4px 6px;font-weight:700}.hq-quote-total strong{font-size:20px;color:var(--navy)}.hq-quote-preview-actions{flex-wrap:wrap}.hq-quote-preview .hq-quote-summary-block{background:#fff}.hq-quote-terms{margin-top:16px;font-size:12px;white-space:pre-wrap}.hq-quote-terms p{line-height:1.6}@media(max-width:700px){.hq-quote-options,.hq-quote-extra{grid-template-columns:1fr}.hq-quote-preview-actions .row-actions{flex-wrap:wrap}.hq-quote-summary-row{flex-wrap:wrap}}';
 document.head.appendChild(css);
 window.ChipInQuotes={plan,openForm,openPreview,renderQuotes,values};
 })();
