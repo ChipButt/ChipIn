@@ -36,16 +36,16 @@ function collect(q){
  if(!client)throw Error('This quote does not have a valid client.');
  const p=window.ChipInQuotes.plan(q);
  const format=x=>({id:x.id||'',name:x.name,description:x.description||'',amount:x.amount,frequency:x.frequency||'one-off',includeFirst:x.includeFirst!==false});
- const required=p.base.map(x=>({...format(x),description:(/Standard Package/i.test(x.name)?'A responsive business website tailored to your requirements, with pages for your services, opening hours, contact information and the agreed content.':x.description||'')}));
+ const required=p.base.map(x=>({...format(x),description:(/Standard Package/i.test(x.name)?'A tailored mobile-friendly small-business website, including the agreed home, about, menus or services, opening hours, events and contact pages where relevant; a client editor where appropriate and one review amendment before launch.':x.description||'')}));
  const includedExtras=p.extras.filter(x=>x.mode!=='offered').map(format);
  const optionalExtras=p.extras.filter(x=>x.mode==='offered').map(format);
  const careOptions=[
-  {id:1,name:'Website Health',amount:25,description:'Monthly website checks and 30 minutes of routine content updates.',frequency:'monthly',includeFirst:q.care?.includeFirst!==false},
-  {id:2,name:'Website Care',amount:49,description:'Regular checks and 1 hour of website updates each month.',frequency:'monthly',includeFirst:q.care?.includeFirst!==false},
-  {id:3,name:'Website Partner',amount:89,description:'Regular checks, 2 hours of website updates each month, priority routine updates and quarterly improvements review.',frequency:'monthly',includeFirst:q.care?.includeFirst!==false}
+  {id:1,name:'Website Health',amount:25,description:'Monthly page, link and contact-form checks, plus 30 minutes of routine updates. Ideal for businesses whose information changes occasionally.',frequency:'monthly',includeFirst:q.care?.includeFirst!==false},
+  {id:2,name:'Website Care',amount:49,description:'Regular site checks plus 60 minutes of menu, price, photo, opening-hours and text updates each month, to keep information accurate without separate small-change charges.',frequency:'monthly',includeFirst:q.care?.includeFirst!==false},
+  {id:3,name:'Website Partner',amount:89,description:'Regular checks and 120 minutes of updates each month, with priority routine changes and a quarterly improvement review. Best for frequently changing promotions or content.',frequency:'monthly',includeFirst:q.care?.includeFirst!==false}
  ];
  // Preserve the client-selected first billing period and the quoted domain arrangement.
- const domain=q.domain?.mode==='own'?{mode:'own'}:{
+ const domain=!q.domain||q.domain.mode==='own'?{mode:'own'}:{
   id:'domain',name:'Domain registration and renewal',amount:Number(q.domain?.amount||25),
   mode:q.domain?.mode||'annual',frequency:q.domain?.mode||'annual',includeFirst:q.domain?.includeFirst!==false,
   suggested:q.domain?.suggested||'',availabilityChecked:!!q.domain?.availabilityChecked,checkedOn:q.domain?.checkedOn||''
@@ -164,8 +164,26 @@ function review(id){
  '<div class="form-actions"><button type="button" class="btn secondary" data-close-modal>Review later</button><button type="button" class="btn gold" id="hqApproveOnline">Approve and create draft invoice</button></div>',true);
  document.getElementById('hqApproveOnline').onclick=()=>window.ChipInQuotes.approveOnline(id);
 }
+
+const previousDashboard=renderDashboard;
+renderDashboard=function(){
+ previousDashboard();
+ const pending=quotes().filter(q=>q.interactive?.acceptance&&!q.invoiceId);
+ const host=document.getElementById('content');
+ if(!host||!pending.length)return;
+ const panel=document.createElement('div');
+ panel.className='hq-quote-dashboard-alert';
+ panel.innerHTML='<div><strong>'+pending.length+' customer quotation'+(pending.length===1?' has':'s have')+' been accepted</strong><p>Review the confirmed extras and payment arrangement before creating a draft invoice.</p></div><button class="btn small gold" id="hqDashboardQuoteReview">Review quotations</button>';
+ host.prepend(panel);
+ panel.querySelector('button').onclick=()=>{page='quotes';render();};
+};
+// Check for customer acceptances while HQ is open. Only published quote IDs are queried.
+window.setInterval(()=>{
+ if(!portalReady()||document.visibilityState==='hidden'||inFlight||Date.now()-lastChecked<60000)return;
+ if(quotes().some(q=>q.interactive?.url&&!q.invoiceId))void synchronize(false);
+},90000);
 const css=document.createElement('style');
-css.textContent='.hq-quote-online-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;background:#f5f9fd;border:1px solid #dce7f0;border-radius:12px;margin-bottom:16px;flex-wrap:wrap}.hq-quote-accepted-notice{background:#fff;border:1px solid #d6e4ed;border-radius:12px;padding:16px;margin-bottom:15px}.hq-quote-accepted-notice h3{margin:0 0 8px;font-size:17px}.hq-quote-notice-row{display:flex;justify-content:space-between;align-items:center;gap:10px;border-top:1px solid #e5ecf3;padding:11px 0;flex-wrap:wrap}';
+css.textContent='.hq-quote-dashboard-alert{display:flex;align-items:center;justify-content:space-between;gap:15px;border:1px solid #c7d9e9;background:#eef6fc;border-radius:12px;padding:15px;margin-bottom:18px;flex-wrap:wrap}.hq-quote-dashboard-alert p{margin:5px 0 0;color:var(--muted);font-size:12px}.hq-quote-online-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;background:#f5f9fd;border:1px solid #dce7f0;border-radius:12px;margin-bottom:16px;flex-wrap:wrap}.hq-quote-accepted-notice{background:#fff;border:1px solid #d6e4ed;border-radius:12px;padding:16px;margin-bottom:15px}.hq-quote-accepted-notice h3{margin:0 0 8px;font-size:17px}.hq-quote-notice-row{display:flex;justify-content:space-between;align-items:center;gap:10px;border-top:1px solid #e5ecf3;padding:11px 0;flex-wrap:wrap}';
 document.head.appendChild(css);
 window.ChipInQuotePortal={mountQuotes,previewActions,pairForm,publish,synchronize,review,collect,portalReady,base:BASE};
 })();
