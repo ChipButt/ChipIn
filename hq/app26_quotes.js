@@ -333,26 +333,35 @@ function downloadPDF(q){
  y=91;
  const ensure=needed=>{if(y+needed>275){doc.addPage();y=18;}};
  const heading=name=>{ensure(13);doc.setFillColor(241,246,251);doc.rect(15,y,180,8,'F');doc.setFont(undefined,'bold');doc.setFontSize(10);doc.setTextColor(10,47,87);doc.text(name,18,y+5.5);y+=13;bodyColor();};
- const line=(name,amt,period)=>{const lines=doc.splitTextToSize(name,125);ensure(lines.length*5+6);bodyColor();doc.text(lines,18,y);doc.text(n(amt)+(period?' / '+period:''),192,y,{align:'right'});y+=Math.max(8,lines.length*5+3);};
- const block=(title,items)=>{if(!items.length)return;heading(title);items.forEach(x=>line(x.name+(x.description?' — '+x.description:''),x.amount,x.frequency==='one-off'?'':x.frequency==='monthly'?'month':'year'));};
+ const line=(name,amt,period,detail='')=>{
+  const titleLines=doc.splitTextToSize(name,126),detailLines=detail?doc.splitTextToSize(detail,170):[];
+  ensure(titleLines.length*5+detailLines.length*4.2+10);
+  bodyColor();doc.text(titleLines,18,y);
+  doc.text(n(amt)+(period?' / '+period:''),192,y,{align:'right'});
+  y+=Math.max(6,titleLines.length*5);
+  if(detailLines.length){
+   doc.setTextColor(86,97,111);doc.setFontSize(8);
+   doc.text(detailLines,18,y);
+   y+=detailLines.length*4.2+3;
+  }else y+=3;
+  bodyColor();
+ };
+ const block=(title,items)=>{if(!items.length)return;heading(title);items.forEach(x=>line(x.name,x.amount,x.frequency==='one-off'?'':x.frequency==='monthly'?'month':'year',explanation(q,x)));};
  ensure(15);doc.setTextColor(10,47,87);doc.setFont(undefined,'bold');doc.setFontSize(13);doc.text(doc.splitTextToSize(q.title,175),15,y);y+=15;
- block('One-off project costs',p.base);
- block('Required / selected subscriptions',p.chosen.filter(x=>x.frequency!=='one-off'));
- block('Additional one-off charges',p.extras.filter(x=>isIncluded(x)&&x.frequency==='one-off'));
- block('Optional extras — not included',p.offered);
+ quoteSections(q).forEach(group=>block(group.title,group.items));
+ if(q.category==='Website Design'&&q.domain?.mode==='own'){
+  heading('Domain arrangement');
+  const note=doc.splitTextToSize('Client will supply an existing domain name. No Chip In registration or renewal fee is included.',170);
+  ensure(note.length*5+4);bodyColor();doc.text(note,18,y);y+=note.length*5+4;
+ }
  heading('Initial invoice summary');
  line('Initial amount excluding VAT',p.upfront);
  if(q.vatRegistered)line('VAT at '+vatPct(q)+'%',round(gross(q,p.upfront)-p.upfront));
  line('INITIAL AMOUNT INCLUDING VAT',gross(q,p.upfront));
- if(q.domain?.suggested&&q.domain?.mode!=='own'){
-  heading('Suggested domain');
-  const status=q.domain.availabilityChecked?'Checked as available'+(q.domain.checkedOn?' on '+fmtDate(q.domain.checkedOn):''):'Availability not confirmed';
-  const domainLines=doc.splitTextToSize(q.domain.suggested+' — '+status+'. Not reserved until registered.',173);
-  for(const str of domainLines){ensure(6);bodyColor();doc.text(str,18,y);y+=5;}
- }
+
  if(q.notes){ensure(18);heading('Scope and terms');const lines=doc.splitTextToSize(q.notes,172);for(const str of lines){ensure(6);doc.text(str,18,y);y+=5;}}
  ensure(18);doc.setFontSize(8);doc.setTextColor(90,97,110);
- doc.text('Optional extras are not charged unless accepted separately. Recurring services renew at the frequencies stated.',15,y,{maxWidth:178});
+ doc.text('Other optional care plans and extras are not included in this price unless selected. Included editing time does not roll over; recurring charges follow the intervals shown.',15,y,{maxWidth:178});
  doc.save(q.number+'.pdf');
 }
 function renderQuotes(){
@@ -402,7 +411,7 @@ renderClients=function(){
  });
 };
 const css=document.createElement('style');
-css.textContent='.hq-quote-domain-note{margin:9px 0;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:#f7f9fc;font-size:12px;line-height:1.55}.hq-quote-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.hq-quote-check{display:block;margin:8px 0;font-size:12px}.hq-quote-check input,.hq-quote-first input{width:auto}.hq-quote-first{display:flex;align-items:center;gap:8px;font-size:12px;margin:10px 0}.hq-quote-extra-head{display:flex;justify-content:space-between;align-items:center;gap:12px}.hq-quote-extra-head h3{margin:0}.hq-quote-extra{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;background:#f7f9fc;border:1px solid var(--line);padding:12px;border-radius:12px;margin:10px 0}.hq-quote-extra-note{grid-column:1/-1}.hq-quote-extra .hq-quote-first{margin:0}.hq-quote-summary-block{margin:12px 0;padding:12px;border:1px solid var(--line);border-radius:11px}.hq-quote-summary-block>strong{display:block;margin-bottom:8px;font-size:13px}.hq-quote-summary-row{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;padding:5px 0;font-size:12px}.hq-quote-summary-row b{white-space:nowrap}.hq-quote-total{display:flex;justify-content:space-between;gap:12px;border-top:1px solid var(--line);padding:16px 4px 6px;font-weight:700}.hq-quote-total strong{font-size:20px;color:var(--navy)}.hq-quote-preview-actions{flex-wrap:wrap}.hq-quote-preview .hq-quote-summary-block{background:#fff}.hq-quote-terms{margin-top:16px;font-size:12px;white-space:pre-wrap}.hq-quote-terms p{line-height:1.6}@media(max-width:700px){.hq-quote-options,.hq-quote-extra{grid-template-columns:1fr}.hq-quote-preview-actions .row-actions{flex-wrap:wrap}.hq-quote-summary-row{flex-wrap:wrap}}';
+css.textContent='.hq-quote-line{padding:9px 0;border-top:1px solid #e6ebf1}.hq-quote-line:first-of-type{border-top:0}.hq-quote-explanation{font-size:12px;color:#46576a;line-height:1.6;margin:5px 0 2px;white-space:normal}.hq-quote-domain-note{margin:9px 0;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:#f7f9fc;font-size:12px;line-height:1.55}.hq-quote-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.hq-quote-check{display:block;margin:8px 0;font-size:12px}.hq-quote-check input,.hq-quote-first input{width:auto}.hq-quote-first{display:flex;align-items:center;gap:8px;font-size:12px;margin:10px 0}.hq-quote-extra-head{display:flex;justify-content:space-between;align-items:center;gap:12px}.hq-quote-extra-head h3{margin:0}.hq-quote-extra{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;background:#f7f9fc;border:1px solid var(--line);padding:12px;border-radius:12px;margin:10px 0}.hq-quote-extra-note{grid-column:1/-1}.hq-quote-extra .hq-quote-first{margin:0}.hq-quote-summary-block{margin:12px 0;padding:12px;border:1px solid var(--line);border-radius:11px}.hq-quote-summary-block>strong{display:block;margin-bottom:8px;font-size:13px}.hq-quote-summary-row{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;padding:5px 0;font-size:12px}.hq-quote-summary-row b{white-space:nowrap}.hq-quote-total{display:flex;justify-content:space-between;gap:12px;border-top:1px solid var(--line);padding:16px 4px 6px;font-weight:700}.hq-quote-total strong{font-size:20px;color:var(--navy)}.hq-quote-preview-actions{flex-wrap:wrap}.hq-quote-preview .hq-quote-summary-block{background:#fff}.hq-quote-terms{margin-top:16px;font-size:12px;white-space:pre-wrap}.hq-quote-terms p{line-height:1.6}@media(max-width:700px){.hq-quote-options,.hq-quote-extra{grid-template-columns:1fr}.hq-quote-preview-actions .row-actions{flex-wrap:wrap}.hq-quote-summary-row{flex-wrap:wrap}}';
 document.head.appendChild(css);
 window.ChipInQuotes={plan,openForm,openPreview,renderQuotes,values};
 })();
