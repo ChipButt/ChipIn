@@ -248,7 +248,7 @@
     if(chipInInvoiceIsFlattened(inv,j))view.items=chipInInvoiceItemsForJob(j);
     const t=invoiceTotals(view);
     try{if(LOGO_PDF_DATA_URL)d.addImage(LOGO_PDF_DATA_URL,'PNG',15,13,58,17)}catch{}
-    d.setTextColor(10,47,87);d.setFontSize(24);d.setFont(undefined,'bold');d.text('INVOICE',195,22,{align:'right'});d.setFontSize(9);d.setFont(undefined,'normal');d.setTextColor(95,102,116);d.text(view.number,195,28,{align:'right'});d.text(`Issued ${fmtDate(view.issueDate)}   Due ${fmtDate(view.dueDate)}`,195,33,{align:'right'});
+    d.setTextColor(10,47,87);d.setFontSize(24);d.setFont(undefined,'bold');d.text('INVOICE',195,22,{align:'right'});d.setFontSize(9);d.setFont(undefined,'normal');d.setTextColor(95,102,116);d.text(view.number,195,28,{align:'right'});const paymentSchedule17=chipInInvoiceSchedule(view);d.text(paymentSchedule17?'Issued '+fmtDate(view.issueDate)+' - Agreed payment terms':`Issued ${fmtDate(view.issueDate)}   Due ${fmtDate(view.dueDate)}`,195,33,{align:'right'});
     const refs=[view.jobReference?`Job ref: ${view.jobReference}`:'',view.customerReference?`Customer ref / PO: ${view.customerReference}`:''].filter(Boolean).join('   ');if(refs)d.text(refs,195,38,{align:'right'});
     d.setDrawColor(220);d.line(15,43,195,43);d.setTextColor(23,32,51);d.setFont(undefined,'bold');d.text('FROM',15,52);d.text('BILL TO',110,52);d.setFont(undefined,'normal');d.text(`${s.legalName||''} trading as ${s.tradingName||'Chip In'}\n${s.address||''}\n${s.email||''}${s.phone?'\n'+s.phone:''}`,15,58,{maxWidth:80});d.text(`${c.name||''}${c.contact?'\n'+c.contact:''}${c.address?'\n'+c.address:''}${c.email?'\n'+c.email:''}`,110,58,{maxWidth:80});
     let y=91;const itemHeader=()=>{d.setFillColor(244,246,250);d.rect(15,y,180,8,'F');d.setFont(undefined,'bold');d.text('Description',18,y+5.5);d.text('Qty',135,y+5.5,{align:'right'});d.text('Rate',165,y+5.5,{align:'right'});d.text('Amount',192,y+5.5,{align:'right'});d.setFont(undefined,'normal');y+=12};itemHeader();
@@ -264,7 +264,36 @@
       d.setDrawColor(220);d.line(145,y,195,y);y+=5;d.setFont(undefined,'bold');d.text('Total billable time',145,y);d.text(durationLabel17(totalMinutes17(j)),192,y,{align:'right'});d.setFont(undefined,'normal');y+=4;
     }
     y+=5;if(y>228){d.addPage();y=25}d.line(115,y,195,y);y+=7;d.text('Subtotal',145,y,{align:'right'});d.text(money(t.subtotal),192,y,{align:'right'});if(s.vatRegistered){y+=6;d.text(`VAT ${view.vatRate}%`,145,y,{align:'right'});d.text(money(t.vat),192,y,{align:'right'})}y+=8;d.setFont(undefined,'bold');d.setFontSize(12);d.text('TOTAL',145,y,{align:'right'});d.text(money(t.total),192,y,{align:'right'});
-    if(y>232){d.addPage();y=25}d.setFontSize(8.5);d.setFont(undefined,'normal');d.setTextColor(90,97,110);const footerY=Math.max(250,y+14);d.text(`Payment terms: ${view.paymentTermsDays} day${view.paymentTermsDays===1?'':'s'} from invoice date\nPayment by bank transfer\nAccount name: ${s.bankName||''}\nSort code: ${s.sortCode||''}   Account number: ${s.accountNumber||''}`,15,Math.min(footerY,265));if(view.notes)d.text(d.splitTextToSize(view.notes,75),110,Math.min(footerY,265));
+    // Preserve the agreed payment milestones in the downloaded invoice, including across page breaks.
+    const ensureSpace17=height=>{if(y+height>279){d.addPage();y=22}};
+    if(paymentSchedule17){
+      const noteLines=d.splitTextToSize(paymentSchedule17.note,171);
+      const rows=paymentSchedule17.milestones.map(m=>({
+        lines:d.splitTextToSize(String(m.name).replace(/—/g,'-'),133),
+        amount:money(m.amount)
+      }));
+      const sectionHeight=17+rows.reduce((n,row)=>n+Math.max(6,row.lines.length*4.5+1),0)+noteLines.length*4.2+4;
+      ensureSpace17(sectionHeight);
+      y+=10;
+      d.setFontSize(10);d.setFont(undefined,'bold');d.setTextColor(10,47,87);
+      d.text('PAYMENT ARRANGEMENT',15,y);y+=8;
+      for(const row of rows){
+        d.setFontSize(9);d.setFont(undefined,'normal');d.setTextColor(23,32,51);
+        d.text(row.lines,18,y);
+        d.setFont(undefined,'bold');d.text(row.amount,192,y,{align:'right'});
+        y+=Math.max(6,row.lines.length*4.5+1);
+      }
+      d.setFont(undefined,'normal');d.setFontSize(8);d.setTextColor(90,97,110);
+      d.text(noteLines,18,y);y+=noteLines.length*4.2+4;
+    }
+    const footerText=paymentSchedule17?'Payment per the agreed arrangement above':'Payment terms: '+view.paymentTermsDays+' day'+(view.paymentTermsDays===1?'':'s')+' from invoice date';
+    const bankLines=d.splitTextToSize(footerText+'\\nPayment by bank transfer\\nAccount name: '+(s.bankName||'')+'\\nSort code: '+(s.sortCode||'')+'   Account number: '+(s.accountNumber||''),90);
+    const notesLines=view.notes?d.splitTextToSize(view.notes,75):[];
+    const footerHeight=Math.max(bankLines.length,notesLines.length)*4.3+4;
+    if(y+13+footerHeight>280){d.addPage();y=22}else y+=13;
+    d.setFontSize(8.5);d.setFont(undefined,'normal');d.setTextColor(90,97,110);
+    d.text(bankLines,15,y);
+    if(notesLines.length)d.text(notesLines,110,y);
     return d.output('blob');
   };
 })();
