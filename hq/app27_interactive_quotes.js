@@ -64,17 +64,17 @@ async function publish(id){
  const q=byId(id);
  if(!q)return;
  if(q.status==='Accepted'||q.status==='Declined')return toast('This quote is already closed.');
- if(q.interactive?.url)return toast('This quotation already has a client link. Open the quote to copy it.');
+ if(q.interactive?.url)return toast('This quotation is already published. Open it to check the email status.');
  try{
   const proposal=collect(q);
   const r=await call('/api/admin/publish',{proposal});
-  q.interactive={url:r.url,publishedAt:new Date().toISOString(),status:r.status,acceptance:null};
+  q.interactive={url:r.url,publishedAt:new Date().toISOString(),status:r.status,acceptance:null,email:r.email||null};
   if(q.status==='Draft'){q.status='Sent';q.sentDate=TODAY();}
   const client=clientById(q.clientId);
   if(client){client.pipelineStage='Quote';client.updatedAt=new Date().toISOString();}
   await saveState();
   render();window.ChipInQuotes.openPreview(q.id);
-  toast('Client link published. This does not send an email; copy it or open an email draft.');
+  toast(r.email?.status==='queued'?'Quotation published and email queued automatically for Gmail delivery.':'Quotation published. Email delivery status is not yet confirmed; check before relying on it.');
  }catch(e){toast(e.message);}
 }
 async function synchronize(showToast=false){
@@ -158,14 +158,14 @@ function previewActions(q){
  if(!actions)return;
  const button=document.createElement('button');button.type='button';button.className='btn small secondary';
  if(q.interactive?.url){
-  const deliveryNote=document.createElement('p');deliveryNote.className='muted';deliveryNote.style.cssText='width:100%;margin:6px 0';deliveryNote.textContent='Send via connected Gmail ('+'jamesbutt.chipin@gmail.com'+'): use Queue Gmail email for automatic hourly dispatch, or Open email draft to send immediately yourself. Queued is NOT sent.';actions.append(deliveryNote);
+  const deliveryNote=document.createElement('p');deliveryNote.className='muted';deliveryNote.style.cssText='width:100%;margin:6px 0';deliveryNote.textContent='Published quotations are automatically queued for delivery from jamesbutt.chipin@gmail.com. Gmail runs hourly. Queued means not yet sent. Use Open email draft if you need to send immediately yourself.';actions.append(deliveryNote);
   button.textContent='Copy customer quote link';button.onclick=()=>navigator.clipboard.writeText(q.interactive.url).then(()=>toast('Secure client quote link copied')).catch(()=>toast('Could not copy the link.'));
   actions.append(button);
   const client=clientById(q.clientId);
   if(client?.email){
    if(!q.interactive.email || q.interactive.email.status==='failed'){
     const sendButton=document.createElement('button');sendButton.type='button';sendButton.className='btn small gold';
-    sendButton.textContent='Queue Gmail email (hourly delivery)';
+    sendButton.textContent='Send this quotation email';
     sendButton.onclick=()=>queueCustomerEmail(q.id);
     actions.append(sendButton);
    }else{
@@ -189,7 +189,7 @@ function previewActions(q){
    reviewButton.onclick=()=>review(q.id);actions.append(reviewButton);
   }
  }else if(['Draft','Sent'].includes(q.status)){
-  button.textContent='Publish interactive quote';button.onclick=()=>publish(q.id);actions.append(button);
+  button.textContent='Publish & email quotation';button.onclick=()=>publish(q.id);actions.append(button);
  }
 }
 function review(id){
