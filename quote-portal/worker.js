@@ -30,7 +30,7 @@ function validate(v){
  const defaultCare=Number(v.defaultCare||0),defaultExtras=(v.defaultExtras||[]).map(String);
  if(defaultCare&&!careOptions.some(x=>x.id===defaultCare))throw Error('Invalid default care plan');
  if(defaultExtras.some(id=>!optionalExtras.some(x=>x.id===id)))throw Error('Invalid default extra');
- return {id:clean(v.id,110),number:clean(v.number,50),title:clean(v.title,180),clientName:clean(v.clientName,170),clientContact:clean(v.clientContact,130),clientEmail:clean(v.clientEmail,240),issuedAt:clean(v.issuedAt,10),validUntil:v.validUntil,paymentSchedule:v.paymentSchedule,vatRegistered:!!v.vatRegistered,vatRate:Math.max(0,Math.min(30,Number(v.vatRate)||0)),notes:clean(v.notes,2500),required,includedExtras,optionalExtras,careOptions,domain,defaultCare,defaultExtras,demoUrl:/^https:\/\/[^ \n]+$/i.test(v.demoUrl||'')?clean(v.demoUrl,500):''};
+ return {id:clean(v.id,110),number:clean(v.number,50),title:clean(v.title,180),clientName:clean(v.clientName,170),clientContact:clean(v.clientContact,130),clientEmail:clean(v.clientEmail,240),issuedAt:clean(v.issuedAt,10),validUntil:v.validUntil,paymentSchedule:v.paymentSchedule,vatRegistered:!!v.vatRegistered,vatRate:Math.max(0,Math.min(30,Number(v.vatRate)||0)),notes:clean(v.notes,2500),required,includedExtras,optionalExtras,careOptions,domain,defaultCare,defaultExtras,demoUrl:/^https:\/\/[^ \n]+$/i.test(v.demoUrl||'')?clean(v.demoUrl,500):'',emailTemplate:v.emailTemplate?{subject:clean(v.emailTemplate.subject,200).replace(/[\r\n]+/g,' '),body:clean(v.emailTemplate.body,4000)}:null};
 }
 function total(p,s){
  const careIndex=Number(s.careIndex);
@@ -76,15 +76,19 @@ const OUTBOX_URL = 'https://chipin-hq-quotes.goldplushighdefinition.workers.dev'
 function quoteEmail(q,proposal){
  const recipient=clean(proposal.clientEmail,240).toLowerCase();
  if(!EMAIL_TEST.test(recipient))throw Error('The client has no valid email address on this published quote.');
- const contact=SINGLE_LINE(proposal.clientContact||proposal.clientName||'there');
  const number=SINGLE_LINE(proposal.number||q.number);
+ const contact=SINGLE_LINE(proposal.clientContact||proposal.clientName||'there');
  const quoteUrl=OUTBOX_URL+'/q/'+q.view_token;
- const date=SINGLE_LINE(proposal.validUntil);
- return {
-  recipient,sender:GMAIL_FROM,
-  subject:'Your quotation from Chip In Works - '+number,
-  body:'Hello '+contact+',\n\nThank you for your interest in Chip In Works.\n\nPlease review your personalised quotation using the secure link below. You can select any optional services and confirm your choices directly on the page:\n\n'+quoteUrl+'\n\nQuotation reference: '+number+'\nValid until: '+date+'\n\nIf you have any questions, just reply to this email.\n\nKind regards,\nChip In Works\n'+GMAIL_FROM
- };
+ const vars={clientName:contact,quoteNumber:number,quoteLink:quoteUrl,validUntil:SINGLE_LINE(proposal.validUntil)};
+ const fallbackSubject='Your quotation from Chip In Works - {quoteNumber}';
+ const fallbackBody='Hello {clientName},\n\nThank you for your interest in Chip In Works.\n\nPlease review your personalised quotation using the secure link below. You can select any optional services and confirm your choices directly on the page:\n\n{quoteLink}\n\nQuotation reference: {quoteNumber}\nValid until: {validUntil}\n\nIf you have any questions, just reply to this email.\n\nKind regards,\nChip In Works\n'+GMAIL_FROM;
+ const expand=s=>s.replace(/\{(clientName|quoteNumber|quoteLink|validUntil)\}/g,(_,key)=>vars[key]);
+ const template=proposal.emailTemplate;
+ const subject=SINGLE_LINE(expand(template?.subject||fallbackSubject));
+ let content=expand(clean(template?.body||fallbackBody,4000));
+ // A customer quotation email must always include its immutable private quotation URL.
+ if(!content.includes(quoteUrl))content+='\n\nView your quotation:\n'+quoteUrl;
+ return {recipient,sender:GMAIL_FROM,subject,body:content};
 }
 
 async function admin(r,env){const h=r.headers.get('Authorization')||'';return h.startsWith('Bearer ')&&constantTime(h.slice(7),env.ADMIN_KEY||'')}
