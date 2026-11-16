@@ -44,12 +44,12 @@ Deploy only to the designated Cloudflare account. Preserve both the `DB` binding
 ## Email delivery from Gmail
 
 - Confirmed sender: `jamesbutt.chipin@gmail.com`. The authenticated Gmail connector remains in ChatGPT; its OAuth token is **not** copied into Cloudflare or browser JavaScript.
-- **Publish interactive quote** creates the private URL. It does not send any email.
-- After publishing, the owner clicks **Queue Gmail email (hourly delivery)** in HQ. The authenticated Worker writes an immutable message into `quote_email_outbox` in D1, using the recipient stored in the published snapshot.
-- An hourly user-authorised ChatGPT automation reads queued D1 rows, verifies the quote remains open, checks Gmail Sent for prior duplicate dispatch and sends through the connected Gmail account. It records Gmail's returned message ID and UTC send time in D1 only after a successful send.
+- **Publish & email quotation** creates the private URL and atomically queues the customer email, using the subject and message edited in HQ before publication. It does not itself send an email.
+- The authenticated Worker writes an immutable message into `quote_email_outbox` in D1 when publishing, using the recipient and the personalised wording stored in the published snapshot. For older published quotations without a queued email, the owner can still queue it separately.
+- A separate hourly ChatGPT automation is configured to process the queue through the connected Gmail account and record the returned Gmail message ID. **This task may stop for required user approval.** As checked on 16 November 2026, it was paused with `requires_user_action: true`; unattended sending must not be represented as guaranteed.
 - HQ automatically synchronises the delivery status from D1 while open and unlocked. **Queued** never means sent. **Sent by Gmail** means Gmail accepted a message, not that it reached the client's inbox.
-- Immediate delivery is available by selecting **Open email draft** and manually pressing Send in Gmail. HQ cannot automatically verify a manually sent draft.
-- There is no unattended immediate Gmail API connection in HQ. Automatic dispatch depends on the connected apps and the hourly automation succeeding; if those services are unavailable, queued messages remain pending.
+- **Open Gmail draft** opens a prefilled browser Gmail compose window for manual sending, using the same editable subject and body template. HQ cannot automatically verify a manually sent draft. Take care not to send the same quotation manually and again through the queue.
+- There is no direct unattended Gmail API integration in HQ. The ChatGPT automation's permission checks can pause it, even if the Gmail app's general permissions are set to allow all. Until a separately authorised direct sending integration is configured, queued messages may not be sent without further action.
 - An hourly ChatGPT acceptance watcher separately checks for new accepted client quotations. HQ also checks for acceptances while open.
 
 To run a safe local regression check, run `node quote-portal/queue.test.mjs`. It uses an in-memory fake database and never sends messages. GitHub Action `Verify Chip In quotation emails` runs this on updates.
