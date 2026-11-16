@@ -139,6 +139,16 @@ function previewActions(q){
  if(q.interactive?.url){
   button.textContent='Copy customer quote link';button.onclick=()=>navigator.clipboard.writeText(q.interactive.url).then(()=>toast('Secure client quote link copied')).catch(()=>toast('Could not copy the link.'));
   actions.append(button);
+  const client=clientById(q.clientId);
+  if(client?.email){
+   const emailButton=document.createElement('button');emailButton.type='button';emailButton.className='btn small secondary';emailButton.textContent='Email customer link';
+   emailButton.onclick=()=>{
+    const subject='Your quotation from Chip In Works — '+q.number;
+    const body='Hello '+(client.contact||client.name||'')+',\n\nPlease review your personalised quotation, select any optional services and confirm when you are happy to proceed:\n\n'+q.interactive.url+'\n\nThe quotation is valid until '+fmtDate(q.validUntil)+'.\n\nKind regards,\nChip In Works';
+    window.location.href='mailto:'+encodeURIComponent(client.email)+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body);
+   };
+   actions.append(emailButton);
+  }
   const stateInfo=document.createElement('p');stateInfo.className='muted';stateInfo.style.cssText='width:100%;margin-top:8px';
   stateInfo.textContent='Interactive quotation: '+statusLine(q);actions.append(stateInfo);
   if(q.interactive.acceptance&&!q.invoiceId){
