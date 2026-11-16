@@ -486,7 +486,7 @@ function renderQuotes(){
  };
  document.getElementById('hqQuoteFilter').onchange=draw;document.getElementById('hqQuoteSearch').oninput=draw;draw();
 }
-NAV.splice(NAV.findIndex(x=>x[0]==='invoices'),0,['quotes','▤','Quotes']);
+if(!NAV.some(x=>x[0]==='quotes')) NAV.splice(Math.max(0,NAV.findIndex(x=>x[0]==='invoices')),0,['quotes','▤','Quotes']);
 PAGE_META.quotes=['Quotes','Proposals, optional add-ons and monthly / annual commitments.'];
 const originalRender=render;
 render=function(){
