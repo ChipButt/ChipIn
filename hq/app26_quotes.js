@@ -27,6 +27,29 @@ function quoteDemoHTML(q){
  const link=demoLink(q);
  return link?'<section class="hq-quote-demo"><h3>See your proposed website</h3><p>A demo has been prepared so you can explore the proposed design and layout before deciding. Please feel free to follow this link to view your demo website:</p><p><a href="'+esc(link)+'" target="_blank" rel="noopener noreferrer">'+esc(link)+'</a></p><p class="muted">This is a demonstration of the proposed website, not a live or finished website.</p></section>':'';
 }
+
+const PAYMENT_PLANS={
+ 'before-launch':'Full payment before launch',
+ 'split-50':'50% before work begins, 50% before launch',
+ 'upfront':'Full payment before work begins'
+};
+const paymentPlan=q=>Object.prototype.hasOwnProperty.call(PAYMENT_PLANS,q?.paymentSchedule)?q.paymentSchedule:'before-launch';
+function paymentDetails(q,total){
+ const value=round(total),half=round(value/2),remaining=round(value-half),website=q.category==='Website Design';
+ const handover=website?'website or domain goes live':'work is delivered';
+ const option=paymentPlan(q);
+ const milestones=option==='split-50'?
+  [{name:'50% deposit — before work begins',amount:half},{name:'50% balance — before '+handover,amount:remaining}]:
+  option==='upfront'?[{name:'100% — before work begins',amount:value}]:
+  [{name:'100% — before '+handover,amount:value}];
+ return {option,label:PAYMENT_PLANS[option],milestones,note:(website?'The website and domain will not go live until the agreed initial charges have been paid in full. ':'')+'Ongoing monthly or annual services are billed separately at the frequencies shown.'};
+}
+function paymentDetailsHTML(q,total){
+ const pay=paymentDetails(q,total);
+ return '<section class="hq-quote-payments"><h4>Payment arrangement</h4>'+
+  pay.milestones.map(m=>'<div class="hq-quote-tally"><span>'+esc(m.name)+'</span><b>'+money(m.amount)+'</b></div>').join('')+
+  '<p class="hq-quote-tax-note">'+esc(pay.note)+'</p></section>';
+}
 function plan(q){
  const base=(q.baseLines||[]).map(x=>({name:x.name,amount:round(x.amount),frequency:'one-off',includeFirst:true,mode:'required',kind:'base'}));
  const domain=q.domain&&q.domain.mode!=='own'?{name:'Domain registration and renewal'+(q.domain.suggested?' — '+q.domain.suggested:''),amount:round(q.domain.amount),frequency:q.domain.mode,includeFirst:q.domain.includeFirst!==false,mode:'required',kind:'domain'}:null;
@@ -104,8 +127,8 @@ function priceBreakdown(q){
   '<div class="hq-quote-tally"><span>One-off project costs & selected extras</span><b>'+money(initialOneOff)+'</b></div>'+
   (initialPeriods?'<div class="hq-quote-tally"><span>First subscription / domain periods</span><b>'+money(initialPeriods)+'</b></div>':'')+
   (vatPct(q)?'<div class="hq-quote-tally"><span>VAT ('+vatPct(q)+'%)</span><b>'+money(vat)+'</b></div>':'')+
-  '<div class="hq-quote-grand"><span>Initial amount payable on acceptance</span><strong>'+money(gross(q,p.upfront))+'</strong></div>'+
-  '<p class="hq-quote-tax-note">'+(vatPct(q)?'VAT included in the total.':'VAT not charged.')+' No invoice is issued until the quote is accepted.</p></section>';
+  '<div class="hq-quote-grand"><span>Total initial quote</span><strong>'+money(gross(q,p.upfront))+'</strong></div>'+
+  '<p class="hq-quote-tax-note">'+(vatPct(q)?'VAT included in the total.':'VAT not charged.')+' No invoice is issued until the quote is accepted.</p></section>'+paymentDetailsHTML(q,gross(q,p.upfront));
  const renewals=recurring.length?'<p class="hq-quote-renewals"><strong>Ongoing charges:</strong> '+recurring.map(x=>esc(x.name)+' — '+money(x.amount)+' / '+cadence(x)).join('; ')+'. These are billed at the intervals shown, separately from one-off project work.</p>':'';
  const ownDomain=q.category==='Website Design'&&q.domain?.mode==='own'?domainAvailability(q):'';
  return '<div class="hq-quote-proposal">'+sections.filter(s=>!s.optional).map(section).join('')+ownDomain+summary+renewals+
@@ -142,6 +165,7 @@ function formHTML(q={}){
  '<div class="field full"><label>Proposal title</label><input name="title" required maxlength="160" value="'+esc(q.title||'Website Design & Services')+'"></div>'+
  field('Date issued','<input name="issueDate" type="date" required value="'+esc(q.issueDate||TODAY())+'">')+
  field('Valid until','<input name="validUntil" type="date" required value="'+esc(q.validUntil||addDays(TODAY(),30))+'">')+
+  field('Payment arrangement','<select name="paymentSchedule">'+Object.keys(PAYMENT_PLANS).map(k=>option(k,PAYMENT_PLANS[k],paymentPlan(q))).join('')+'</select>')+
  '<div class="field full"><h3>Project package</h3><div id="hqQuoteOptions" class="hq-quote-options"></div></div>'+
  '<div id="hqQuoteWebsite" class="field full" style="'+(web?'':'display:none')+'"><h3>Website essentials & care</h3>'+
  '<p class="sub">The domain is required unless the client supplies an existing domain. Annual registration is a published £25 allowance; agree any monthly domain price before quoting.</p>'+
@@ -181,11 +205,12 @@ function values(form,validate){
   return {id:row.dataset.quoteExtra,name:clean(val('name').value),description:clean(val('description').value),amount:round(val('amount').value),frequency:val('frequency').value,mode:val('mode').value,includeFirst:val('first').checked};
  }).filter(x=>x.name||x.description||x.amount);
  const q={clientId:fd.get('clientId'),category,title:clean(fd.get('title')),issueDate:fd.get('issueDate'),validUntil:fd.get('validUntil'),
-  notes:clean(fd.get('notes')),choices,checked,otherBase:fd.get('otherBase'),baseLines,domain,care,extras,demo,
+  notes:clean(fd.get('notes')),paymentSchedule:fd.get('paymentSchedule')||'before-launch',choices,checked,otherBase:fd.get('otherBase'),baseLines,domain,care,extras,demo,
   vatRegistered:!!state.settings.vatRegistered,vatRate:Number(state.settings.defaultVatRate||0)};
  if(validate){
   if(!clientById(q.clientId))throw Error('Choose a client first.');
   if(!q.title||!q.issueDate||!q.validUntil||q.validUntil<q.issueDate)throw Error('Check the title, issue date and valid-until date.');
+   if(!Object.prototype.hasOwnProperty.call(PAYMENT_PLANS,q.paymentSchedule))throw Error('Choose a valid payment arrangement.');
   if(baseLines.some(x=>!Number.isFinite(x.amount)||x.amount<0))throw Error('Enter a valid project price.');
   if(website&&!['own','monthly','annual'].includes(mode))throw Error('Choose a domain arrangement.');
   if(website&&mode!=='own'&&(!clean(fd.get('domainAmount'))||!Number.isFinite(rawDomain)||rawDomain<=0))throw Error('Enter an agreed domain price greater than zero.');
@@ -329,7 +354,7 @@ async function accept(q){
    monthlyCare:web&&p.care?{name:p.care.name,amount:p.care.amount,interval:'monthly'}:null,
    annualDomain:standardAnnualDomain?{name:p.domain.name,amount:p.domain.amount,interval:'annual'}:null,
    billingOptions:{monthlyFirst:p.care?.includeFirst!==false,domainFirst:p.domain?.includeFirst!==false}},
-  sourceQuoteId:q.id,suggestedDomain:q.domain?.suggested||'',createdAt:new Date().toISOString()
+  sourceQuoteId:q.id,paymentSchedule:paymentPlan(q),suggestedDomain:q.domain?.suggested||'',createdAt:new Date().toISOString()
  };
  // Preserve normal job numbering when the existing job utility is available.
  if(typeof chipInEnsureJobReferences==='function')chipInEnsureJobReferences();
@@ -340,7 +365,7 @@ async function accept(q){
   status:'Draft',issueDate:TODAY(),dueDate:addDays(TODAY(),Number(state.settings.defaultTerms||14)),
   items:typeof chipInInvoiceItemsForJob==='function'?chipInInvoiceItemsForJob(job):[{description:q.title,qty:1,rate:upfront}],
   notes:q.notes||'Thank you for your business.',vatRate:q.vatRate,
-  payments:[],sourceQuoteId:q.id,createdAt:new Date().toISOString()
+  payments:[],paymentSchedule:paymentPlan(q),sourceQuoteId:q.id,createdAt:new Date().toISOString()
  };
  state.invoices.push(inv);state.settings.nextInvoiceNumber=Number(state.settings.nextInvoiceNumber||1)+1;
  q.status='Accepted';q.acceptedDate=TODAY();q.jobId=job.id;q.invoiceId=inv.id;
@@ -410,6 +435,12 @@ function downloadPDF(q){
  doc.text('INITIAL AMOUNT',108,y+3);
  doc.text(n(gross(q,p.upfront)),192,y+3,{align:'right'});
  y+=17;bodyColor();
+ const pay=paymentDetails(q,gross(q,p.upfront));
+ heading('Payment arrangement');
+ pay.milestones.forEach(m=>line(m.name,m.amount));
+ const paymentNote=doc.splitTextToSize(pay.note,175);
+ ensure(paymentNote.length*4.5+8);doc.setTextColor(86,97,111);doc.setFontSize(8);
+ doc.text(paymentNote,18,y);y+=paymentNote.length*4.5+8;bodyColor();
  const renewals=p.chosen.filter(x=>x.frequency!=='one-off');
  if(renewals.length){
   const renewalsText='Ongoing charges: '+renewals.map(x=>x.name+' — '+n(x.amount)+' / '+(x.frequency==='monthly'?'month':'year')).join('; ')+'.';
@@ -491,5 +522,5 @@ renderClients=function(){
 const css=document.createElement('style');
 css.textContent='.hq-quote-demo{border-top:1px solid var(--line);margin-top:20px;padding:16px 0 4px}.hq-quote-demo h3{margin:0 0 8px}.hq-quote-demo p{margin:8px 0;line-height:1.6}.hq-quote-demo a{color:#1767aa;overflow-wrap:anywhere;text-decoration:underline}.hq-quote-line{padding:9px 0;border-top:1px solid #e6ebf1}.hq-quote-line:first-of-type{border-top:0}.hq-quote-explanation{font-size:12px;color:#46576a;line-height:1.6;margin:5px 0 2px;white-space:normal}.hq-quote-domain-note{margin:9px 0;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:#f7f9fc;font-size:12px;line-height:1.55}.hq-quote-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.hq-quote-check{display:block;margin:8px 0;font-size:12px}.hq-quote-check input,.hq-quote-first input{width:auto}.hq-quote-first{display:flex;align-items:center;gap:8px;font-size:12px;margin:10px 0}.hq-quote-extra-head{display:flex;justify-content:space-between;align-items:center;gap:12px}.hq-quote-extra-head h3{margin:0}.hq-quote-extra{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;background:#f7f9fc;border:1px solid var(--line);padding:12px;border-radius:12px;margin:10px 0}.hq-quote-extra-note{grid-column:1/-1}.hq-quote-extra .hq-quote-first{margin:0}.hq-quote-summary-block{margin:12px 0;padding:12px;border:1px solid var(--line);border-radius:11px}.hq-quote-summary-block>strong{display:block;margin-bottom:8px;font-size:13px}.hq-quote-summary-row{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;padding:5px 0;font-size:12px}.hq-quote-summary-row b{white-space:nowrap}.hq-quote-total{display:flex;justify-content:space-between;gap:12px;border-top:1px solid var(--line);padding:16px 4px 6px;font-weight:700}.hq-quote-total strong{font-size:20px;color:var(--navy)}.hq-quote-preview-actions{flex-wrap:wrap}.hq-quote-preview .hq-quote-summary-block{background:#fff}.hq-quote-terms{margin-top:16px;font-size:12px;white-space:pre-wrap}.hq-quote-terms p{line-height:1.6}@media(max-width:700px){.hq-quote-options,.hq-quote-extra{grid-template-columns:1fr}.hq-quote-preview-actions .row-actions{flex-wrap:wrap}.hq-quote-summary-row{flex-wrap:wrap}}';
 document.head.appendChild(css);
-window.ChipInQuotes={plan,openForm,openPreview,renderQuotes,values};
+window.ChipInQuotes={plan,openForm,openPreview,renderQuotes,values,paymentDetails,paymentPlan};
 })();
