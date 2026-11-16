@@ -17,6 +17,17 @@ function chipInInvoiceSchedule(inv){
  const job=chipInInvoiceJob(inv);
  return window.ChipInQuotes.paymentDetails({category:job?.category||'Other',paymentSchedule:inv.paymentSchedule},invoiceTotals(inv).total);
 }
+// Milestone due dates are event-based, so the generic invoice due date must
+// not incorrectly mark the final balance overdue before the launch/delivery.
+const chipInPrevInvoiceStatus=invoiceStatus;
+invoiceStatus=function(inv){
+ if(inv?.paymentSchedule&&inv.paymentSchedule!=='standard'){
+  if(outstanding(inv)<=.005)return 'Paid';
+  if(paymentsTotal(inv)>0)return 'Part paid';
+  return inv.status==='Draft'?'Draft':'Sent';
+ }
+ return chipInPrevInvoiceStatus(inv);
+};
 function chipInInvoiceEmailSubject(inv){return `Invoice ${inv.number} from ${state.settings.tradingName||state.settings.legalName||'Chip In'}`}
 function chipInInvoiceEmailBody(inv){
   const c=clientById(inv.clientId)||{},name=c.contact||c.name||'there',terms=chipInInvoiceTerms(inv),total=invoiceTotals(inv).total;
