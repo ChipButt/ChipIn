@@ -303,7 +303,7 @@ function openPreview(id){
  openModal('<div class="section-title hq-quote-preview-actions"><div><h2>'+esc(q.number)+'</h2><p>'+esc(clientById(q.clientId)?.name||'')+' · '+statusBadge(status)+'</p></div><div class="row-actions">'+
  '<button class="btn small secondary" id="hqQuotePDF">Download PDF</button>'+
  (!locked?'<button class="btn small secondary" id="hqQuoteEdit">Edit draft</button><button class="btn small" id="hqQuoteSent">Mark as sent</button>':'')+
- (q.status==='Sent'?'<button class="btn small gold" id="hqQuoteAccept">Accept quote</button><button class="btn small secondary" id="hqQuoteDecline">Declined</button>':'')+
+ (q.status==='Sent'&&!q.interactive?.url?'<button class="btn small gold" id="hqQuoteAccept">Accept quote</button><button class="btn small secondary" id="hqQuoteDecline">Declined</button>':'')+
  (q.status==='Accepted'?'<button class="btn small gold" id="hqQuoteInvoice">Open draft invoice</button>':'')+
  '</div></div>'+quoteHTML(q),true);
  document.getElementById('hqQuotePDF').onclick=()=>downloadPDF(q);
@@ -312,6 +312,7 @@ function openPreview(id){
  document.getElementById('hqQuoteAccept')?.addEventListener('click',()=>accept(q));
  document.getElementById('hqQuoteDecline')?.addEventListener('click',()=>setDeclined(q));
  document.getElementById('hqQuoteInvoice')?.addEventListener('click',()=>{const inv=invoiceById(q.invoiceId);if(inv)openInvoicePreview(inv.id);else toast('Draft invoice not found.');});
+ window.ChipInQuotePortal?.previewActions(q);
 }
 function stage(q,s){
  const client=clientById(q.clientId);if(!client)return;
@@ -329,6 +330,7 @@ async function setDeclined(q){
 }
 async function accept(q){
  if(q.status!=='Sent')return;
+ if(q.interactive?.url&&!q.interactive.approvalInProgress)return toast('Awaiting the client’s confirmed choices. Use Review customer choices after acceptance.');
  if(q.jobId||q.invoiceId)return toast('This quote is already converted.');
  const p=plan(q),web=q.category==='Website Design';
  // Only accepted charges become a job and invoice; merely offered extras stay on the quote.
@@ -375,6 +377,29 @@ async function accept(q){
  await saveState();render();openInvoicePreview(inv.id);
  toast('Accepted: job and draft invoice created. No invoice has been sent.');
 }
+
+async function approveOnline(id){
+ const q=byId(id),a=q?.interactive?.acceptance;
+ if(!q||!a||q.status!=='Sent'||q.invoiceId)return toast('The customer acceptance is no longer pending.');
+ if(!Number.isInteger(a.careIndex)||a.careIndex<0||a.careIndex>3||!Array.isArray(a.extraIds)||!Number.isInteger(a.initialPence)||a.initialPence<0)return toast('Customer acceptance could not be validated.');
+ const permitted=new Set((q.extras||[]).filter(x=>x.mode==='offered').map(x=>x.id));
+ if(new Set(a.extraIds).size!==a.extraIds.length||a.extraIds.some(x=>!permitted.has(x)))return toast('The accepted extras no longer match this quotation.');
+ const previousCare=structuredClone(q.care||{}),previousExtras=structuredClone(q.extras||[]);
+ const carePackages=[{name:'No website care',amount:0},{name:'Website Health',amount:25},{name:'Website Care',amount:49},{name:'Website Partner',amount:89}];
+ const chosen=carePackages[a.careIndex];
+ q.care={...previousCare,name:chosen.name,amount:chosen.amount,choiceIndex:a.careIndex,includeFirst:previousCare.includeFirst!==false};
+ q.extras=(q.extras||[]).map(x=>x.mode==='offered'&&a.extraIds.includes(x.id)?{...x,mode:'included'}:x);
+ const actual=Math.round(gross(q,plan(q).upfront)*100);
+ if(actual!==a.initialPence){
+  q.care=previousCare;q.extras=previousExtras;
+  return toast('Quoted price mismatch. Nothing has been invoiced. Review the published quote and contact the customer.');
+ }
+ q.interactive.approvalInProgress=true;
+ try {await accept(q);}
+ catch(error){q.care=previousCare;q.extras=previousExtras;toast('Could not create invoice: '+error.message);}
+ finally{delete q.interactive.approvalInProgress;}
+}
+
 function downloadPDF(q){
  if(!window.jspdf)return toast('PDF library did not load. Try again online.');
  const doc=new window.jspdf.jsPDF({unit:'mm',format:'a4'}),p=plan(q),s=state.settings,c=clientById(q.clientId)||{};
@@ -485,6 +510,7 @@ function renderQuotes(){
   document.querySelectorAll('[data-q-open]').forEach(b=>b.onclick=()=>openPreview(b.dataset.qOpen));
  };
  document.getElementById('hqQuoteFilter').onchange=draw;document.getElementById('hqQuoteSearch').oninput=draw;draw();
+ window.ChipInQuotePortal?.mountQuotes();
 }
 if(!NAV.some(x=>x[0]==='quotes')) NAV.splice(Math.max(0,NAV.findIndex(x=>x[0]==='invoices')),0,['quotes','▤','Quotes']);
 PAGE_META.quotes=['Quotes','Proposals, optional add-ons and monthly / annual commitments.'];
@@ -522,5 +548,5 @@ renderClients=function(){
 const css=document.createElement('style');
 css.textContent='.hq-quote-demo{border-top:1px solid var(--line);margin-top:20px;padding:16px 0 4px}.hq-quote-demo h3{margin:0 0 8px}.hq-quote-demo p{margin:8px 0;line-height:1.6}.hq-quote-demo a{color:#1767aa;overflow-wrap:anywhere;text-decoration:underline}.hq-quote-line{padding:9px 0;border-top:1px solid #e6ebf1}.hq-quote-line:first-of-type{border-top:0}.hq-quote-explanation{font-size:12px;color:#46576a;line-height:1.6;margin:5px 0 2px;white-space:normal}.hq-quote-domain-note{margin:9px 0;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:#f7f9fc;font-size:12px;line-height:1.55}.hq-quote-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.hq-quote-check{display:block;margin:8px 0;font-size:12px}.hq-quote-check input,.hq-quote-first input{width:auto}.hq-quote-first{display:flex;align-items:center;gap:8px;font-size:12px;margin:10px 0}.hq-quote-extra-head{display:flex;justify-content:space-between;align-items:center;gap:12px}.hq-quote-extra-head h3{margin:0}.hq-quote-extra{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;background:#f7f9fc;border:1px solid var(--line);padding:12px;border-radius:12px;margin:10px 0}.hq-quote-extra-note{grid-column:1/-1}.hq-quote-extra .hq-quote-first{margin:0}.hq-quote-summary-block{margin:12px 0;padding:12px;border:1px solid var(--line);border-radius:11px}.hq-quote-summary-block>strong{display:block;margin-bottom:8px;font-size:13px}.hq-quote-summary-row{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;padding:5px 0;font-size:12px}.hq-quote-summary-row b{white-space:nowrap}.hq-quote-total{display:flex;justify-content:space-between;gap:12px;border-top:1px solid var(--line);padding:16px 4px 6px;font-weight:700}.hq-quote-total strong{font-size:20px;color:var(--navy)}.hq-quote-preview-actions{flex-wrap:wrap}.hq-quote-preview .hq-quote-summary-block{background:#fff}.hq-quote-terms{margin-top:16px;font-size:12px;white-space:pre-wrap}.hq-quote-terms p{line-height:1.6}@media(max-width:700px){.hq-quote-options,.hq-quote-extra{grid-template-columns:1fr}.hq-quote-preview-actions .row-actions{flex-wrap:wrap}.hq-quote-summary-row{flex-wrap:wrap}}';
 document.head.appendChild(css);
-window.ChipInQuotes={plan,openForm,openPreview,renderQuotes,values,paymentDetails,paymentPlan};
+window.ChipInQuotes={plan,openForm,openPreview,renderQuotes,values,paymentDetails,paymentPlan,approveOnline};
 })();
