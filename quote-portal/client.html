@@ -15,7 +15,7 @@ label.field{display:block;font-size:13px;font-weight:650;margin:15px 0 7px}input
 <section class="sheet" id="careSheet"><h2>Optional website care</h2><p class="muted">Choose the level of ongoing support that suits your business, or select no care plan.</p><div id="care"></div></section>
 <section class="sheet" id="extraSheet"><h2>Other optional extras</h2><p class="muted">Only services you select will be added to the quotation.</p><div id="extras"></div></section>
 <section class="sheet"><h2>Your quotation summary</h2><div class="calc"><div id="breakdown"></div><div class="grand"><span>Initial total</span><span id="total"></span></div><p id="payment" class="payment"></p></div><p id="recurring" class="muted"></p></section>
-<section class="sheet"><h2>Confirm and accept</h2><p class="muted">Your final selections will be sent securely to Chip In Works. No payment is taken here.</p>
+<section class="sheet" id="scopeSheet"><h2>Project scope & terms</h2><p id="scopeText" style="white-space:pre-wrap"></p></section><section class="sheet"><h2>Confirm and accept</h2><p class="muted">Your final selections will be sent securely to Chip In Works. No payment is taken here.</p>
 <label class="field" for="signer">Your full name</label><input id="signer" type="text" maxlength="120" autocomplete="name">
 <label class="field" for="email">Your email address</label><input id="email" type="email" maxlength="240" autocomplete="email">
 <label class="confirm"><input type="checkbox" id="agree"><span>I am authorised to accept this quotation and agree to the selected services, prices, payment schedule and scope described above.</span></label>
@@ -32,7 +32,7 @@ var date=function(s){return s?new Date(s+'T12:00:00Z').toLocaleDateString('en-GB
 el('number').textContent=p.number;el('title').textContent=p.title;
 el('welcome').textContent='Prepared for '+p.clientName+'. Please review your proposal and select any additional services you would like.';
 el('dates').textContent='Issued '+date(p.issuedAt)+' · Valid until '+date(p.validUntil);
-el('signer').value=p.clientContact||'';el('email').value=p.clientEmail||'';
+el('signer').value=p.clientContact||'';el('email').value=p.clientEmail||'';el('scopeText').textContent=p.notes||'Project costs are based on the services listed above. Optional services are charged only when selected. Ongoing subscriptions are billed at the stated intervals.';
 function price(item){var a=node('div','price',fmt(item.pence));if(item.frequency!=='one-off')a.append(node('small',null,'per '+(item.frequency==='monthly'?'month':'year')));return a}
 function listed(item){var row=node('div','row'),main=node('div');main.append(node('strong',null,item.name));if(item.description)main.append(node('p',null,item.description));row.append(main,price(item));el('included').append(row)}
 p.required.forEach(listed);
