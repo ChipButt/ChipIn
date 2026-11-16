@@ -155,16 +155,30 @@ invoicePreviewHTML=function(inv){
   return html.replace('<div class="invoice-footer">','<div class="invoice-footer">'+terms);
 };
 
-invoiceRows=function(rows){return rows.map(i=>{const c=clientById(i.clientId),t=invoiceTotals(i),s=invoiceStatus(i);return `<tr><td><strong class="mono">${esc(i.number)}</strong></td><td>${esc(c?.name||'—')}</td><td>${fmtDate(i.issueDate)}<div class="muted">due ${fmtDate(i.dueDate)}</div></td><td>${money(t.total)}</td><td>${money(outstanding(i))}</td><td>${statusBadge(s)}</td><td class="right"><div class="row-actions"><button class="btn small secondary" data-action="view-invoice" data-id="${i.id}">Open</button><button class="btn small secondary" data-action="edit-invoice" data-id="${i.id}">Edit</button><button class="btn small secondary" data-action="email-invoice" data-id="${i.id}">Email</button>${s==='Draft'?`<button class="btn small" data-action="send-invoice" data-id="${i.id}">Mark sent</button>`:''}${s!=='Paid'&&s!=='Draft'?`<button class="btn small gold" data-action="pay-invoice" data-id="${i.id}">Payment</button>`:''}<button class="icon-btn" data-action="delete-invoice" data-id="${i.id}">×</button></div></td></tr>`}).join('')};
+invoiceRows=function(rows){return rows.map(i=>{const c=clientById(i.clientId),t=invoiceTotals(i),s=invoiceStatus(i);return `<tr><td><strong class="mono">${esc(i.number)}</strong></td><td>${esc(c?.name||'—')}</td><td>${fmtDate(i.issueDate)}<div class="muted">due ${fmtDate(i.dueDate)}</div></td><td>${money(t.total)}</td><td>${money(outstanding(i))}</td><td>${statusBadge(s)}</td><td class="right"><div class="row-actions"><button class="btn small secondary" data-action="view-invoice" data-id="${i.id}">Open</button><button class="btn small secondary" data-action="edit-invoice" data-id="${i.id}">Edit</button><button class="btn small secondary" data-action="email-invoice" data-id="${i.id}">Open Gmail</button>${s==='Draft'?`<button class="btn small" data-action="send-invoice" data-id="${i.id}">Mark sent</button>`:''}${s!=='Paid'&&s!=='Draft'?`<button class="btn small gold" data-action="pay-invoice" data-id="${i.id}">Payment</button>`:''}<button class="icon-btn" data-action="delete-invoice" data-id="${i.id}">×</button></div></td></tr>`}).join('')};
 
-async function chipInShareInvoice(inv){
-  const email=chipInClientEmail(inv);if(!email)return toast('This client does not have an email address saved.');
-  const blob=pdfBlob(inv),file=new File([blob],`${inv.number}.pdf`,{type:'application/pdf'}),subject=chipInInvoiceEmailSubject(inv),body=chipInInvoiceEmailBody(inv);
-  if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){
-    try{await navigator.share({title:subject,text:`To: ${email}\n\n${body}`,files:[file]});return}catch(e){if(e?.name==='AbortError')return}
-  }
-  downloadBlob(blob,`${inv.number}.pdf`);
-  window.location.href=`mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body+'\n\nThe invoice PDF has been downloaded ready to attach.')}`;
+// Opens browser Gmail directly and supplies the current, full invoice PDF.
+// A Gmail compose URL cannot attach a local file, so never report the invoice as sent.
+function chipInShareInvoice(inv){
+ if(!inv)return toast('Invoice not found.');
+ const email=chipInClientEmail(inv);
+ if(!email)return toast('This client does not have an email address saved.');
+ if(!/^[^\\s@<>;,]+@[^\\s@<>;,]+\\.[^\\s@<>;,]+$/.test(email))return toast('The client email address is invalid. Correct it before emailing.');
+ let pdf;
+ try{pdf=pdfBlob(inv)}catch(error){console.error('Invoice PDF error:',error);return toast('Could not generate invoice PDF: '+error.message);}
+ const subject=chipInInvoiceEmailSubject(inv);
+ const body=chipInInvoiceEmailBody(inv);
+ const url='https://mail.google.com/mail/?view=cm&fs=1&to='+encodeURIComponent(email)+'&su='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body);
+ // Open synchronously from the user click to avoid pop-up blocking.
+ const gmail=window.open(url,'_blank');
+ if(!gmail){
+  // The browser blocked the new tab: don't misleadingly download and claim email opened.
+  openModal('<h2>Open invoice in Gmail</h2><p class="sub">Your browser blocked the new tab. Select the button below to open Gmail.</p><div class="form-actions"><button type="button" class="btn secondary" data-close-modal>Cancel</button><a class="btn" target="_blank" rel="noopener noreferrer" href="'+esc(url)+'">Open Gmail draft</a></div>');
+  return;
+ }
+ try{gmail.opener=null}catch{}
+ try{downloadBlob(pdf,inv.number+'.pdf')}catch(error){console.error('Invoice PDF download error:',error);return toast('Gmail opened, but the PDF did not download. Use Download PDF and attach it to the draft.')}
+ toast('Gmail draft opened. Attach the downloaded '+inv.number+'.pdf before pressing Send. HQ has not sent the invoice.');
 }
 const chipInPrevHandleAction=handleAction;
 handleAction=async function(action,id){if(action==='edit-invoice'){openInvoiceForm(id);return}if(action==='email-invoice'){await chipInShareInvoice(invoiceById(id));return}return chipInPrevHandleAction(action,id)};
@@ -173,7 +187,7 @@ openInvoicePreview=function(id){
   chipInPrevOpenInvoicePreview(id);
   const actions=$('#modalBody .section-title .row-actions');if(!actions)return;
   if(!$('#editInvoiceBtn')){const b=document.createElement('button');b.className='btn secondary';b.id='editInvoiceBtn';b.textContent='Edit invoice';b.onclick=()=>openInvoiceForm(id);actions.insertBefore(b,actions.firstChild)}
-  if(!$('#emailInvoiceBtn')){const b=document.createElement('button');b.className='btn secondary';b.id='emailInvoiceBtn';b.textContent='Email invoice';b.onclick=()=>chipInShareInvoice(invoiceById(id));actions.insertBefore(b,actions.firstChild)}
+  if(!$('#emailInvoiceBtn')){const b=document.createElement('button');b.className='btn secondary';b.id='emailInvoiceBtn';b.textContent='Open Gmail draft';b.onclick=()=>chipInShareInvoice(invoiceById(id));actions.insertBefore(b,actions.firstChild)}
 };
 
 pdfBlob=function(inv){
