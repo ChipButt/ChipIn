@@ -96,6 +96,7 @@ async function showQuote(req,env,token){
  if(!/^[0-9a-f]{54}$/.test(token))return new Response('Quote not found',{status:404});
  const q=await env.DB.prepare('SELECT * FROM quotes WHERE view_token=?').bind(token).first();
  if(!q)return new Response('Quote not found',{status:404});
+ if(q.status==='revoked')return new Response('This quotation has been withdrawn and is no longer available.',{status:410,headers:{'Content-Type':'text/plain; charset=utf-8','Cache-Control':'no-store, private','Referrer-Policy':'no-referrer'}});
  if(!q.first_opened_at&&q.status==='published')await env.DB.prepare('UPDATE quotes SET first_opened_at=? WHERE id=? AND first_opened_at IS NULL').bind(now(),q.id).run();
  const seed=JSON.stringify({token,proposal:JSON.parse(q.proposal_json),status:q.status,acceptedAt:q.accepted_at,acceptance:q.acceptance_json?JSON.parse(q.acceptance_json):null,expired:q.valid_until<now().slice(0,10)}).replace(/</g,'\\u003c');
  return new Response(UI.replace('__DATA__',seed),{headers:{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store, private','Referrer-Policy':'no-referrer','X-Frame-Options':'DENY','X-Content-Type-Options':'nosniff','Content-Security-Policy':"default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; img-src https:; base-uri 'none'; frame-ancestors 'none'; form-action 'none'"}});
@@ -146,8 +147,13 @@ export default {async fetch(req,env){
     return json({ok:true,quotes:rows.results.map(x=>({id:x.id,status:x.status,url:u.origin+'/q/'+x.view_token,firstOpenedAt:x.first_opened_at,acceptedAt:x.accepted_at,acceptance:x.acceptance_json?JSON.parse(x.acceptance_json):null,email:x.mail_status?{recipient:x.mail_recipient,status:x.mail_status,createdAt:x.mail_created_at,sentAt:x.mail_sent_at,gmailMessageId:x.mail_message_id,error:x.mail_error}:null}))},200,c);
    }
    if(p==='/api/admin/revoke'){
-    const r=await env.DB.prepare("UPDATE quotes SET status='revoked',updated_at=? WHERE id=? AND status='published'").bind(now(),clean(v.id,110)).run();
-    return json({ok:r.meta.changes===1},200,c);
+    const id=clean(v.id,110);
+    const old=await env.DB.prepare('SELECT status FROM quotes WHERE id=?').bind(id).first();
+    if(!old)return bad('Quotation not found',404,c);
+    if(old.status==='revoked')return json({ok:true,alreadyRevoked:true},200,c);
+    // The owner may remove an accepted test quote after its linked records are deleted in HQ.
+    const r=await env.DB.prepare("UPDATE quotes SET status='revoked',updated_at=? WHERE id=? AND status IN ('published','accepted')").bind(now(),id).run();
+    return json({ok:r.meta.changes===1},r.meta.changes===1?200:409,c);
    }
  }
  const match=p.match(/^\/api\/q\/([0-9a-f]{54})\/accept$/);
