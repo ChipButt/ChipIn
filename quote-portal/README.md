@@ -39,21 +39,23 @@ Deploy only to the designated Cloudflare account. Preserve both the `DB` binding
 - Customer pages never collect payments or store card information.
 - A strong random client link is not identity verification. For higher-value contracts, consider email challenge/verification before accepting.
 
-## Important limitations
+## Manual-only customer emails
 
-## Email delivery from Gmail
+**Owner requirement: every email is drafted, never automatically sent.** Email delivery happens only when the owner presses **Send** in Gmail.
 
-- Confirmed sender: `jamesbutt.chipin@gmail.com`. The authenticated Gmail connector remains in ChatGPT; its OAuth token is **not** copied into Cloudflare or browser JavaScript.
-- **Publish & email quotation** creates the private URL and atomically queues the customer email, using the subject and message edited in HQ before publication. It does not itself send an email.
-- The authenticated Worker writes an immutable message into `quote_email_outbox` in D1 when publishing, using the recipient and the personalised wording stored in the published snapshot. For older published quotations without a queued email, the owner can still queue it separately.
-- A separate hourly ChatGPT automation is configured to process the queue through the connected Gmail account and record the returned Gmail message ID. **This task may stop for required user approval.** As checked on 16 November 2026, it was paused with `requires_user_action: true`; unattended sending must not be represented as guaranteed.
-- HQ automatically synchronises the delivery status from D1 while open and unlocked. **Queued** never means sent. **Sent by Gmail** means Gmail accepted a message, not that it reached the client's inbox.
-- **Open Gmail draft** opens a prefilled browser Gmail compose window for manual sending, using the same editable subject and body template. HQ cannot automatically verify a manually sent draft. Take care not to send the same quotation manually and again through the queue.
-- There is no direct unattended Gmail API integration in HQ. The ChatGPT automation's permission checks can pause it, even if the Gmail app's general permissions are set to allow all. Until a separately authorised direct sending integration is configured, queued messages may not be sent without further action.
-- An hourly ChatGPT acceptance watcher separately checks for new accepted client quotations. HQ also checks for acceptances while open.
+- **Publish & open Gmail draft** publishes an immutable customer quote and immediately opens a pre-filled Gmail compose tab with the published link. The owner can amend the recipient, subject and body before sending.
+- Email subject and body are editable in the draft quote editor. Placeholders `{clientName}`, `{quoteNumber}`, `{validUntil}` and `{quoteLink}` are expanded when the Gmail draft opens.
+- Already-published quotations offer **Open Gmail draft** again; sending remains entirely manual. HQ can copy the customer link as before.
+- Client contact details, Sales Assistant outreach and follow-ups use the central `hq/app28_email_drafts.js` composer to open editable Gmail drafts with saved business details, prior conversation context when recorded, and links where appropriate.
+- Invoice emails open Gmail with the recipient, subject and body prefilled, and download the exact invoice PDF for manual attachment. Gmail browser compose links cannot pre-attach files; the owner must attach the downloaded PDF before sending.
+- The old hourly Gmail sender is **disabled** and the Worker no longer creates outgoing email queue records. `/api/admin/send-email` returns HTTP 410. Previously confirmed sends remain in the historical email outbox; the outbox is not used for future delivery.
+- HQ does **not** infer or mark successful email delivery from opening a draft. Its internal quotation workflow status may use `Sent` as an existing state but the user-facing status is `Published` until an acceptance is received or the owner records delivery.
+- Hourly acceptance notifications remain available; these do not send customer emails.
 
-To run a safe local regression check, run `node quote-portal/queue.test.mjs`. It uses an in-memory fake database and never sends messages. GitHub Action `Verify Chip In quotation emails` runs this on updates.
+## Regression checks
 
-## Important limitations
+Run `node quote-portal/queue.test.mjs` to validate that no email is sent or queued, the legacy queue API is disabled, and first-contact/follow-up Gmail draft URLs are prefilled. No real email is sent by this test.
 
-Gmail-backed dispatch can take up to an hour or longer if the automation runs late or needs retrying. This is not instant transactional email. Do not promise an email was delivered before `quote_email_outbox` has a confirmed Gmail message ID. Never send emails just because a quote has been published; a separate explicit queue action is required.
+## Important limitation
+
+A Gmail browser compose URL cannot attach a local PDF automatically. A draft with an invoice PDF already attached would require a separate, explicitly authorised Gmail **draft-creation-only** integration. No such integration has been enabled, and no email is ever sent without the owner's action.
