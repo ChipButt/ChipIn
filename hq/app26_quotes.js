@@ -317,6 +317,7 @@ function openPreview(id){
  (!locked?'<button class="btn small secondary" id="hqQuoteEdit">Edit draft</button><button class="btn small" id="hqQuoteSent">I sent it separately</button>':'')+
  (q.status==='Sent'&&!q.interactive?.url?'<button class="btn small gold" id="hqQuoteAccept">Accept quote</button><button class="btn small secondary" id="hqQuoteDecline">Declined</button>':'')+
  (q.status==='Accepted'?'<button class="btn small gold" id="hqQuoteInvoice">Open draft invoice</button>':'')+
+ '<button class="btn small danger" id="hqQuoteDelete">Delete quote</button>'+
  '</div></div>'+quoteHTML(q),true);
  document.getElementById('hqQuotePDF').onclick=()=>downloadPDF(q);
  document.getElementById('hqQuoteEdit')?.addEventListener('click',()=>openForm(id));
@@ -324,6 +325,7 @@ function openPreview(id){
  document.getElementById('hqQuoteAccept')?.addEventListener('click',()=>accept(q));
  document.getElementById('hqQuoteDecline')?.addEventListener('click',()=>setDeclined(q));
  document.getElementById('hqQuoteInvoice')?.addEventListener('click',()=>{const inv=invoiceById(q.invoiceId);if(inv)openInvoicePreview(inv.id);else toast('Draft invoice not found.');});
+ document.getElementById('hqQuoteDelete')?.addEventListener('click',()=>confirmDeleteQuote(q));
  window.ChipInQuotePortal?.previewActions(q);
 }
 function stage(q,s){
@@ -388,6 +390,74 @@ async function accept(q){
  window.ChipInRecurringBilling?.priceFromJob?.(job);
  await saveState();render();openInvoicePreview(inv.id);
  toast('Accepted: job and draft invoice created. No invoice has been sent.');
+}
+
+// Quote removal cascades through its generated jobs, invoices and recurring billing.
+function quoteDeleteLinks(q){
+ const jobs=(state.jobs||[]).filter(j=>j.sourceQuoteId===q.id||(q.jobId&&j.id===q.jobId));
+ const jobIds=new Set(jobs.map(j=>j.id));
+ const charges=(state.recurringCharges||[]).filter(c=>jobIds.has(c.jobId));
+ const chargeIds=new Set(charges.map(c=>c.id));
+ const direct=new Set((state.invoices||[]).filter(i=>i.sourceQuoteId===q.id||
+  (q.invoiceId&&i.id===q.invoiceId)||jobIds.has(i.jobId)||jobIds.has(i.sourceJobId)||
+  chargeIds.has(i.recurringChargeId)).map(i=>i.id));
+ const invoices=[],shared=[],blocked=[];
+ for(const inv of state.invoices||[]){
+  if(direct.has(inv.id)){invoices.push(inv);continue;}
+  const refs=Array.isArray(inv.recurringItems)?inv.recurringItems:[];
+  if(!refs.some(x=>chargeIds.has(x.chargeId)))continue;
+  if(refs.every(x=>chargeIds.has(x.chargeId))){invoices.push(inv);continue;}
+  if(inv.autoRecurring===true&&!inv.autoRecurringEdited&&inv.status==='Draft'&&
+   !(inv.payments||[]).length&&Array.isArray(inv.items)&&inv.items.length===refs.length)
+   shared.push(inv);
+  else blocked.push(inv);
+ }
+ return {jobs,charges,invoices,shared,blocked,jobIds,chargeIds};
+}
+function confirmDeleteQuote(q){
+ if(!byId(q.id))return toast('Quotation no longer exists.');
+ const d=quoteDeleteLinks(q);
+ if(d.blocked.length){
+  openModal('<h2>Cannot delete this quotation yet</h2><p class="sub">A linked recurring invoice also contains charges from another job. Review that invoice first so unrelated work is not erased.</p><p>'+esc(d.blocked.map(i=>i.number).join(', '))+'</p><div class="form-actions"><button class="btn" type="button" data-close-modal>Close</button></div>');
+  return;
+ }
+ const issued=d.invoices.filter(i=>i.status!=='Draft'||(i.payments||[]).length>0);
+ const warning=issued.length?'<p><strong>Warning:</strong> '+issued.length+' invoice(s) have been issued or contain payments. Their payment history will be erased too. Only delete if these are records you genuinely wish to remove.</p>':'';
+ openModal('<h2>Delete quotation and linked records?</h2><p class="sub">'+esc(q.number)+
+  ' · '+d.jobs.length+' job(s) · '+d.invoices.length+' invoice(s) · '+d.charges.length+' recurring billing record(s)</p>'+
+  (d.shared.length?'<p>Any shared draft renewal invoice will retain unrelated charges.</p>':'')+
+  (q.interactive?.url?'<p>The customer approval link will be revoked first.</p>':'')+
+  warning+'<p><strong>Permanent deletion:</strong> the quote, generated job, linked invoices and recurring charges cannot be restored. Reference numbers will not be reused.</p>'+
+  '<div class="form-actions"><button class="btn secondary" type="button" data-close-modal>Cancel</button>'+
+  '<button class="btn danger" type="button" id="hqQuoteDeleteConfirm">Delete quote and linked records</button></div>',true);
+ const btn=document.getElementById('hqQuoteDeleteConfirm');
+ btn.onclick=async()=>{
+  btn.disabled=true;btn.textContent='Deleting…';
+  try{
+   // A failed remote revocation must not remove HQ records.
+   if(q.interactive?.url){
+    if(!window.ChipInQuotePortal?.revoke)throw Error('Quotation service unavailable; nothing deleted.');
+    await window.ChipInQuotePortal.revoke(q);
+   }
+   const prior={quotes:state.quotes,jobs:state.jobs,invoices:state.invoices,recurringCharges:state.recurringCharges};
+   try{
+    const invoiceIds=new Set(d.invoices.map(i=>i.id));
+    state.invoices=(state.invoices||[]).filter(i=>!invoiceIds.has(i.id)).map(inv=>{
+     if(!d.shared.includes(inv))return inv;
+     const keep=inv.recurringItems.map((ref,i)=>({ref,item:inv.items[i]})).filter(x=>!d.chargeIds.has(x.ref.chargeId));
+     return {...inv,recurringItems:keep.map(x=>x.ref),items:keep.map(x=>x.item)};
+    });
+    state.quotes=quotes().filter(x=>x.id!==q.id);
+    state.jobs=(state.jobs||[]).filter(j=>!d.jobIds.has(j.id));
+    state.recurringCharges=(state.recurringCharges||[]).filter(c=>!d.chargeIds.has(c.id));
+    await saveState();
+   }catch(error){Object.assign(state,prior);throw error;}
+   closeModal();render();toast('Deleted quote, linked jobs, invoices and recurring records.');
+  }catch(error){
+   btn.disabled=false;btn.textContent='Delete quote and linked records';
+   toast('Could not delete quotation: '+error.message);
+  }
+ };
 }
 
 async function approveOnline(id){
