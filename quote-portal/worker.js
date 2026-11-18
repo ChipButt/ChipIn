@@ -130,32 +130,14 @@ export default {async fetch(req,env){
    if(!await admin(req,env))return bad('Unauthorised: connect HQ first',401,c);
    const v=await body(req);
 
-   if(p==='/api/admin/send-email'){
-    // Explicit HQ user action; no SMTP or Gmail token is ever given to a browser.
-    const quoteId=clean(v.id,110);
-    const q=await env.DB.prepare('SELECT id,number,view_token,status,valid_until,proposal_json FROM quotes WHERE id=?').bind(quoteId).first();
-    if(!q)return bad('Published quote not found',404,c);
-    if(q.status!=='published'||q.valid_until<now().slice(0,10))return bad('This quote is no longer open for sending',409,c);
-    const existing=await env.DB.prepare('SELECT recipient,status,created_at,sent_at,gmail_message_id,last_error FROM quote_email_outbox WHERE quote_id=?').bind(quoteId).first();
-    if(existing)return json({ok:true,email:{recipient:existing.recipient,status:existing.status,createdAt:existing.created_at,sentAt:existing.sent_at,gmailMessageId:existing.gmail_message_id,error:existing.last_error},alreadyQueued:true},200,c);
-    const mail=quoteEmail(q,JSON.parse(q.proposal_json)),timestamp=now();
-    await env.DB.prepare("INSERT INTO quote_email_outbox(quote_id,recipient,sender,subject,body,status,created_at) VALUES(?,?,?,?,?,'queued',?) ON CONFLICT(quote_id) DO NOTHING").bind(q.id,mail.recipient,mail.sender,mail.subject,mail.body,timestamp).run();
-    const record=await env.DB.prepare('SELECT recipient,status,created_at,sent_at,gmail_message_id,last_error FROM quote_email_outbox WHERE quote_id=?').bind(q.id).first();
-    return json({ok:true,email:{recipient:record.recipient,status:record.status,createdAt:record.created_at,sentAt:record.sent_at,gmailMessageId:record.gmail_message_id,error:record.last_error},message:record.status==='queued'?'Email queued for secure Gmail dispatch. This is not yet sent.':'Existing delivery record returned.'},202,c);
-   }
+   if(p==='/api/admin/send-email')return bad('Automatic email sending is disabled. Open a Gmail draft for manual review and sending.',410,c);
    if(p==='/api/admin/publish'){
     const doc=validate(v.proposal);
     const old=await env.DB.prepare('SELECT view_token,status FROM quotes WHERE id=?').bind(doc.id).first();
     if(old)return json({ok:true,status:old.status,url:u.origin+'/q/'+old.view_token,alreadyPublished:true},200,c);
     const token=secureRandom(),t=now();
-    // One action: store the published quotation and its email queue record atomically.
-    // Queued means awaiting Gmail; it is not a claim that an email has been sent.
-    const mail=quoteEmail({number:doc.number,view_token:token},doc);
-    await env.DB.batch([
-     env.DB.prepare('INSERT INTO quotes(id,number,view_token,customer_name,status,proposal_json,issued_at,valid_until,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?)').bind(doc.id,doc.number,token,doc.clientName,'published',JSON.stringify(doc),doc.issuedAt,doc.validUntil,t,t),
-     env.DB.prepare("INSERT INTO quote_email_outbox(quote_id,recipient,sender,subject,body,status,created_at) VALUES(?,?,?,?,?,'queued',?)").bind(doc.id,mail.recipient,mail.sender,mail.subject,mail.body,t)
-    ]);
-    return json({ok:true,status:'published',url:u.origin+'/q/'+token,email:{recipient:mail.recipient,status:'queued',createdAt:t,sentAt:null,gmailMessageId:null,error:null}},201,c);
+    await env.DB.prepare('INSERT INTO quotes(id,number,view_token,customer_name,status,proposal_json,issued_at,valid_until,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?)').bind(doc.id,doc.number,token,doc.clientName,'published',JSON.stringify(doc),doc.issuedAt,doc.validUntil,t,t).run();
+    return json({ok:true,status:'published',url:u.origin+'/q/'+token,email:null},201,c);
    }
    if(p==='/api/admin/sync'){
     const ids=Array.isArray(v.ids)?v.ids.slice(0,100).map(String).filter(x=>/^qte_[\da-z_-]{4,95}$/i.test(x)):[];
