@@ -1,4 +1,4 @@
-name: Verify Chip In quotation emails
+name: Verify Chip In manual Gmail drafts
 on:
   push:
     branches: [main]
@@ -6,6 +6,10 @@ on:
       - 'quote-portal/**'
       - 'hq/app26_quotes.js'
       - 'hq/app27_interactive_quotes.js'
+      - 'hq/app28_email_drafts.js'
+      - 'hq/app18_sales_assistant.js'
+      - 'hq/app22_client_pipeline.js'
+      - 'hq/app11_invoice_job_fixes.js'
       - '.github/workflows/quote-email-test.yml'
   workflow_dispatch:
 permissions:
@@ -23,5 +27,9 @@ jobs:
           node --check hq/app26_quotes.js
           node --check hq/app27_interactive_quotes.js
           node --check quote-portal/worker.js
-      - name: Test Gmail quote queue without sending messages
+          node --check hq/app28_email_drafts.js
+          node --check hq/app18_sales_assistant.js
+          node --check hq/app22_client_pipeline.js
+          node --check hq/app11_invoice_job_fixes.js
+      - name: Test that publishing cannot send emails and all drafts require the owner
         run: node quote-portal/queue.test.mjs
