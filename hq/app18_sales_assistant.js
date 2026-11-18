@@ -704,7 +704,11 @@
       <div class="field full"><label>Why are you contacting them?</label><input name="nextActionReason" value="${esc(l.nextActionReason||'')}"></div>
       <div class="field full"><label>AI-approved wording (optional)</label><textarea name="aiReply" placeholder="Paste wording supplied by ChatGPT here if you want this exact wording shown on the action card.">${esc(l.aiReply||'')}</textarea></div>
       <div class="field full"><label>General notes</label><textarea name="notes">${esc(l.notes||'')}</textarea></div>
-    </div><div class="form-actions">${l.id?'<button class="btn danger" type="button" id="deleteSalesLead">Delete</button>':''}<button class="btn secondary" type="button" data-close-modal>Cancel</button><button class="btn" type="submit">Save contact</button></div></form>`,true);
+    </div><div class="form-actions">${l.id?'<button class="btn danger" type="button" id="deleteSalesLead">Delete</button>':''}<button class="btn secondary" type="button" id="salesLeadEmailDraft">Open Gmail draft</button><button class="btn secondary" type="button" data-close-modal>Cancel</button><button class="btn" type="submit">Save contact</button></div></form>`,true);
+    $('#salesLeadEmailDraft').onclick=()=>{
+      const current={...l,...Object.fromEntries(new FormData($('#salesLeadForm')).entries())};
+      window.ChipInEmailDrafts?.forSalesLead(current);
+    };
     $('#salesLeadForm').onsubmit=async e=>{
       e.preventDefault();
       const v=Object.fromEntries(new FormData(e.target).entries());
