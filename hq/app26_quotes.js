@@ -403,9 +403,9 @@ function quoteDeleteLinks(q){
   chargeIds.has(i.recurringChargeId)).map(i=>i.id));
  const invoices=[],shared=[],blocked=[];
  for(const inv of state.invoices||[]){
-  if(direct.has(inv.id)){invoices.push(inv);continue;}
   const refs=Array.isArray(inv.recurringItems)?inv.recurringItems:[];
-  if(!refs.some(x=>chargeIds.has(x.chargeId)))continue;
+  if(!refs.length){if(direct.has(inv.id))invoices.push(inv);continue;}
+  if(!refs.some(x=>chargeIds.has(x.chargeId))){if(direct.has(inv.id))blocked.push(inv);continue;}
   if(refs.every(x=>chargeIds.has(x.chargeId))){invoices.push(inv);continue;}
   if(inv.autoRecurring===true&&!inv.autoRecurringEdited&&inv.status==='Draft'&&
    !(inv.payments||[]).length&&Array.isArray(inv.items)&&inv.items.length===refs.length)
@@ -421,13 +421,16 @@ function confirmDeleteQuote(q){
   openModal('<h2>Cannot delete this quotation yet</h2><p class="sub">A linked recurring invoice also contains charges from another job. Review that invoice first so unrelated work is not erased.</p><p>'+esc(d.blocked.map(i=>i.number).join(', '))+'</p><div class="form-actions"><button class="btn" type="button" data-close-modal>Close</button></div>');
   return;
  }
- const issued=d.invoices.filter(i=>i.status!=='Draft'||(i.payments||[]).length>0);
- const warning=issued.length?'<p><strong>Warning:</strong> '+issued.length+' invoice(s) have been issued or contain payments. Their payment history will be erased too. Only delete if these are records you genuinely wish to remove.</p>':'';
+ const issued=[...d.invoices,...d.shared].filter(i=>i.status!=='Draft'||i.sentDate||i.archivePath||i.issuedSnapshot||(i.payments||[]).length);
+ if(issued.length){
+  openModal('<h2>Financial history protected</h2><p>These linked invoices have been issued, archived or have payment history. Deleting this quotation would remove accounting evidence.</p><p>'+esc(issued.map(i=>i.number).join(', '))+'</p><div class="form-actions"><button class="btn" type="button" data-close-modal>Close</button></div>');
+  return;
+ }
  openModal('<h2>Delete quotation and linked records?</h2><p class="sub">'+esc(q.number)+
   ' · '+d.jobs.length+' job(s) · '+d.invoices.length+' invoice(s) · '+d.charges.length+' recurring billing record(s)</p>'+
   (d.shared.length?'<p>Any shared draft renewal invoice will retain unrelated charges.</p>':'')+
   (q.interactive?.url?'<p>The customer approval link will be revoked first.</p>':'')+
-  warning+'<p><strong>Permanent deletion:</strong> the quote, generated job, linked invoices and recurring charges cannot be restored. Reference numbers will not be reused.</p>'+
+  '<p><strong>Permanent deletion:</strong> the quote, generated job, linked invoices and recurring charges cannot be restored. Reference numbers will not be reused.</p>'+
   '<div class="form-actions"><button class="btn secondary" type="button" data-close-modal>Cancel</button>'+
   '<button class="btn danger" type="button" id="hqQuoteDeleteConfirm">Delete quote and linked records</button></div>',true);
  const btn=document.getElementById('hqQuoteDeleteConfirm');
