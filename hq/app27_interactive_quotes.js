@@ -85,6 +85,13 @@ async function publish(id){
   toast('Could not prepare the quotation email: '+e.message);
  }
 }
+// Revoke the customer's private URL before HQ removes a quotation.
+async function revoke(q){
+ if(!q?.interactive?.url)return true;
+ const result=await call('/api/admin/revoke',{id:q.id});
+ if(!result?.ok)throw Error('The published quotation could not be revoked. No HQ records were removed.');
+ return true;
+}
 async function synchronize(showToast=false){
  if(inFlight||!portalReady())return;
  const pending=quotes().filter(q=>q.interactive?.url&&!q.invoiceId);
@@ -223,5 +230,5 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
 const css=document.createElement('style');
 css.textContent='.hq-quote-dashboard-alert{display:flex;align-items:center;justify-content:space-between;gap:15px;border:1px solid #c7d9e9;background:#eef6fc;border-radius:12px;padding:15px;margin-bottom:18px;flex-wrap:wrap}.hq-quote-dashboard-alert p{margin:5px 0 0;color:var(--muted);font-size:12px}.hq-quote-online-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;background:#f5f9fd;border:1px solid #dce7f0;border-radius:12px;margin-bottom:16px;flex-wrap:wrap}.hq-quote-accepted-notice{background:#fff;border:1px solid #d6e4ed;border-radius:12px;padding:16px;margin-bottom:15px}.hq-quote-accepted-notice h3{margin:0 0 8px;font-size:17px}.hq-quote-notice-row{display:flex;justify-content:space-between;align-items:center;gap:10px;border-top:1px solid #e5ecf3;padding:11px 0;flex-wrap:wrap}';
 document.head.appendChild(css);
-window.ChipInQuotePortal={mountQuotes,previewActions,pairForm,publish,synchronize,review,collect,portalReady,base:BASE};
+window.ChipInQuotePortal={mountQuotes,previewActions,pairForm,publish,revoke,synchronize,review,collect,portalReady,base:BASE};
 })();
