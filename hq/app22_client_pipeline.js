@@ -156,7 +156,7 @@
         '<span class="hq-client-stage-badge">' +
         esc(label(stage)) + '</span></div>' +
         '<div class="hq-client-details">' +
-        '<div><span>Email</span>' + (c.email ? '<a href="mailto:' + esc(c.email) + '">' + esc(c.email) + '</a>' : '<em>Not recorded</em>') + '</div>' +
+        '<div><span>Email</span>' + (c.email ? '<a href="#" title="Open pre-written Gmail draft" data-client-compose="' + esc(c.id) + '">' + esc(c.email) + '</a>' : '<em>Not recorded</em>') + '</div>' +
         '<div><span>Phone</span>' + (c.phone ? '<a href="tel:' + esc(c.phone) + '">' + esc(c.phone) + '</a>' : '<em>Not recorded</em>') + '</div>' +
         '<div><span>Jobs</span><strong>' + jobs + '</strong></div></div>' +
         '<section class="hq-business-profile" aria-label="Business profile">' +
@@ -176,10 +176,19 @@
         (!archiveView && stage === 'Won' ? '<button class="btn small gold" type="button" data-client-job="' + esc(c.id) + '">' +
           (state.jobs.some(j => j.clientId === c.id) ? '+ Another Job' : 'Convert to Job') + '</button>' : '') +
         '<button class="btn small secondary" type="button" data-hq-client-recurring="' + esc(c.id) + '">Recurring charges</button>' +
+        (c.email ? '<button class="btn small secondary" type="button" data-client-compose="' + esc(c.id) + '">Open Gmail draft</button>' : '') +
         '<button class="btn small secondary" type="button" data-client-edit="' + esc(c.id) + '">Edit details</button>' +
         (!archiveView ? '<button class="btn small secondary hq-no-button" type="button" data-client-no="' + esc(c.id) + '">No</button>' : '') +
         '</div></article>';
     }).join('') : empty(archiveView ? 'No archived contacts match your search.' : 'No active clients match your search.');
+    container.querySelectorAll('[data-client-compose]').forEach(b => b.onclick = event => {
+      event.preventDefault();
+      const client=clientById(b.dataset.clientCompose);
+      if(!client)return;
+      const lead=leadFor(client);
+      if(lead?.email)return window.ChipInEmailDrafts?.forSalesLead(lead);
+      return window.ChipInEmailDrafts?.forClient(client,['Contact','Follow-up','Interested','Quote','Won'].includes(stageOf(client))?'followup':'intro');
+    });
     container.querySelectorAll('[data-client-edit]').forEach(b => b.onclick = () => openClientForm(b.dataset.clientEdit));
     container.querySelectorAll('[data-client-job]').forEach(b => b.onclick = () => window.ChipInClientToJob?.start(b.dataset.clientJob, b.textContent.includes('Another')));
     container.querySelectorAll('[data-client-no]').forEach(b => b.onclick = () => openNoForm(b.dataset.clientNo));
