@@ -115,6 +115,7 @@
                  <button class="btn small secondary" data-sales-action="edit-lead" data-id="${l.id}">Edit</button>
                  <button class="btn small" data-sales-action="done" data-id="${l.id}">Mark researched</button>`)
           : `${['call','visit'].includes(l.nextActionMethod)?`<button class="btn small gold" data-sales-action="schedule-contact" data-id="${l.id}">${l.nextActionTime?'Reschedule':'Schedule'} ${l.nextActionMethod==='visit'?'visit':'call'}</button>`:''}
+             ${l.nextActionMethod==='email'?'<button class="btn small gold" data-sales-action="compose-email" data-id="'+esc(l.id)+'">Open pre-written Gmail draft</button>':''}
              <button class="btn small secondary" data-sales-action="copy-script" data-id="${l.id}">Copy wording</button>
              <button class="btn small secondary" data-sales-action="edit-lead" data-id="${l.id}">Edit</button>
              <button class="btn small" data-sales-action="done" data-id="${l.id}">Mark done</button>`
@@ -415,6 +416,11 @@
     if(action==='edit-lead')return openLeadForm(id);
     if(action==='done')return completeSalesAction(id);
     if(action==='schedule-contact')return openContactSchedule(id);
+    if(action==='compose-email'){
+      const lead=leadById(id);
+      if(!lead)return toast('Contact not found.');
+      return window.ChipInEmailDrafts?.forSalesLead(lead);
+    }
     if(action==='copy-script'){
       const l=leadById(id); if(!l)return;
       await navigator.clipboard.writeText(l.aiReply||deterministicScript(l));
