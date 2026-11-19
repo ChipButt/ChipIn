@@ -26,6 +26,7 @@ function nextDate(date,frequency,anchorDay){
 const chargesFor=clientId=>registry().filter(c=>c.clientId===clientId);
 const cleanStart=x=>validDate(x)?x:TODAY();
 function planFromJob(job,kind,source){
+ if((job.suppressedRecurringCharges||[]).includes(kind))return;
  const frequency=kind==='care'?'monthly':'annual';
  const first=kind==='care' ? job.servicePricing?.billingOptions?.monthlyFirst!==false : job.servicePricing?.billingOptions?.domainFirst!==false;
  const anchorDate=cleanStart(job.startDate);
@@ -60,6 +61,7 @@ function planFromJob(job,kind,source){
 }
 function syncCustomExtra(job,extra){
  const id=extra.id;
+ if((job.suppressedRecurringCharges||[]).includes('custom-extra:'+String(id||'')))return;
  const prior=registry().find(c=>c.jobId===job.id&&c.kind==='custom-extra'&&c.sourceChargeId===id);
  const recurrence=['monthly','annual'].includes(extra.frequency)&&Number(extra.amount)>0;
  if(!recurrence){
@@ -310,6 +312,66 @@ async function draftCharge(id){
  }catch(err){toast('Could not create renewal invoice: '+err.message)}
  finally{inFlight=false}
 }
+// Remove a recurring schedule without erasing issued invoices or payment history.
+function recurringChargeInvoiceLinks(charge){
+ const drafts=[],shared=[],history=[],blocked=[];
+ for(const inv of state.invoices||[]){
+  const refs=Array.isArray(inv.recurringItems)?inv.recurringItems:[];
+  const indices=refs.map((ref,i)=>ref?.chargeId===charge.id?i:-1).filter(i=>i>=0);
+  const direct=inv.recurringChargeId===charge.id;
+  if(!direct&&!indices.length)continue;
+  const issued=inv.status!=='Draft'||!!inv.sentDate||!!inv.archivePath||!!inv.issuedSnapshot||(inv.payments||[]).length>0;
+  if(issued){history.push(inv);continue;}
+  if(direct&&refs.length){blocked.push(inv);continue;}
+  if(direct){drafts.push(inv);continue;}
+  const editable=inv.autoRecurring===true&&!inv.autoRecurringEdited&&Array.isArray(inv.items)&&inv.items.length===refs.length;
+  if(!editable){blocked.push(inv);continue;}
+  if(indices.length===refs.length)drafts.push(inv);
+  else shared.push({invoice:inv,indices});
+ }
+ return {drafts,shared,history,blocked};
+}
+function recurringSuppressionKey(charge){
+ if(charge.kind==='custom-extra')return 'custom-extra:'+String(charge.sourceChargeId||'');
+ return ['care','domain'].includes(charge.kind)?charge.kind:'';
+}
+function confirmDeleteRecurringCharge(id){
+ const charge=byId(id);if(!charge)return toast('Recurring charge no longer exists. Refresh the page.');
+ const links=recurringChargeInvoiceLinks(charge);
+ if(links.blocked.length){
+  openModal('<h2>Review linked draft invoices first</h2><p class="sub">This recurring charge appears in a manually edited or unusual draft invoice. HQ will not silently change it. Review or remove the following draft invoice(s) first:</p><p>'+esc(links.blocked.map(x=>x.number).join(', '))+'</p><div class="form-actions"><button class="btn" type="button" data-close-modal>Close</button></div>');
+  return;
+ }
+ openModal('<h2>Delete recurring client charge?</h2><p class="sub"><strong>'+esc(charge.name)+'</strong> · '+esc(clientById(charge.clientId)?.name||'Unknown client')+' · '+money(charge.amount)+' '+(charge.frequency==='annual'?'per year':'per month')+'</p>'+
+  '<p>This stops all future invoices for this schedule. '+links.drafts.length+' unissued draft invoice(s) will be removed, and '+links.shared.length+' combined draft invoice(s) will have only this charge removed.</p>'+
+  (links.history.length?'<p><strong>Protected:</strong> '+links.history.length+' issued/paid invoice(s) will remain unchanged as financial history.</p>':'')+
+  '<p><strong>Permanent:</strong> the schedule will be deleted. Existing unrelated charges and invoices will stay.</p>'+
+  '<div class="form-actions"><button class="btn secondary" type="button" data-close-modal>Cancel</button><button class="btn danger" type="button" id="hqChargeDeleteConfirm">Delete recurring charge</button></div>',true);
+ const btn=document.getElementById('hqChargeDeleteConfirm');
+ btn.onclick=async()=>{
+  if(!byId(id))return toast('This charge changed. Refresh before deleting.');
+  btn.disabled=true;btn.textContent='Deleting…';
+  const previous={recurringCharges:state.recurringCharges,invoices:state.invoices,jobs:state.jobs};
+  try{
+   const removeIds=new Set(links.drafts.map(x=>x.id));
+   const changes=new Map(links.shared.map(x=>[x.invoice.id,new Set(x.indices)]));
+   state.recurringCharges=registry().filter(x=>x.id!==id);
+   state.invoices=(state.invoices||[]).filter(x=>!removeIds.has(x.id)).map(inv=>{
+    const remove=changes.get(inv.id);if(!remove)return inv;
+    return {...inv,recurringItems:inv.recurringItems.filter((_,i)=>!remove.has(i)),items:inv.items.filter((_,i)=>!remove.has(i))};
+   });
+   const suppression=recurringSuppressionKey(charge);
+   if(charge.jobId&&suppression){
+    state.jobs=(state.jobs||[]).map(job=>job.id!==charge.jobId?job:{...job,
+     suppressedRecurringCharges:[...new Set([...(job.suppressedRecurringCharges||[]),suppression])]});
+   }
+   await saveState();closeModal();render();toast('Recurring charge deleted. Future invoices stopped.');
+  }catch(error){
+   Object.assign(state,previous);btn.disabled=false;btn.textContent='Delete recurring charge';
+   toast('Could not delete recurring charge: '+error.message);
+  }
+ };
+}
 function scheduleForm(id,clientId){
  const current=id?byId(id):null;
  const client=current?.clientId||clientId||'';
@@ -362,6 +424,7 @@ renderInvoices=function(){
     '<div class="hq-renewal-actions"><span class="badge '+(c.active?(overdue?'bad':'ok'):'')+'">'+(c.active?(overdue?'Due':'Upcoming'):'Paused')+'</span>'+
     '<button class="btn small secondary" data-hq-charge-edit="'+esc(c.id)+'">Edit</button>'+
     '<button class="btn small secondary" data-hq-charge-pause="'+esc(c.id)+'">'+(c.active?'Pause':'Resume')+'</button>'+
+    '<button class="btn small danger" data-hq-charge-delete="'+esc(c.id)+'">Delete</button>'+
     (c.active?'<button class="btn small gold" data-hq-charge-invoice="'+esc(c.id)+'">'+(overdue?'Create due invoice':'Create next invoice')+'</button>':'')+
     '</div></article>';
   }).join('')+'</div>':'<p class="muted">No recurring charges yet. Add one here, or save a website job with monthly care or a supplied domain.</p>');
@@ -370,6 +433,7 @@ renderInvoices=function(){
  panel.querySelector('#hqShowAllRenewals')?.addEventListener('click',()=>{clientFocus='';render();});
  panel.querySelectorAll('[data-hq-charge-edit]').forEach(b=>b.onclick=()=>scheduleForm(b.dataset.hqChargeEdit));
  panel.querySelectorAll('[data-hq-charge-invoice]').forEach(b=>b.onclick=()=>draftCharge(b.dataset.hqChargeInvoice));
+ panel.querySelectorAll('[data-hq-charge-delete]').forEach(b=>b.onclick=()=>confirmDeleteRecurringCharge(b.dataset.hqChargeDelete));
  panel.querySelectorAll('[data-hq-charge-pause]').forEach(b=>b.onclick=async()=>{
   const c=byId(b.dataset.hqChargePause);if(!c)return;
   c.active=!c.active;c.updatedAt=new Date().toISOString();await saveState();render();
