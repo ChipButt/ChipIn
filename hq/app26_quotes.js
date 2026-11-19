@@ -395,8 +395,12 @@ async function accept(q){
 // Quote removal cascades through its generated jobs, invoices and recurring billing.
 function quoteDeleteLinks(q){
  const jobs=(state.jobs||[]).filter(j=>j.sourceQuoteId===q.id||(q.jobId&&j.id===q.jobId));
- const jobIds=new Set(jobs.map(j=>j.id));
- const charges=(state.recurringCharges||[]).filter(c=>jobIds.has(c.jobId));
+ // A job may already have been manually deleted. Keep its ID from the quote
+ // (or explicitly linked invoice) so its orphan recurring charges are found.
+ const directInvoices=(state.invoices||[]).filter(i=>i.sourceQuoteId===q.id||(q.invoiceId&&i.id===q.invoiceId));
+ const jobIds=new Set([q.jobId,...jobs.map(j=>j.id),
+  ...directInvoices.flatMap(i=>[i.jobId,i.sourceJobId])].filter(Boolean));
+ const charges=(state.recurringCharges||[]).filter(c=>jobIds.has(c.jobId)||c.sourceQuoteId===q.id);
  const chargeIds=new Set(charges.map(c=>c.id));
  const direct=new Set((state.invoices||[]).filter(i=>i.sourceQuoteId===q.id||
   (q.invoiceId&&i.id===q.invoiceId)||jobIds.has(i.jobId)||jobIds.has(i.sourceJobId)||
