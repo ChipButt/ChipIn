@@ -63,7 +63,7 @@ export default {async fetch(request,env){
         const known=await env.DB.prepare('SELECT id FROM hq_records WHERE collection=? AND id IN ('+ids.map(()=>'?').join(',')+')').bind('quotes',...ids).all();
         if(known.results.length!==new Set(ids).size)return json({error:'Quotation not found in shared HQ.'},404);
       }
-      const response=await fetch('https://chipin-hq-quotes.goldplushighdefinition.workers.dev'+target,{
+      const response=await env.QUOTE_PORTAL.fetch('https://chipin-hq-quotes.goldplushighdefinition.workers.dev'+target,{
         method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+env.HQ_QUOTE_BRIDGE_KEY},
         body:JSON.stringify(body)
       });
