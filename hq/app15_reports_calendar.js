@@ -150,7 +150,7 @@
     if(existing)existing.remove();
     const wrap=document.createElement('div');wrap.id='dashboardCalendar15';wrap.innerHTML=`<div class="section-title"><div><h2>Work calendar</h2><p>Booked jobs, prep time and scheduled sales calls/visits all appear here.</p></div><div class="row-actions"><button class="btn secondary" id="calPrev15">←</button><strong id="calTitle15">${monthLabel15(calendarMonth15)}</strong><button class="btn secondary" id="calNext15">→</button><button class="btn" data-action="add-prep">+ Prep time</button></div></div>${calendarHTML15()}<div class="hint-box" style="margin-top:10px"><strong>Tax pot target so far:</strong> ${money(t.taxPot)} at ${t.reservePercent}%. Prep blocks are scheduling only and do not change job profit.</div>`;
     $('#content').appendChild(wrap);wirePageActions();
-    $('[data-sales-calendar-lead]').forEach(b=>b.onclick=()=>window.ChipInSalesAssistant?.schedule?.(b.dataset.salesCalendarLead));
+    document.querySelectorAll('[data-sales-calendar-lead]').forEach(b=>b.onclick=()=>window.ChipInSalesAssistant?.schedule?.(b.dataset.salesCalendarLead));
     $('#calPrev15').onclick=()=>{const [y,m]=calendarMonth15.split('-').map(Number),d=new Date(y,m-2,1);calendarMonth15=monthKey15(d);renderDashboard()};
     $('#calNext15').onclick=()=>{const [y,m]=calendarMonth15.split('-').map(Number),d=new Date(y,m,1);calendarMonth15=monthKey15(d);renderDashboard()};
   };

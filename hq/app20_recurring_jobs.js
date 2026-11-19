@@ -237,7 +237,7 @@
           var delta=dayNumber20(startEdit.value)-dayNumber20(previous);
           previous=startEdit.value;
           if(!Number.isFinite(delta)||!delta)return;
-          $('[data-workday="date"]',form).forEach(function(input){
+          form.querySelectorAll('[data-workday="date"]').forEach(function(input){
             if(input.value)input.value=shiftDate20(input.value,delta);
           });
           if(endEdit.value===lastAutoEnd&&lastAutoEnd){

@@ -74,17 +74,10 @@ async function writeCloudState(){
     for(let attempt=0;attempt<4;attempt++){
       const localSnapshot=structuredClone(state);
       const cur=await getFile('data/chipin.enc');
-      if(cur&&ghStateSha&&cur.sha!==ghStateSha){
-        const other=JSON.parse(await openText(cur.text,ghPass)).state;
-        if(Date.parse(other.updatedAt||0)>=Date.parse(localSnapshot.updatedAt||0)){
-          await preserveLocalConflict(localSnapshot);
-          state=mergeDefaults(other,DEFAULT_STATE);
-          await dbPut('app','state',state);
-          ghStateSha=cur.sha;
-          render();
-          setGhStatus('Loaded newer private data · local copy preserved','warn');
-          return {loadedRemote:true};
-        }
+      // A changed revision means another browser saved a different snapshot.
+      // Device clocks cannot establish whether either snapshot contains both edits.
+      if((cur?.sha||'')!==ghStateSha){
+        throw Error('Another computer changed the private records. Your edits are saved on this device. Review both copies before syncing.');
       }
       const text=await sealText(JSON.stringify({format:'ChipInHQState',savedAt:new Date().toISOString(),state:localSnapshot}),ghPass);
       try{
@@ -94,7 +87,6 @@ async function writeCloudState(){
       }catch(e){
         if(e?.status!==409)throw e;
         console.warn('Chip In state SHA changed during write; refreshing and retrying',attempt+1);
-        ghStateSha='';
         if(attempt<3)await new Promise(r=>setTimeout(r,150*(attempt+1)));
       }
     }

@@ -34,8 +34,8 @@ function open(to,subject,body){
 }
 function forSalesLead(l){
  if(!l)return false;
- const c=(state.clients||[]).find(c=>c.sourceLeadId===l.id||c.sourceLeadId===l.sourceLeadId||c.id===l.convertedClientId||
-    (c.name||'').trim().toLowerCase()===(l.businessName||'').trim().toLowerCase());
+ const c=(state.clients||[]).find(c=>(c.sourceLeadId&&(c.sourceLeadId===l.id||c.sourceLeadId===l.sourceLeadId))||(l.convertedClientId&&c.id===l.convertedClientId)||
+    (field(l.businessName)&&field(c.name).toLowerCase()===field(l.businessName).toLowerCase()));
  const recipient=field(l.email||c?.email);
  const contact=field(l.contactName||c?.contact)||'there',name=field(l.businessName||c?.name)||'your business';
  const service=field(l.service),previous=field(l.lastContactSummary),isFollowUp=!!previous||['Follow-up','Contact','Interested','Quote'].includes(l.stage);

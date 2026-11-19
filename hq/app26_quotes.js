@@ -395,17 +395,21 @@ async function accept(q){
 // Quote removal cascades through its generated jobs, invoices and recurring billing.
 function quoteDeleteLinks(q){
  const jobs=(state.jobs||[]).filter(j=>j.sourceQuoteId===q.id||(q.jobId&&j.id===q.jobId));
- const jobIds=new Set(jobs.map(j=>j.id));
- const charges=(state.recurringCharges||[]).filter(c=>jobIds.has(c.jobId));
+ // A job may already have been manually deleted. Keep its ID from the quote
+ // (or explicitly linked invoice) so its orphan recurring charges are found.
+ const directInvoices=(state.invoices||[]).filter(i=>i.sourceQuoteId===q.id||(q.invoiceId&&i.id===q.invoiceId));
+ const jobIds=new Set([q.jobId,...jobs.map(j=>j.id),
+  ...directInvoices.flatMap(i=>[i.jobId,i.sourceJobId])].filter(Boolean));
+ const charges=(state.recurringCharges||[]).filter(c=>jobIds.has(c.jobId)||c.sourceQuoteId===q.id);
  const chargeIds=new Set(charges.map(c=>c.id));
  const direct=new Set((state.invoices||[]).filter(i=>i.sourceQuoteId===q.id||
   (q.invoiceId&&i.id===q.invoiceId)||jobIds.has(i.jobId)||jobIds.has(i.sourceJobId)||
   chargeIds.has(i.recurringChargeId)).map(i=>i.id));
  const invoices=[],shared=[],blocked=[];
  for(const inv of state.invoices||[]){
-  if(direct.has(inv.id)){invoices.push(inv);continue;}
   const refs=Array.isArray(inv.recurringItems)?inv.recurringItems:[];
-  if(!refs.some(x=>chargeIds.has(x.chargeId)))continue;
+  if(!refs.length){if(direct.has(inv.id))invoices.push(inv);continue;}
+  if(!refs.some(x=>chargeIds.has(x.chargeId))){if(direct.has(inv.id))blocked.push(inv);continue;}
   if(refs.every(x=>chargeIds.has(x.chargeId))){invoices.push(inv);continue;}
   if(inv.autoRecurring===true&&!inv.autoRecurringEdited&&inv.status==='Draft'&&
    !(inv.payments||[]).length&&Array.isArray(inv.items)&&inv.items.length===refs.length)
@@ -421,13 +425,16 @@ function confirmDeleteQuote(q){
   openModal('<h2>Cannot delete this quotation yet</h2><p class="sub">A linked recurring invoice also contains charges from another job. Review that invoice first so unrelated work is not erased.</p><p>'+esc(d.blocked.map(i=>i.number).join(', '))+'</p><div class="form-actions"><button class="btn" type="button" data-close-modal>Close</button></div>');
   return;
  }
- const issued=d.invoices.filter(i=>i.status!=='Draft'||(i.payments||[]).length>0);
- const warning=issued.length?'<p><strong>Warning:</strong> '+issued.length+' invoice(s) have been issued or contain payments. Their payment history will be erased too. Only delete if these are records you genuinely wish to remove.</p>':'';
+ const issued=[...d.invoices,...d.shared].filter(i=>i.status!=='Draft'||i.sentDate||i.archivePath||i.issuedSnapshot||(i.payments||[]).length);
+ if(issued.length){
+  openModal('<h2>Financial history protected</h2><p>These linked invoices have been issued, archived or have payment history. Deleting this quotation would remove accounting evidence.</p><p>'+esc(issued.map(i=>i.number).join(', '))+'</p><div class="form-actions"><button class="btn" type="button" data-close-modal>Close</button></div>');
+  return;
+ }
  openModal('<h2>Delete quotation and linked records?</h2><p class="sub">'+esc(q.number)+
   ' · '+d.jobs.length+' job(s) · '+d.invoices.length+' invoice(s) · '+d.charges.length+' recurring billing record(s)</p>'+
   (d.shared.length?'<p>Any shared draft renewal invoice will retain unrelated charges.</p>':'')+
   (q.interactive?.url?'<p>The customer approval link will be revoked first.</p>':'')+
-  warning+'<p><strong>Permanent deletion:</strong> the quote, generated job, linked invoices and recurring charges cannot be restored. Reference numbers will not be reused.</p>'+
+  '<p><strong>Permanent deletion:</strong> the quote, generated job, linked invoices and recurring charges cannot be restored. Reference numbers will not be reused.</p>'+
   '<div class="form-actions"><button class="btn secondary" type="button" data-close-modal>Cancel</button>'+
   '<button class="btn danger" type="button" id="hqQuoteDeleteConfirm">Delete quote and linked records</button></div>',true);
  const btn=document.getElementById('hqQuoteDeleteConfirm');

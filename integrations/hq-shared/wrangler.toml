@@ -1,0 +1,15 @@
+name = "chipin-hq-shared"
+main = "worker.mjs"
+compatibility_date = "2026-11-01"
+[[rules]]
+type = "Text"
+globs = ["**/*.html", "**/*.txt"]
+fallthrough = true
+[[d1_databases]]
+binding = "DB"
+database_name = "chipin-hq-interactive-quotes"
+database_id = "ab6a4e93-252b-41fb-9cc8-e1398075bda0"
+
+[[services]]
+binding = "QUOTE_PORTAL"
+service = "chipin-hq-quotes"
