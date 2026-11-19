@@ -28,7 +28,7 @@ export default {async fetch(request,env){
   if(/^\/hq\/(?:|[a-zA-Z0-9_-]+\.(?:js|css|png|webmanifest))$/.test(path) && request.method==='GET'){
     if(path==='/hq/sw.js')return new Response(null,{status:404});
     const file=path==='/hq/'?'index.html':path.slice(4);
-    const upstream=await fetch('https://raw.githubusercontent.com/ChipButt/ChipIn/5bb5c287aceac3d5434014e40d97c673f8afaffa/hq/'+file);
+    const upstream=await fetch('https://raw.githubusercontent.com/ChipButt/ChipIn/0dccc9e6197d6eb8daefd9bf1836f816db80d791/hq/'+file);
     if(!upstream.ok)return new Response('HQ asset unavailable',{status:502});
     const types={html:'text/html',js:'application/javascript',css:'text/css',png:'image/png',webmanifest:'application/manifest+json'};
     const headers={'Content-Type':types[file.split('.').pop()],'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer','X-Frame-Options':'DENY'};
