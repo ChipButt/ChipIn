@@ -7,7 +7,11 @@ let inFlight=false,lastChecked=0;
 const quotes=()=>Array.isArray(state.quotes)?state.quotes:[];
 const byId=id=>quotes().find(q=>q.id===id);
 const str=x=>String(x??'').trim();
-function portalReady(){return !!(localStorage.getItem(STORAGE)&&ghPass&&ghUnlocked)}
+function sharedHQSession(){
+ if(location.hostname!=='chipin-hq-shared.goldplushighdefinition.workers.dev')return null;
+ try{return JSON.parse(sessionStorage.getItem('hqSession')||'null')}catch{return null}
+}
+function portalReady(){return !!sharedHQSession()?.id||!!(localStorage.getItem(STORAGE)&&ghPass&&ghUnlocked)}
 async function key(){
  const sealed=localStorage.getItem(STORAGE);
  if(!sealed)throw Error('Connect the quotation service first. Use the pairing code in the Quotes section.');
@@ -15,6 +19,13 @@ async function key(){
  return openText(sealed,ghPass);
 }
 async function call(path,body,authenticated=true){
+ const session=sharedHQSession();
+ if(session&&authenticated){
+  const response=await fetch('/quote-admin',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+session.id},body:JSON.stringify({path,body}),cache:'no-store'});
+  const result=await response.json();
+  if(!response.ok)throw Error(result.error||'Shared HQ quotation service error '+response.status);
+  return result;
+ }
  const auth=authenticated?await key():'';
  const response=await fetch(BASE+path,{method:'POST',headers:{'Content-Type':'application/json',...(authenticated?{'Authorization':'Bearer '+auth}:{})},body:JSON.stringify(body)});
  const result=await response.json();
@@ -121,7 +132,7 @@ function mountQuotes(){
  if(!host||!host.querySelector('#hqQuoteTable'))return;
  const ready=portalReady(),accepted=quotes().filter(q=>q.interactive?.acceptance&&!q.invoiceId);
  const bar=document.createElement('div');bar.className='hq-quote-online-bar';bar.id='hqQuoteOnlineBar';
- bar.innerHTML='<div><strong>Interactive customer quotations</strong><p class="muted" style="margin:5px 0 0">'+(ready?'Connected · replies checked automatically while HQ is open and unlocked (about every 90 seconds)':'One-time secure connection required before sending interactive quotation links')+'</p></div><div class="row-actions">'+
+ bar.innerHTML='<div><strong>Interactive customer quotations</strong><p class="muted" style="margin:5px 0 0">'+(sharedHQSession()?'Connected through your shared HQ login · customer replies checked automatically':ready?'Connected · replies checked automatically while HQ is open and unlocked (about every 90 seconds)':'One-time secure connection required before sending interactive quotation links')+'</p></div><div class="row-actions">'+
  '<a class="btn small secondary" href="'+BASE+'/demo" target="_blank" rel="noopener noreferrer">Try customer demo</a>'+ (ready?'<button class="btn small secondary" id="hqQuoteCheck">Check now</button>':'<button class="btn small" id="hqQuotePair">Connect quotations</button>')+'</div>';
  host.prepend(bar);
  document.getElementById('hqQuoteCheck')?.addEventListener('click',()=>synchronize(true));
@@ -137,6 +148,7 @@ function mountQuotes(){
  if(ready&&!inFlight&&Date.now()-lastChecked>45000)void synchronize(false);
 }
 function pairForm(){
+ if(sharedHQSession())return toast('Your shared HQ login already connects interactive quotations.');
  if(!ghPass||!ghUnlocked)return toast('Please unlock your HQ private storage first.');
  openModal('<h2>Connect interactive quotations</h2><p class="sub">Paste your one-time Cloudflare pairing code. The connection is encrypted with your existing HQ passphrase and is never written into your public GitHub code.</p><form id="hqQuotePairForm"><div class="field"><label>One-time pairing code</label><input name="pairCode" type="password" autocomplete="off" minlength="48" maxlength="48" required placeholder="Paste your pairing code"></div><div class="form-actions"><button type="button" class="btn secondary" data-close-modal>Cancel</button><button type="submit" class="btn gold">Connect</button></div></form>');
  const form=document.getElementById('hqQuotePairForm');
