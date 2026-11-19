@@ -2,7 +2,7 @@
 <style>*{box-sizing:border-box}body{background:#0b2e53;margin:0;color:#152b40;font:16px/1.5 system-ui,sans-serif}main{margin:8vh auto;padding:28px;background:white;border-top:5px solid #dbb258;border-radius:12px;max-width:440px}h1{margin:0 0 10px}label{display:block;margin:14px 0}input,button{font:inherit;border-radius:6px;padding:10px;width:100%}input{border:1px solid #8998a8}button{background:#10345a;color:white;border:0;margin:5px 0;cursor:pointer}button.secondary{background:#eef2f6;color:#10345a}button:disabled{opacity:.6}#status{min-height:1.5em}a{color:#10345a}@media(max-width:480px){main{margin:16px}}</style>
 <main><h1>Chip In HQ</h1><p id="intro">Sign in to check your shared HQ account. For first-time access, choose <b>Set or reset password</b>.</p>
 <form id="login"><label>Email<input id="email" type="email" autocomplete="username" required></label><label>Password<input id="password" type="password" autocomplete="current-password" required></label><button>Sign in</button><button type="button" class="secondary" id="reset">Set or reset password</button></form>
-<section id="account" hidden><p id="identity"></p><button id="verify" hidden>Send verification email</button><button class="secondary" id="change">Change password by email</button><button class="secondary" id="logout">Sign out</button></section><p role="status" id="status" aria-live="polite"></p><a href="https://chipinworks.co.uk/hq/">Open existing HQ</a></main>
+<section id="account" hidden><p id="identity"></p><button id="verify" hidden>Send verification email</button><button class="secondary" id="change">Change password by email</button><button class="secondary" id="logout">Sign out</button></section><form id="migration" hidden><h2>Import existing HQ records</h2><p>Unlock your encrypted HQ backup on this device. Your passphrase stays in this browser. The import preserves the original and checks the saved copy.</p><label>Existing HQ encryption passphrase<input id="legacy" type="password" autocomplete="off" required></label><button>Unlock and import records</button></form><p role="status" id="status" aria-live="polite"></p><a href="https://chipinworks.co.uk/hq/">Open existing HQ</a></main>
 <script>
 const el=id=>document.getElementById(id), status=text=>{el('status').textContent=text};
 const key='AIzaSyDOeXy5TVppDu8ktTgjg7eVLnMvo_EDDRc';
@@ -37,10 +37,43 @@ el('login').onsubmit=e=>{
    const r=await fetch('/account',{headers:{Authorization:'Bearer '+result.idToken}});
    if(!r.ok)throw Error(r.status===403?'This account has no HQ access.':'HQ is temporarily unavailable.');
    const account=await r.json();
-   message=account.ready?'Your shared HQ account is active.':'Your HQ account is confirmed. Business records are awaiting migration. Continue using existing HQ for business work.';
+   el('migration').hidden=!account.canImport;
+   message=account.ready?'Your shared HQ account is active.':(account.canImport?'Enter your existing HQ encryption passphrase below to import the business records.':'Business records are awaiting migration. Continue using existing HQ for business work.');
   }
   address=result.email;token=result.idToken;el('identity').textContent=address;
   el('login').hidden=true;el('intro').hidden=true;el('account').hidden=false;el('verify').hidden=verified;status(message);
+ });
+};
+async function migrationCall(path,body){
+ const headers={Authorization:'Bearer '+token};
+ const options={headers};
+ if(body){headers['Content-Type']='application/json';options.method='POST';options.body=JSON.stringify(body);}
+ const r=await fetch('/migration/'+path,options);
+ if(!r.ok)throw Error(r.status===403?'Please sign in again.':'Import could not be verified. Existing HQ records are safe.');
+ return r.json();
+}
+el('migration').onsubmit=e=>{
+ e.preventDefault();busy(e.submitter,async()=>{
+  const field=el('legacy'),pass=field.value;field.value='';
+  status('Checking encrypted HQ backup…');
+  const source=await migrationCall('source'),enc=source.envelope;
+  if(enc.format!=='ChipInEncrypted'||enc.v!==1)throw Error('Unrecognised encryption format.');
+  const bytes=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+  const codec=new TextEncoder();
+  const material=await crypto.subtle.importKey('raw',codec.encode(pass),'PBKDF2',false,['deriveKey']);
+  const aes=await crypto.subtle.deriveKey({name:'PBKDF2',hash:'SHA-256',iterations:enc.rounds,salt:bytes(enc.salt)},material,{name:'AES-GCM',length:256},false,['decrypt']);
+  let plaintext;
+  try{plaintext=await crypto.subtle.decrypt({name:'AES-GCM',iv:bytes(enc.iv)},aes,bytes(enc.data));}
+  catch{throw Error('Could not unlock this backup. Check your existing HQ encryption passphrase.');}
+  const doc=JSON.parse(new TextDecoder().decode(plaintext));
+  if(doc.format!=='ChipInHQState')throw Error('Unrecognised HQ backup.');
+  const state=JSON.stringify(doc.state);
+  const hash=await crypto.subtle.digest('SHA-256',codec.encode(state));
+  const digest=Array.from(new Uint8Array(hash),b=>b.toString(16).padStart(2,'0')).join('');
+  const saved=await migrationCall('import',{commit:source.commit,state});
+  if(saved.digest!==digest)throw Error('Import verification failed. Continue using existing HQ.');
+  el('migration').hidden=true;
+  status('Backup records imported and verified. '+Object.entries(saved.counts).map(([name,n])=>name+' '+n).join(', ')+'. Keep using existing HQ while device changes and attachments are checked.');
  });
 };
 </script></html>

@@ -28,12 +28,34 @@ export default {async fetch(request,env){
     'X-Frame-Options':'DENY','X-Content-Type-Options':'nosniff',
     'Content-Security-Policy':"default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self' https://identitytoolkit.googleapis.com; form-action 'none'; base-uri 'none'; frame-ancestors 'none'"
   }});
-  if (!['/account','/records'].includes(path)) return json({error:'Unknown route'},404);
+  if (!['/account','/records','/migration/source','/migration/import'].includes(path)) return json({error:'Unknown route'},404);
   try {
     const member=await identify(request,env.DB);
     if (!member) return denied();
     const info=await env.DB.prepare('SELECT migration_verified FROM hq_workspace WHERE id=1').first();
-    if (path==='/account' && request.method==='GET') return json({...member,ready:info?.migration_verified===1});
+    if(path==='/account'||path.startsWith('/migration/')){
+      const owner=await env.DB.prepare('SELECT email FROM hq_migration_owners WHERE email=?').bind(member.email).first();
+      if(path==='/account' && request.method==='GET')return json({...member,ready:info?.migration_verified===1,canImport:!!owner&&!info?.migration_verified});
+      if(!owner || info?.migration_verified)return denied();
+      const sourceCommit='78f1402f5536fd40494e27bb8292279e4602b486';
+      if(path==='/migration/source' && request.method==='GET'){
+        const parts=await env.DB.prepare('SELECT contents FROM hq_migration_source WHERE commit_sha=? ORDER BY part').bind(sourceCommit).all();
+        if(!parts.results.length)return json({error:'Backup unavailable'},503);
+        return json({commit:sourceCommit,envelope:JSON.parse(parts.results.map(p=>p.contents).join(''))});
+      }
+      if(path==='/migration/import' && request.method==='POST'){
+        const payload=await request.json();
+        if(payload.commit!==sourceCommit||typeof payload.state!=='string'||payload.state.length>1500000)return json({error:'Invalid import.'},400);
+        const state=JSON.parse(payload.state);
+        if(!state.settings||!['clients','jobs','invoices','expenses'].every(k=>Array.isArray(state[k])))return json({error:'Unrecognised HQ records.'},400);
+        const hash=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(payload.state));
+        const digest=Array.from(new Uint8Array(hash),b=>b.toString(16).padStart(2,'0')).join('');
+        await env.DB.prepare('INSERT OR IGNORE INTO hq_verified_import(commit_sha,digest,state_json) VALUES(?,?,?)').bind(sourceCommit,digest,payload.state).run();
+        const saved=await env.DB.prepare('SELECT state_json FROM hq_verified_import WHERE commit_sha=?').bind(sourceCommit).first();
+        if(saved?.state_json!==payload.state)return json({error:'The staged copy differs. No records were replaced.'},409);
+        return json({digest,counts:Object.fromEntries(Object.entries(state).filter(([,v])=>Array.isArray(v)).map(([k,v])=>[k,v.length]))});
+      }
+    }
     if(path!=='/records') return json({error:'Unsupported method'},405);
     if(!info?.migration_verified) return json({error:'Migration awaiting verification.'},423);
     if(request.method==='GET'){
