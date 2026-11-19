@@ -28,7 +28,7 @@ export default {async fetch(request,env){
   if(/^\/hq\/(?:|[a-zA-Z0-9_-]+\.(?:js|css|png|webmanifest))$/.test(path) && request.method==='GET'){
     if(path==='/hq/sw.js')return new Response(null,{status:404});
     const file=path==='/hq/'?'index.html':path.slice(4);
-    const assetRef=file==='app27_interactive_quotes.js'?'26b0ca9f9160f64b103d7698b9261c4c1d918fcc':'0dccc9e6197d6eb8daefd9bf1836f816db80d791';
+    const assetRef=(file==='app25_recurring_billing.js'||file==='app26_quotes.js')?'3f985a0266d9f1f32e15860b5d9e2d81805cf37c':file==='app27_interactive_quotes.js'?'26b0ca9f9160f64b103d7698b9261c4c1d918fcc':'0dccc9e6197d6eb8daefd9bf1836f816db80d791';
     const upstream=await fetch('https://raw.githubusercontent.com/ChipButt/ChipIn/'+assetRef+'/hq/'+file);
     if(!upstream.ok)return new Response('HQ asset unavailable',{status:502});
     const types={html:'text/html',js:'application/javascript',css:'text/css',png:'image/png',webmanifest:'application/manifest+json'};
