@@ -1,3 +1,4 @@
+import dashboardSync from './dashboard-sync.txt';
 import accountPage from './account.html';
 
 const apiKey = 'AIzaSyDOeXy5TVppDu8ktTgjg7eVLnMvo_EDDRc';
@@ -23,6 +24,19 @@ async function identify(request, db) {
 
 export default {async fetch(request,env){
   const path=new URL(request.url).pathname;
+  if(path==='/hq/dashboard-sync.js') return new Response(dashboardSync,{headers:{'Content-Type':'application/javascript','Cache-Control':'no-store'}});
+  if(/^\/hq\/(?:|[a-zA-Z0-9_-]+\.(?:js|css|png|webmanifest))$/.test(path) && request.method==='GET'){
+    if(path==='/hq/sw.js')return new Response(null,{status:404});
+    const file=path==='/hq/'?'index.html':path.slice(4);
+    const upstream=await fetch('https://raw.githubusercontent.com/ChipButt/ChipIn/5bb5c287aceac3d5434014e40d97c673f8afaffa/hq/'+file);
+    if(!upstream.ok)return new Response('HQ asset unavailable',{status:502});
+    const types={html:'text/html',js:'application/javascript',css:'text/css',png:'image/png',webmanifest:'application/manifest+json'};
+    const headers={'Content-Type':types[file.split('.').pop()],'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer','X-Frame-Options':'DENY'};
+    if(file==='index.html')return new Response((await upstream.text()).replace('<head>',"<head><script>if(!sessionStorage.getItem('hqSession'))location.replace('/')</script>").replace('</body>','<script src="dashboard-sync.js"></script></body>'),{headers});
+    if(file==='app4.js')return new Response((await upstream.text()).replace(/\ninit\(\)\.catch[^\n]*/,''),{headers});
+    if(file==='app6.js')return new Response((await upstream.text()).replace(/setTimeout\(\(\)=>bootstrapGhStorage[^\n]*/,''),{headers});
+    return new Response(upstream.body,{headers});
+  }
   if (path==='/' && request.method==='GET') return new Response(accountPage,{headers:{
     'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store','Referrer-Policy':'no-referrer',
     'X-Frame-Options':'DENY','X-Content-Type-Options':'nosniff',
@@ -32,10 +46,10 @@ export default {async fetch(request,env){
   try {
     const member=await identify(request,env.DB);
     if (!member) return denied();
-    const info=await env.DB.prepare('SELECT migration_verified FROM hq_workspace WHERE id=1').first();
+    const info=await env.DB.prepare('SELECT migration_verified, EXISTS(SELECT 1 FROM hq_verified_import) AND EXISTS(SELECT 1 FROM hq_records WHERE collection=\'clients\') AS imported FROM hq_workspace WHERE id=1').first();
     if(path==='/account'||path.startsWith('/migration/')){
       const owner=await env.DB.prepare('SELECT email FROM hq_migration_owners WHERE email=?').bind(member.email).first();
-      if(path==='/account' && request.method==='GET')return json({...member,ready:info?.migration_verified===1,canImport:!!owner&&!info?.migration_verified});
+      if(path==='/account' && request.method==='GET')return json({...member,ready:info?.migration_verified===1,imported:!!info?.imported,canImport:!!owner&&!info?.imported&&!info?.migration_verified});
       if(!owner || info?.migration_verified)return denied();
       const sourceCommit='78f1402f5536fd40494e27bb8292279e4602b486';
       if(path==='/migration/source' && request.method==='GET'){
@@ -57,7 +71,7 @@ export default {async fetch(request,env){
       }
     }
     if(path!=='/records') return json({error:'Unsupported method'},405);
-    if(!info?.migration_verified) return json({error:'Migration awaiting verification.'},423);
+    if(!info?.migration_verified && !info?.imported) return json({error:'Migration awaiting verification.'},423);
     if(request.method==='GET'){
       const rows=await env.DB.prepare('SELECT collection,id,revision,data FROM hq_records ORDER BY collection,id').all();
       return json(rows.results.map(r=>({...r,data:r.data===null?null:JSON.parse(r.data)})));

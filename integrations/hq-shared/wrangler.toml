@@ -3,7 +3,7 @@ main = "worker.mjs"
 compatibility_date = "2026-11-01"
 [[rules]]
 type = "Text"
-globs = ["**/*.html"]
+globs = ["**/*.html", "**/*.txt"]
 fallthrough = true
 [[d1_databases]]
 binding = "DB"
