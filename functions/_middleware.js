@@ -42,7 +42,7 @@ export async function onRequest(context) {
   }
 
   let response;
-  if (path === '/hq') {
+  if (path === '/hq' || path === '/hq/index.html') {
     response = Response.redirect(url.origin + '/hq/' + url.search, 308);
   } else if (path === '/hq/sw.js') {
     response = new Response(RETIRE_OLD_HQ_SW, {
