@@ -91,7 +91,7 @@ function quoteEmail(q,proposal){
  return {recipient,sender:GMAIL_FROM,subject,body:content};
 }
 
-async function admin(r,env){const h=r.headers.get('Authorization')||'';return h.startsWith('Bearer ')&&constantTime(h.slice(7),env.ADMIN_KEY||'')}
+async function admin(r,env){const h=r.headers.get('Authorization')||'';return h.startsWith('Bearer ')&&(constantTime(h.slice(7),env.ADMIN_KEY||'')||constantTime(h.slice(7),env.HQ_QUOTE_BRIDGE_KEY||''))}
 async function showQuote(req,env,token){
  if(!/^[0-9a-f]{54}$/.test(token))return new Response('Quote not found',{status:404});
  const q=await env.DB.prepare('SELECT * FROM quotes WHERE view_token=?').bind(token).first();
