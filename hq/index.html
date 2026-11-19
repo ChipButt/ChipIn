@@ -1,92 +1,19 @@
 <!doctype html>
 <html lang="en-GB">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <meta name="theme-color" content="#0a2f57" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://api.github.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com https://chipin-hq-quotes.goldplushighdefinition.workers.dev; worker-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'" />
-  <title>Chip In HQ</title>
-  <link rel="canonical" href="https://chipinworks.co.uk/hq/" />
-  <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="stylesheet" href="styles.css" />
-  <script src="canonical-hq.js?v=1"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha512-qZvrmS2ekKPF2mSznTQsxqPgnpkI4DNTlrdUmTzrDgektczlKNRRhy5X5AAOnx5S09ydFYWWNSfcEqDTTHgtNA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" integrity="sha512-XMVd28F1oH/O71fzwBnV7HucLxVwtxf26XV8P4wPk26EDxuGZ91N8bsOttmnomcCD3CS5ZMRL50H0GgOHvegtg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex">
+  <meta http-equiv="cache-control" content="no-store">
+  <meta http-equiv="refresh" content="0;url=https://chipin-hq-shared.goldplushighdefinition.workers.dev/">
+  <title>Chip In HQ — New Sign-in</title>
+  <script>
+    // The former local/GitHub-backed HQ must never load again from this address.
+    location.replace('https://chipin-hq-shared.goldplushighdefinition.workers.dev/');
+  </script>
 </head>
 <body>
-  <div id="app">
-    <aside class="sidebar">
-      <div class="brand-wrap">
-        <img id="brandLogo" class="brand-logo" src="./chip_in_logo_TRUE_TRANSPARENT.png" alt="Chip In" />
-        <div class="brand-sub">HQ</div>
-      </div>
-      <nav id="nav" class="nav"></nav>
-      <div class="sidebar-foot">
-        <button class="ghost-btn" id="backupQuickBtn">Backup data</button>
-        <div class="save-state" id="saveState">Saved on this device</div>
-      </div>
-    </aside>
-
-    <main class="main">
-      <header class="topbar">
-        <div>
-          <h1 id="pageTitle">Dashboard</h1>
-          <p id="pageSubtitle">Your business admin, in one place.</p>
-        </div>
-        <div class="top-actions" id="topActions"></div>
-      </header>
-      <section id="content" class="content"></section>
-    </main>
-  </div>
-
-  <div id="modal" class="modal hidden" aria-hidden="true">
-    <div class="modal-backdrop" data-close-modal></div>
-    <div class="modal-card">
-      <button class="modal-close" data-close-modal aria-label="Close">×</button>
-      <div id="modalBody"></div>
-    </div>
-  </div>
-
-  <div id="toast" class="toast hidden"></div>
-
-  <template id="emptyTemplate">
-    <div class="empty-state">
-      <div class="empty-icon">＋</div>
-      <h3>Nothing here yet</h3>
-      <p></p>
-    </div>
-  </template>
-
-  <script src="app1.js?v=7"></script>
-  <script src="app2_1.js?v=3"></script>
-  <script src="app2_2.js"></script>
-  <script src="app2_3.js"></script>
-  <script src="app2_4.js"></script>
-  <script src="app3.js"></script>
-  <script src="app5_startup_gate.js"></script>
-  <script src="app4.js?v=3"></script>
-  <script src="app6.js"></script>
-  <script src="app7.js"></script>
-  <script src="app8_rates.js?v=2"></script>
-  <script src="app9_jobs.js"></script>
-  <script src="app10_settings_invoice.js"></script>
-  <script src="app11_invoice_job_fixes.js?v=4"></script>
-  <script src="app12_receipts_refresh.js"></script>
-  <script src="app13_sync_tax_paid.js"></script>
-  <script src="app14_simple_tax_pot.js"></script>
-  <script src="app15_reports_calendar.js?v=2"></script>
-  <script src="app16_outgoings.js?v=6"></script>
-  <script src="app17_job_timesheets.js?v=5"></script>
-  <script src="app18_sales_assistant.js?v=10"></script>
-  <script src="app19_firebase_sales.js?v=2"></script>
-  <script src="app20_recurring_jobs.js?v=2"></script>
-  <script src="app21_prospect_conversion.js?v=3"></script>
-  <script src="app22_client_pipeline.js?v=7"></script>
-  <script src="app23_client_to_job.js?v=4"></script>
-  <script src="app24_service_pricing.js?v=6"></script>
-  <script src="app25_recurring_billing.js?v=4"></script>
-  <script src="app26_quotes.js?v=13"></script>
-  <script src="app27_interactive_quotes.js?v=9"></script>
-  <script src="app28_email_drafts.js?v=1"></script>
+  <p>Chip In HQ has moved to the shared, multi-user system.</p>
+  <p><a href="https://chipin-hq-shared.goldplushighdefinition.workers.dev/">Continue to the new Chip In HQ sign-in</a></p>
 </body>
 </html>
