@@ -28,7 +28,8 @@ export default {async fetch(request,env){
   if(/^\/hq\/(?:|[a-zA-Z0-9_-]+\.(?:js|css|png|webmanifest))$/.test(path) && request.method==='GET'){
     if(path==='/hq/sw.js')return new Response(null,{status:404});
     const file=path==='/hq/'?'index.html':path.slice(4);
-    const upstream=await fetch('https://raw.githubusercontent.com/ChipButt/ChipIn/0dccc9e6197d6eb8daefd9bf1836f816db80d791/hq/'+file);
+    const assetRef=file==='app27_interactive_quotes.js'?'26b0ca9f9160f64b103d7698b9261c4c1d918fcc':'0dccc9e6197d6eb8daefd9bf1836f816db80d791';
+    const upstream=await fetch('https://raw.githubusercontent.com/ChipButt/ChipIn/'+assetRef+'/hq/'+file);
     if(!upstream.ok)return new Response('HQ asset unavailable',{status:502});
     const types={html:'text/html',js:'application/javascript',css:'text/css',png:'image/png',webmanifest:'application/manifest+json'};
     const headers={'Content-Type':types[file.split('.').pop()],'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer','X-Frame-Options':'DENY'};
@@ -42,10 +43,32 @@ export default {async fetch(request,env){
     'X-Frame-Options':'DENY','X-Content-Type-Options':'nosniff',
     'Content-Security-Policy':"default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self' https://identitytoolkit.googleapis.com; form-action 'none'; base-uri 'none'; frame-ancestors 'none'"
   }});
-  if (!['/account','/records','/migration/source','/migration/import'].includes(path)) return json({error:'Unknown route'},404);
+  if (!['/account','/records','/migration/source','/migration/import','/quote-admin'].includes(path)) return json({error:'Unknown route'},404);
   try {
     const member=await identify(request,env.DB);
     if (!member) return denied();
+    if(path==='/quote-admin'){
+      if(request.method!=='POST')return json({error:'Unsupported method'},405);
+      if(!env.HQ_QUOTE_BRIDGE_KEY)return json({error:'Quotation connection is not configured.'},503);
+      const raw=await request.text();
+      if(raw.length>58000)return json({error:'Quotation request is too large.'},413);
+      const payload=JSON.parse(raw);
+      const target=payload?.path, body=payload?.body;
+      if(!['/api/admin/publish','/api/admin/sync','/api/admin/revoke'].includes(target)||!body||typeof body!=='object'||Array.isArray(body))
+        return json({error:'Unsupported quotation action.'},400);
+      const ids=target==='/api/admin/sync'?body.ids:[target==='/api/admin/publish'?body.proposal?.id:body.id];
+      if(!Array.isArray(ids)||ids.length>100||ids.some(id=>typeof id!=='string'||!/^qte_[a-z0-9_-]{4,95}$/i.test(id)))
+        return json({error:'Invalid quotation reference.'},400);
+      if(ids.length){
+        const known=await env.DB.prepare('SELECT id FROM hq_records WHERE collection=? AND id IN ('+ids.map(()=>'?').join(',')+')').bind('quotes',...ids).all();
+        if(known.results.length!==new Set(ids).size)return json({error:'Quotation not found in shared HQ.'},404);
+      }
+      const response=await fetch('https://chipin-hq-quotes.goldplushighdefinition.workers.dev'+target,{
+        method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+env.HQ_QUOTE_BRIDGE_KEY},
+        body:JSON.stringify(body)
+      });
+      return new Response(await response.text(),{status:response.status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
+    }
     const info=await env.DB.prepare('SELECT migration_verified, EXISTS(SELECT 1 FROM hq_verified_import) AND EXISTS(SELECT 1 FROM hq_records WHERE collection=\'clients\') AS imported FROM hq_workspace WHERE id=1').first();
     if(path==='/account'||path.startsWith('/migration/')){
       const owner=await env.DB.prepare('SELECT email FROM hq_migration_owners WHERE email=?').bind(member.email).first();
