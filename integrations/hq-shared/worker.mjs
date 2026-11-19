@@ -24,6 +24,26 @@ async function identify(request, db) {
 
 export default {async fetch(request,env){
   const path=new URL(request.url).pathname;
+  // Host the meeting builder on the shared HQ origin. The Jobs page passes
+  // a linked job ID and local handover data to this tool via this origin.
+  if(request.method==='GET' && (
+    /^\/client-meeting\/(?:index\.html|meeting\.js|style\.css)?$/.test(path) ||
+    path==='/client-meeting' ||
+    path==='/favicon.svg' ||
+    path==='/chipin_asset_pack/logo/chip_in_logo.png'
+  )){
+    const file=(path==='/client-meeting/'||path==='/client-meeting')
+      ? 'client-meeting/index.html' : path.slice(1);
+    const upstream=await fetch('https://raw.githubusercontent.com/ChipButt/ChipIn/0dccc9e6197d6eb8daefd9bf1836f816db80d791/'+file);
+    if(!upstream.ok)return new Response('Meeting builder asset unavailable',{status:502});
+    const ext=file.split('.').pop();
+    const types={html:'text/html; charset=utf-8',js:'application/javascript; charset=utf-8',css:'text/css; charset=utf-8',png:'image/png',svg:'image/svg+xml'};
+    return new Response(upstream.body,{headers:{
+      'Content-Type':types[ext]||'application/octet-stream',
+      'Cache-Control':'no-store','X-Content-Type-Options':'nosniff',
+      'Referrer-Policy':'no-referrer','X-Frame-Options':'DENY'
+    }});
+  }
   if(path==='/hq/dashboard-sync.js') return new Response(dashboardSync,{headers:{'Content-Type':'application/javascript','Cache-Control':'no-store'}});
   if(/^\/hq\/(?:|[a-zA-Z0-9_-]+\.(?:js|css|png|webmanifest))$/.test(path) && request.method==='GET'){
     if(path==='/hq/sw.js')return new Response(null,{status:404});
