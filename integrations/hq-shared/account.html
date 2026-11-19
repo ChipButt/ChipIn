@@ -1,0 +1,46 @@
+<!doctype html><html lang="en-GB"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Chip In HQ · Account access</title>
+<style>*{box-sizing:border-box}body{background:#0b2e53;margin:0;color:#152b40;font:16px/1.5 system-ui,sans-serif}main{margin:8vh auto;padding:28px;background:white;border-top:5px solid #dbb258;border-radius:12px;max-width:440px}h1{margin:0 0 10px}label{display:block;margin:14px 0}input,button{font:inherit;border-radius:6px;padding:10px;width:100%}input{border:1px solid #8998a8}button{background:#10345a;color:white;border:0;margin:5px 0;cursor:pointer}button.secondary{background:#eef2f6;color:#10345a}button:disabled{opacity:.6}#status{min-height:1.5em}a{color:#10345a}@media(max-width:480px){main{margin:16px}}</style>
+<main><h1>Chip In HQ</h1><p id="intro">Sign in to check your shared HQ account. For first-time access, choose <b>Set or reset password</b>.</p>
+<form id="login"><label>Email<input id="email" type="email" autocomplete="username" required></label><label>Password<input id="password" type="password" autocomplete="current-password" required></label><button>Sign in</button><button type="button" class="secondary" id="reset">Set or reset password</button></form>
+<section id="account" hidden><p id="identity"></p><button id="verify" hidden>Send verification email</button><button class="secondary" id="change">Change password by email</button><button class="secondary" id="logout">Sign out</button></section><p role="status" id="status" aria-live="polite"></p><a href="https://chipinworks.co.uk/hq/">Open existing HQ</a></main>
+<script>
+const el=id=>document.getElementById(id), status=text=>{el('status').textContent=text};
+const key='AIzaSyDOeXy5TVppDu8ktTgjg7eVLnMvo_EDDRc';
+let token='',address='';
+async function firebase(action,body){
+ const r=await fetch('https://identitytoolkit.googleapis.com/v1/accounts:'+action+'?key='+key,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+ if(!r.ok)throw Error(r.status===429?'Please wait before trying again.':'Firebase could not complete this request. Check your details and try again.');
+ return r.json();
+}
+function busy(button,action){
+ button.disabled=true;
+ return action().catch(e=>status(e.message)).finally(()=>{button.disabled=false});
+}
+async function reset(email){
+ await firebase('sendOobCode',{requestType:'PASSWORD_RESET',email});
+ status('Check your inbox for a password link. Return here to sign in.');
+}
+el('reset').onclick=e=>{if(el('email').reportValidity())busy(e.currentTarget,()=>reset(el('email').value.trim()))};
+el('change').onclick=e=>busy(e.currentTarget,()=>reset(address));
+el('verify').onclick=e=>busy(e.currentTarget,async()=>{
+ await firebase('sendOobCode',{requestType:'VERIFY_EMAIL',idToken:token});status('Open the verification email, then sign out and sign in again here.');
+});
+el('logout').onclick=()=>location.reload();
+el('login').onsubmit=e=>{
+ e.preventDefault();busy(e.submitter,async()=>{
+  const input=el('password'),secret=input.value;input.value='';
+  const result=await firebase('signInWithPassword',{email:el('email').value.trim(),password:secret,returnSecureToken:true});
+  const info=await firebase('lookup',{idToken:result.idToken});
+  const verified=info.users?.[0]?.emailVerified===true;
+  let message='Verify your email to activate HQ access.';
+  if(verified){
+   const r=await fetch('/account',{headers:{Authorization:'Bearer '+result.idToken}});
+   if(!r.ok)throw Error(r.status===403?'This account has no HQ access.':'HQ is temporarily unavailable.');
+   const account=await r.json();
+   message=account.ready?'Your shared HQ account is active.':'Your HQ account is confirmed. Business records are awaiting migration. Continue using existing HQ for business work.';
+  }
+  address=result.email;token=result.idToken;el('identity').textContent=address;
+  el('login').hidden=true;el('intro').hidden=true;el('account').hidden=false;el('verify').hidden=verified;status(message);
+ });
+};
+</script></html>
