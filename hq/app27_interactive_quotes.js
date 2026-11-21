@@ -81,7 +81,7 @@ async function publish(id){
    const proposal=collect(q);
    const response=await call('/api/admin/publish',{proposal});
    q.interactive={url:response.url,publishedAt:new Date().toISOString(),status:response.status,acceptance:null,email:null};
-   if(q.status==='Draft')q.status='Sent'; // Internal quote status only, NOT email delivery.
+   if(q.status==='Draft')q.status='Published';
    client.pipelineStage='Quote';client.updatedAt=new Date().toISOString();
    await saveState();
   }
@@ -191,6 +191,12 @@ function previewActions(q){
    emailButton.target='_blank';emailButton.rel='noopener noreferrer';
    emailButton.title='Opens a prefilled Gmail compose window. Review and press Send in Gmail.';
    actions.append(emailButton);
+  }
+  if(['Published','Sent'].includes(q.status)&&!q.sentDate&&q.interactive.email?.status!=='sent'){
+   const sent=document.createElement('button');sent.className='btn small';sent.textContent='Mark as sent';
+   sent.onclick=async()=>{sent.disabled=true;const prior=q.status;q.status='Sent';q.sentDate=TODAY();
+    try{await saveState();render();window.ChipInQuotes.openPreview(q.id)}catch(e){q.status=prior;delete q.sentDate;sent.disabled=false;toast(e.message)}
+   };actions.append(sent);
   }
   const stateInfo=document.createElement('p');stateInfo.className='muted';stateInfo.style.cssText='width:100%;margin-top:8px';
   stateInfo.textContent='Interactive quotation: '+statusLine(q);actions.append(stateInfo);

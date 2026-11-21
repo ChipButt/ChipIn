@@ -44,20 +44,21 @@
     return control;
   }
 
-  function linkMeeting(meeting, job, clientId) {
+  async function linkMeeting(meeting, job, clientId) {
     if (!meeting || !job || !['Website Design','Website'].includes(job.category)) return false;
     try {
       const library = JSON.parse(localStorage.getItem(MEETINGS_KEY) || '{}');
-      const record = library.projects?.[meeting.id];
+      const shared=window.ChipInSharedHQ&&window.HQMeetings;
+      const record = shared?structuredClone(shared.projects()[meeting.id]):library.projects?.[meeting.id];
       if (!record || (record.hqJobId && record.hqJobId !== job.id && jobById(record.hqJobId))) return false;
       record.hqClientId = clientId;
       record.hqJobId = job.id;
-      localStorage.setItem(MEETINGS_KEY, JSON.stringify(library));
+      if(shared)await shared.put(meeting.id,record);else localStorage.setItem(MEETINGS_KEY, JSON.stringify(library));
       job.meetingId = meeting.id;
       job.projectId = trim(meeting.projectId || job.projectId);
       return true;
     } catch (error) {
-      console.warn('Website meeting could not be linked', error);
+      toast('Website meeting could not be linked: '+error.message);
       return false;
     }
   }
@@ -167,7 +168,7 @@
             // lead's contact-data timestamp: that could overwrite newer,
             // manually corrected client details during state reconciliation.
           }
-          if (chosenMeeting) linkMeeting(chosenMeeting, matching[0], client.id);
+          if (chosenMeeting) await linkMeeting(chosenMeeting, matching[0], client.id);
           await saveState();
           toast(matching.length === 1 ? 'Job created for ' + client.name : matching.length + ' jobs created for ' + client.name);
         } else if (created.length) {

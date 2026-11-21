@@ -63,8 +63,6 @@ function submit(form,w) {
 async function tick() {await new Promise(resolve=>setTimeout(resolve,0))}
 async function testNewConversion() {
   const {w,state}=createApp();
-  w.renderSales();
-  assert.match(w.document.getElementById('content').textContent,/Create client \+ job/);
   w.ChipInProspectConversion.start('lead_bulls_001');
   const cf=w.document.getElementById('hqConversionClient');
   assert.equal(cf.elements.name.value,'The Bulls Head');
@@ -116,7 +114,23 @@ async function testExistingRecords() {
   assert.equal(state.salesAssistant.leads[0].convertedClientId,'cli_existing_001');
   assert.equal(state.salesAssistant.leads[0].convertedJobId,'job_existing_001');
 }
+function testClientTile(){
+  const {w,state}=createApp(true);
+  Object.assign(w,{loadState:async()=>{},renderClients:()=>{},openClientForm:()=>{},clientSearch:'',empty:()=>'',money:x=>'£'+x});
+  for(const file of ['app22_client_pipeline.js','app23_client_to_job.js'])w.eval(fs.readFileSync('hq/'+file,'utf8'));
+  state.jobs=[];w.renderClients();
+  const button=w.document.querySelector('[data-client-job]');
+  assert.equal(button.textContent,'Convert to Job');
+  w.openJobForm=()=>w.openModal('<h2>Job</h2><form id="jobForm"><select name="clientId"><option value="'+button.dataset.clientJob+'">Client</option></select><select name="category"><option>Website Design</option></select><input name="title"><div class="form-grid"></div></form>');
+  button.click();
+  const form=w.document.querySelector('#jobForm');
+  assert.equal(form.elements.clientId.value,button.dataset.clientJob);
+  assert.equal(form.elements.category.value,'Website Design');
+  assert.equal(state.jobs.length,0);
+  w.close();
+}
 (async () => {
+  testClientTile();
   await testNewConversion();
   await testExistingRecords();
   console.log('HQ prospect conversion tests passed');

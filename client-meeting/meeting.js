@@ -1,4 +1,4 @@
-(function(){
+(async function(){
 'use strict';
 const form=document.getElementById('meetingForm');
 const panes=Array.from(document.querySelectorAll('.pane'));
@@ -109,7 +109,40 @@ function refreshPicker(){
  refreshHeader();
 }
 function newId(){return 'client-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8);}
+const shared=!!window.HQMeetings&&!!sessionStorage.getItem('hqSession');
+let queue=Promise.resolve(),writeId=0,unsaved=false;
+const notice=text=>document.getElementById('saveStatus').textContent=text;
+async function meetingRequest(path,options={}){
+ const session=JSON.parse(sessionStorage.getItem('hqSession')||'null');
+ if(!session)throw Error('Sign in to HQ again.');
+ if(Date.now()>session.expires-90000){
+   const r=await fetch('https://securetoken.googleapis.com/v1/token?key=AIzaSyDOeXy5TVppDu8ktTgjg7eVLnMvo_EDDRc',{method:'POST',body:new URLSearchParams({grant_type:'refresh_token',refresh_token:session.refresh})});
+   if(!r.ok)throw Error('Sign in to HQ again.');
+   const data=await r.json();Object.assign(session,{id:data.id_token,refresh:data.refresh_token,expires:Date.now()+Number(data.expires_in)*1000});
+   sessionStorage.setItem('hqSession',JSON.stringify(session));
+ }
+ const response=await fetch(path,{...options,headers:{...options.headers,Authorization:'Bearer '+session.id},cache:'no-store'});
+ if(!response.ok)throw Error(response.status===409?'This meeting changed on another device. Download your draft, then reopen the meeting.':'Could not save or load shared meetings.');
+ return response;
+}
+if(shared){
+ document.getElementById('workarea').inert=true;
+ try{
+   library.projects=await window.HQMeetings.directory(meetingRequest);
+   library.activeId=localStorage.getItem('hq-active-meeting');
+ }catch(e){notice(e.message);return}
+ document.getElementById('workarea').inert=false;
+ window.addEventListener('beforeunload',e=>{if(unsaved){e.preventDefault();e.returnValue=''}});
+}
 function writeLibrary(){
+ if(shared){
+   const id=library.activeId,data=structuredClone(library.projects[id]);if(!data)return false;
+   localStorage.setItem('hq-active-meeting',id);
+   const revision=++writeId;unsaved=true;notice('Saving to shared HQ…');
+   queue=queue.then(()=>window.HQMeetings.put(id,data)).then(()=>{
+     if(revision===writeId){unsaved=false;notice('Saved to shared HQ')}
+   }).catch(e=>notice(e.message));return true;
+ }
  try{localStorage.setItem(libraryKey,JSON.stringify(library));return true;}catch(e){document.getElementById('saveStatus').textContent='Unable to save locally — download a backup';return false;}
 }
 
@@ -143,7 +176,7 @@ function applyState(state){
 }
 function save(){
  if(library.activeId)library.projects[library.activeId]=getState();
- if(writeLibrary()){
+ if(writeLibrary()&&!shared){
   document.getElementById('saveStatus').textContent='Saved on this device';
   clearTimeout(saveNoticeTimer);
   saveNoticeTimer=setTimeout(()=>document.getElementById('saveStatus').textContent='Changes save automatically in this browser',1900);
@@ -533,7 +566,7 @@ form.addEventListener('change',e=>{
  save();renderQuote();
 });
 try{
- const saved=localStorage.getItem(libraryKey);
+ const saved=shared?null:localStorage.getItem(libraryKey);
  if(saved){
   const data=JSON.parse(saved);
   if(data&&data.projects&&typeof data.projects==='object'&&!Array.isArray(data.projects)&&Object.keys(data.projects).length)library=data;
@@ -545,7 +578,7 @@ try{
     const old=JSON.parse(legacy);
     if(old&&old.version===1&&old.fields){
      const id='previous-bulls-head-draft';
-     library.projects[id]=old;
+     library.projects[id]=old;if(shared)await window.HQMeetings.put(id,old);
     }
    }catch(e){}
   }
@@ -556,7 +589,7 @@ try{
  }
  if(!library.projects[library.activeId])library.activeId=Object.keys(library.projects)[0];
  loadProject(library.activeId);
- document.getElementById('saveStatus').textContent='Saved client meetings are available on this device';
+ if(!shared)notice('Saved client meetings are available on this device');
 }catch(e){
  form.reset();goTo(0);
  library={activeId:null,projects:{}};
@@ -609,7 +642,7 @@ try{document.getElementById('onboardingReady').checked=localStorage.getItem('chi
    save();
    const notice=document.createElement('p');
    notice.className='small-intro';
-   notice.textContent='Linked to Chip In HQ job '+hqJobId+'. Changes to this meeting save on this browser; HQ can recognise this job link here.';
+   notice.textContent='Linked to Chip In HQ job '+hqJobId+'. Meeting notes save automatically.';
    document.getElementById('workarea').prepend(notice);
  }else if(safeProject){
    if(created)save();

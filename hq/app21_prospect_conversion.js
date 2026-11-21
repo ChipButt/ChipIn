@@ -11,7 +11,7 @@
   const allMeetings = () => {
     try {
       const data = JSON.parse(localStorage.getItem(MEETINGS_KEY) || '{}');
-      return Object.entries(data.projects || {}).filter(([, m]) => m && m.fields).map(([id, m]) => ({
+      return Object.entries(window.ChipInSharedHQ&&window.HQMeetings?window.HQMeetings.projects():data.projects || {}).filter(([, m]) => m && m.fields).map(([id, m]) => ({
         id, business: clean(m.fields.business), contact: clean(m.fields.contact),
         date: clean(m.fields.meetingDate), projectId: clean(m.projectId),
         hqJobId: clean(m.hqJobId), hqClientId: clean(m.hqClientId),
@@ -275,8 +275,8 @@
     const qs = new URLSearchParams({hqJobId: job.id, hqClientId: job.clientId});
     if (job.meetingId) qs.set('meetingId', job.meetingId);
     if (job.projectId) qs.set('projectId', job.projectId);
-    const url = '../client-meeting/?' + qs.toString();
-    window.open(url, '_blank', 'noopener');
+    const url = (window.ChipInSharedHQ?'/hq/meeting/?':'../client-meeting/?') + qs.toString();
+    if(window.ChipInSharedHQ)location.assign(url);else window.open(url, '_blank', 'noopener');
   }
 
   // Sales and Clients now share records. Won contracts are managed from the
