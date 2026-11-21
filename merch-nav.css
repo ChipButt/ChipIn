@@ -1,0 +1,98 @@
+/* Chip In Merch navigation dropdown — shared desktop and mobile. */
+.nav-links > .nav-merch-menu {
+  position:relative;
+  flex:0 0 auto;
+  font:inherit;
+  color:var(--navy);
+}
+.nav-links > .nav-merch-menu > summary {
+  position:relative;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  padding:9px 0;
+  font:inherit;
+  font-weight:700;
+  line-height:1.2;
+  list-style:none;
+  white-space:nowrap;
+  cursor:pointer;
+  user-select:none;
+}
+.nav-merch-menu > summary::-webkit-details-marker {display:none}
+.nav-merch-menu > summary::after {
+  content:"";
+  display:inline-block;
+  width:7px;
+  height:7px;
+  border-right:2px solid currentColor;
+  border-bottom:2px solid currentColor;
+  transform:translateY(-2px) rotate(45deg);
+  transition:transform .15s ease;
+}
+.nav-merch-menu[open] > summary::after {transform:translateY(2px) rotate(225deg)}
+.nav-merch-menu[open] > summary::before {
+  content:"";
+  position:absolute;
+  height:3px;
+  bottom:1px;
+  left:0;
+  right:0;
+  border-radius:4px;
+  background:var(--gold);
+}
+.nav-merch-menu > summary:focus-visible,
+.nav-merch-dropdown > a:focus-visible {
+  outline:3px solid var(--gold);
+  outline-offset:3px;
+  border-radius:7px;
+}
+.nav-merch-dropdown {
+  position:absolute;
+  top:calc(100% + 8px);
+  right:0;
+  z-index:110;
+  min-width:174px;
+  padding:7px;
+  background:#fff;
+  border:1px solid rgba(8,47,104,.12);
+  border-radius:13px;
+  box-shadow:0 14px 35px rgba(8,47,104,.18);
+}
+.nav-merch-dropdown > a {
+  display:block;
+  padding:12px 15px;
+  border-radius:8px;
+  color:var(--navy);
+  font-weight:700;
+  text-decoration:none;
+  white-space:nowrap;
+}
+.nav-merch-dropdown > a:hover,
+.nav-merch-dropdown > a:focus-visible {
+  background:#fff4c7;
+}
+@media(min-width:1121px){
+  .nav {gap:16px}
+  .nav-links {gap:16px;font-size:.92rem}
+}
+@media(max-width:620px){
+  .nav-links > a:nth-child(n+3),
+  .nav-links > .nav-merch-menu {grid-column:span 3}
+  .nav-links > .nav-merch-menu {min-width:0}
+  .nav-links > .nav-merch-menu > summary {
+    min-height:43px;
+    width:100%;
+    padding:7px 4px;
+    white-space:normal;
+    line-height:1.15;
+    text-align:center;
+    border:1px solid rgba(8,47,104,.1);
+    border-radius:11px;
+    background:rgba(255,255,255,.7);
+  }
+  .nav-merch-menu[open] > summary {background:#fff4c7;border-color:rgba(247,189,24,.5)}
+  .nav-merch-menu[open] > summary::before {display:none}
+  .nav-merch-dropdown {width:max-content;min-width:180px;max-width:calc(100vw - 24px)}
+}
