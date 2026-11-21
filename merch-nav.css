@@ -10,7 +10,7 @@
   display:flex;
   align-items:center;
   justify-content:center;
-  gap:8px;
+  gap:0;
   padding:9px 0;
   font:inherit;
   font-weight:700;
@@ -20,18 +20,10 @@
   cursor:pointer;
   user-select:none;
 }
+/* The Merch label is plain text: hide the native marker and any custom chevron. */
 .nav-merch-menu > summary::-webkit-details-marker {display:none}
-.nav-merch-menu > summary::after {
-  content:"";
-  display:inline-block;
-  width:7px;
-  height:7px;
-  border-right:2px solid currentColor;
-  border-bottom:2px solid currentColor;
-  transform:translateY(-2px) rotate(45deg);
-  transition:transform .15s ease;
-}
-.nav-merch-menu[open] > summary::after {transform:translateY(2px) rotate(225deg)}
+.nav-merch-menu > summary::marker {content:"";font-size:0}
+.nav-merch-menu > summary::after {content:none!important;display:none!important}
 .nav-merch-menu[open] > summary::before {
   content:"";
   position:absolute;
