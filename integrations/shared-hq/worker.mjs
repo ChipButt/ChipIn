@@ -54,7 +54,7 @@ export default {async fetch(request,env){
     if(!upstream.ok)return new Response('HQ asset unavailable',{status:502});
     const types={html:'text/html',js:'application/javascript',css:'text/css',png:'image/png',webmanifest:'application/manifest+json'};
     const headers={'Content-Type':types[file.split('.').pop()],'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer','X-Frame-Options':'DENY'};
-    if(file==='index.html')return new Response((await upstream.text()).replace('<head>',"<head><style>#app{visibility:hidden}.hq-nav-step{display:none}@media(max-width:700px){.hq-nav-step{display:block;align-self:stretch;background:transparent;color:white;border:0;font-size:24px;width:36px;flex:none}.hq-nav-step:disabled{opacity:.3}.sidebar .nav{min-width:0}}</style><script>if(!sessionStorage.getItem('hqSession'))location.replace('/')</script>").replace('</body>','<script src="dashboard-sync.js"></script></body>'),{headers});
+    if(file==='index.html')return new Response((await upstream.text()).replace('<head>',"<head><style>#app{visibility:hidden}@media(max-width:700px){#app .sidebar{height:80px}#app .content{padding-bottom:104px}#modal.modal{padding-bottom:98px}}</style><script>if(!sessionStorage.getItem('hqSession'))location.replace('/')</script>").replace('</body>','<script src="dashboard-sync.js"></script></body>'),{headers});
     if(file==='app4.js')return new Response((await upstream.text()).replace(/\ninit\(\)\.catch[^\n]*/,''),{headers});
     if(file==='app6.js')return new Response((await upstream.text()).replace(/setTimeout\(\(\)=>bootstrapGhStorage[^\n]*/,''),{headers});
     return new Response(upstream.body,{headers});

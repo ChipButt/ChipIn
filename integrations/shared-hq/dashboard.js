@@ -69,21 +69,6 @@
     pending=save.catch(()=>{});
     try{await save;dirty=false}catch(e){dirty=true;badge(e.message);toast(e.message);throw e}finally{writes--}
   };
-  const nav=document.getElementById('nav');
-  const navButtons=[-1,1].map(direction=>{
-    const button=document.createElement('button');
-    button.type='button';button.className='hq-nav-step';
-    button.setAttribute('aria-label',direction<0?'Scroll navigation left':'Scroll navigation right');
-    button.textContent=direction<0?'‹':'›';
-    button.onclick=()=>nav.scrollBy({left:direction*nav.clientWidth*.8,behavior:'smooth'});
-    if(direction<0)nav.before(button);else nav.after(button);
-    return button;
-  });
-  function updateArrows(){
-    navButtons[0].disabled=nav.scrollLeft<=1;
-    navButtons[1].disabled=nav.scrollLeft+nav.clientWidth>=nav.scrollWidth-1;
-  }
-  nav.addEventListener('scroll',updateArrows);new ResizeObserver(updateArrows).observe(nav);
   const signout=document.createElement('button');signout.className='ghost-btn';signout.textContent='Sign out';
   signout.onclick=()=>{sessionStorage.removeItem('hqSession');location.replace('/')};document.querySelector('.sidebar-foot').append(signout);
   document.getElementById('app').style.visibility='hidden';
