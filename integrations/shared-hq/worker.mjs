@@ -1,7 +1,9 @@
 /* embed dashboardSync */
 /* embed accountPage */
 /* embed quoteClient */
+/* embed meetingShared */
 
+const workflowAssets='37c0452e69c64eaef11663e3563b6731b6cc21df';
 const apiKey = 'AIzaSyDOeXy5TVppDu8ktTgjg7eVLnMvo_EDDRc';
 const json = (value, status=200) => Response.json(value, {status, headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
 const denied = () => json({error:'Sign in with your verified HQ email address.'},403);
@@ -19,25 +21,31 @@ async function identify(request, db) {
   const user = (await response.json()).users?.[0];
   if (!user?.emailVerified || !user.localId || !user.email) return null;
   const email=user.email.toLowerCase();
+  if(email==='recurring-billing@automation.invalid')return null;
   await db.prepare('UPDATE hq_members SET uid=? WHERE email=? AND uid IS NULL').bind(user.localId,email).run();
   return db.prepare('SELECT email,name FROM hq_members WHERE email=? AND uid=?').bind(email,user.localId).first();
 }
 
-export default {async fetch(request,env){
+/* billing service */
+/* file service */
+export default {scheduled(event,env,ctx){ctx.waitUntil(runBilling(env.DB))},async fetch(request,env,ctx){
   const path=new URL(request.url).pathname;
+  if(path==='/hq/meeting-shared.js')return new Response(meetingShared,{headers:{'Content-Type':'application/javascript','Cache-Control':'no-store'}});
   // Website meeting drafts share the HQ origin for linked-job handover.
   if(request.method==='GET' && (
     /^\/client-meeting\/(?:index\.html|meeting\.js|style\.css)?$/.test(path) ||
-    path==='/client-meeting' ||
+    /^\/hq\/meeting\/(?:index\.html|meeting\.js|style\.css)?$/.test(path) || path==='/client-meeting' ||
     path==='/favicon.svg' ||
     path==='/chipin_asset_pack/logo/chip_in_logo.png'
   )){
-    const file=(path==='/client-meeting/'||path==='/client-meeting')
-      ? 'client-meeting/index.html' : path.slice(1);
-    const upstream=await fetch('https://raw.githubusercontent.com/ChipButt/ChipIn/0dccc9e6197d6eb8daefd9bf1836f816db80d791/'+file);
+    const meetingPath=path.replace('/hq/meeting/','/client-meeting/');
+    const file=(meetingPath==='/client-meeting/'||meetingPath==='/client-meeting')
+      ? 'client-meeting/index.html' : meetingPath.slice(1);
+    const upstream=await fetch('https://raw.githubusercontent.com/ChipButt/ChipIn/'+workflowAssets+'/'+file);
     if(!upstream.ok)return new Response('Meeting builder asset unavailable',{status:502});
     const ext=file.split('.').pop();
     const types={html:'text/html; charset=utf-8',js:'application/javascript; charset=utf-8',css:'text/css; charset=utf-8',png:'image/png',svg:'image/svg+xml'};
+    if(ext==='html'&&path.startsWith('/hq/meeting/'))return new Response((await upstream.text()).replaceAll('../chipin_asset_pack/','/chipin_asset_pack/').replace('../favicon.svg','/favicon.svg').replace('<head>',"<head><script>if(!sessionStorage.getItem('hqSession'))location.replace(location.hostname.endsWith('.workers.dev')?'/':'/hq/login')</script>").replace('<script src="./meeting.js">','<script src="/hq/meeting-shared.js"></script><script src="./meeting.js">'),{headers:{'Content-Type':types.html,'Cache-Control':'no-store'}});
     return new Response(upstream.body,{headers:{
       'Content-Type':types[ext]||'application/octet-stream',
       'Cache-Control':'no-store','X-Content-Type-Options':'nosniff',
@@ -49,12 +57,12 @@ export default {async fetch(request,env){
   if(/^\/hq\/(?:|[a-zA-Z0-9_-]+\.(?:js|css|png|webmanifest))$/.test(path) && request.method==='GET'){
     if(path==='/hq/sw.js')return new Response(null,{status:404});
     const file=path==='/hq/'?'index.html':path.slice(4);
-    const assetRef=(file==='app25_recurring_billing.js'||file==='app26_quotes.js')?'3f985a0266d9f1f32e15860b5d9e2d81805cf37c':file==='app27_interactive_quotes.js'?'26b0ca9f9160f64b103d7698b9261c4c1d918fcc':'0dccc9e6197d6eb8daefd9bf1836f816db80d791';
+    const assetRef=['app21_prospect_conversion.js','app23_client_to_job.js','app26_quotes.js'].includes(file)?workflowAssets:file==='app25_recurring_billing.js'?'3f985a0266d9f1f32e15860b5d9e2d81805cf37c':'0dccc9e6197d6eb8daefd9bf1836f816db80d791';
     const upstream=await fetch('https://raw.githubusercontent.com/ChipButt/ChipIn/'+assetRef+'/hq/'+file);
     if(!upstream.ok)return new Response('HQ asset unavailable',{status:502});
     const types={html:'text/html',js:'application/javascript',css:'text/css',png:'image/png',webmanifest:'application/manifest+json'};
     const headers={'Content-Type':types[file.split('.').pop()],'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer','X-Frame-Options':'DENY'};
-    if(file==='index.html')return new Response((await upstream.text()).replace('<head>',"<head><style>#app{visibility:hidden}@media(max-width:700px){#app .sidebar{height:80px}#app .content{padding-bottom:104px}#modal.modal{padding-bottom:98px}}</style><script>if(!sessionStorage.getItem('hqSession'))location.replace('/')</script>").replace('</body>','<script src="dashboard-sync.js"></script></body>'),{headers});
+    if(file==='index.html')return new Response((await upstream.text()).replace('<head>',"<head><style>#app{visibility:hidden}#mobileSaveState{display:none}@media(max-width:700px){#mobileSaveState{display:block;font-size:11px;margin-top:3px}}@media(max-width:700px){#app .sidebar{height:80px}#app .content{padding-bottom:104px}#modal.modal{padding-bottom:98px}}</style><script>if(!sessionStorage.getItem('hqSession'))location.replace('/')</script>").replace('</body>','<script src="/hq/meeting-shared.js"></script><script src="dashboard-sync.js"></script></body>'),{headers});
     if(file==='app4.js')return new Response((await upstream.text()).replace(/\ninit\(\)\.catch[^\n]*/,''),{headers});
     if(file==='app6.js')return new Response((await upstream.text()).replace(/setTimeout\(\(\)=>bootstrapGhStorage[^\n]*/,''),{headers});
     return new Response(upstream.body,{headers});
@@ -64,10 +72,13 @@ export default {async fetch(request,env){
     'X-Frame-Options':'DENY','X-Content-Type-Options':'nosniff',
     'Content-Security-Policy':"default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self' https://identitytoolkit.googleapis.com; form-action 'none'; base-uri 'none'; frame-ancestors 'none'"
   }});
-  if (!['/account','/records','/migration/source','/migration/import','/quote-admin'].includes(path)) return json({error:'Unknown route'},404);
+  if (!['/account','/records','/migration/source','/migration/import','/quote-admin','/hq/receipt','/hq/meeting-data','/hq/renewals'].includes(path)) return json({error:'Unknown route'},404);
   try {
     const member=await identify(request,env.DB);
     if (!member) return denied();
+    if(path==='/hq/receipt')return await sharedFile(request,env.DB);
+    if(path==='/hq/meeting-data')return await meetingData(request,env.DB,member);
+    if(path==='/hq/renewals' && request.method==='POST'){await runBilling(env.DB);return json({ok:true})}
     if(path==='/quote-admin'){
       if(request.method!=='POST')return json({error:'Unsupported method'},405);
       if(!env.HQ_QUOTE_BRIDGE_KEY)return json({error:'Quotation connection is not configured.'},503);
@@ -115,23 +126,24 @@ export default {async fetch(request,env){
     if(path!=='/records') return json({error:'Unsupported method'},405);
     if(!info?.migration_verified && !info?.imported) return json({error:'Migration awaiting verification.'},423);
     if(request.method==='GET'){
-      const rows=await env.DB.prepare('SELECT collection,id,revision,data FROM hq_records ORDER BY collection,id').all();
+      const rows=await env.DB.prepare("SELECT collection,id,revision,data FROM hq_records WHERE collection!='$meeting' ORDER BY collection,id").all();
       return json(rows.results.map(r=>({...r,data:r.data===null?null:JSON.parse(r.data)})));
     }
     if(request.method!=='POST') return json({error:'Unsupported method'},405);
-    if(request.headers.get('X-HQ-Client')!=='shared-v2')return json({error:'Reload HQ to save using the current shared dashboard.'},428);
+    if(request.headers.get('X-HQ-Client')!=='shared-v3')return json({error:'Reload HQ to save using the current shared dashboard.'},428);
     const ops=await request.json().catch(()=>null);
-    if(!Array.isArray(ops)||!ops.length||ops.length>100) return json({error:'Invalid change batch.'},400);
+    if(!Array.isArray(ops)||!ops.length||ops.length>5000) return json({error:'Invalid change batch.'},400);
     const seen=new Set(), sql='INSERT INTO hq_records(collection,id,revision,data,updated_by) VALUES(?,?,?,?,?) ON CONFLICT(collection,id) DO UPDATE SET revision=excluded.revision,data=excluded.data,updated_by=excluded.updated_by';
     const statements=[];
     for(const op of ops){
-      if(!op||typeof op.collection!=='string'||!op.collection.length||op.collection.length>128||typeof op.id!=='string'||!op.id.length||op.id.length>256||!Number.isSafeInteger(op.expected)||op.expected<0||!Object.hasOwn(op,'data')) return json({error:'Invalid record.'},400);
+      if(!op||(op.collection==='$meeting'&&(request.headers.get('X-HQ-Restore')!=='confirmed'||!op.data?.fields))||typeof op.collection!=='string'||!op.collection.length||op.collection.length>128||typeof op.id!=='string'||!op.id.length||op.id.length>256||!Number.isSafeInteger(op.expected)||op.expected<0||!Object.hasOwn(op,'data')) return json({error:'Invalid record.'},400);
       const key=JSON.stringify([op.collection,op.id]);
       if(seen.has(key)) return json({error:'Duplicate record.'},400);
       seen.add(key);
       statements.push(env.DB.prepare(sql).bind(op.collection,op.id,op.expected+1,op.data===null?null:JSON.stringify(op.data),member.email));
     }
     await env.DB.batch(statements);
+    if(ops.some(op=>op.collection==='recurringCharges'))ctx?.waitUntil(runBilling(env.DB));
     return json({saved:true});
   }catch(error){
     if(String(error?.message).includes('hq_revision_conflict'))return json({error:'A record changed on another device. Review the newer version before saving.'},409);

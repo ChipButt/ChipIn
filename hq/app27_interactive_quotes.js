@@ -39,6 +39,7 @@ function statusLine(q){
  if(c.acceptance&&q.invoiceId)return 'Accepted and invoiced';
  if(c.email?.status==='sent')return 'Previously sent via Gmail to '+c.email.recipient;
  if(c.firstOpenedAt)return 'Customer opened quotation link';
+ if(q.status==='Sent'&&q.sentDate)return 'Marked as sent on '+q.sentDate;
  return 'Link published — Gmail draft available (send manually)';
 }
 function collect(q){

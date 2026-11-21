@@ -38,7 +38,7 @@ el('login').onsubmit=e=>{
    if(!r.ok)throw Error(r.status===403?'This account has no HQ access.':'HQ is temporarily unavailable.');
    const account=await r.json();
    if(account.imported || account.ready){
-    sessionStorage.setItem('hqSession',JSON.stringify({id:result.idToken,refresh:result.refreshToken,expires:Date.now()+Number(result.expiresIn)*1000}));
+    sessionStorage.setItem('hqSession',JSON.stringify({name:account.name,id:result.idToken,refresh:result.refreshToken,expires:Date.now()+Number(result.expiresIn)*1000}));
     location.replace('/hq/');return;
    }
    el('migration').hidden=!account.canImport;

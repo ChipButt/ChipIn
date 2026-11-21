@@ -3,7 +3,9 @@
   if(!session){location.replace('/');return}
   let rows=new Map(), baseline=new Map(), pending=Promise.resolve(), busy=false, dirty=false, refreshRequest;
   const key=(c,id)=>JSON.stringify([c,id]);
-  const badge=message=>{document.querySelector('#saveState').textContent=message};
+  const mobileStatus=document.createElement('small');mobileStatus.id='mobileSaveState';mobileStatus.setAttribute('role','status');
+  document.querySelector('#pageTitle').after(mobileStatus);
+  const badge=message=>{document.querySelector('#saveState').textContent=message;mobileStatus.textContent=message};
   async function token(){
     if(Date.now()>session.expires-90000){
       refreshRequest??=(async()=>{
@@ -21,9 +23,15 @@
   addGhSettings=addGhBadge=scheduleGh=()=>{};
   const retired=()=>{throw Error('This HQ uses your shared account. Reload to read the latest records.')};
   reconcileGh=syncGh=unlockGh=setupGh=unlockBox=retired;
-  async function request(method,body){
+  async function api(path,options={}){
+    const res=await fetch(path,{...options,headers:{...options.headers,Authorization:'Bearer '+await token()},cache:'no-store'});
+    if(!res.ok)throw Error((await res.json().catch(()=>({}))).error||'Shared HQ request failed.');
+    return res;
+  }
+  /* shared documents */
+  async function request(method,body,restore=false){
     const id=await token();
-    const res=await fetch('/records',{method,headers:{'X-HQ-Client':'shared-v2',Authorization:'Bearer '+id,'Content-Type':'application/json'},body:body&&JSON.stringify(body),cache:'no-store'});
+    const res=await fetch('/records',{method,headers:{'X-HQ-Client':'shared-v3',...(restore?{'X-HQ-Restore':'confirmed'}:{}),Authorization:'Bearer '+id,'Content-Type':'application/json'},body:body&&JSON.stringify(body),cache:'no-store'});
     if(!res.ok)throw Error(res.status===409?'Someone else changed this record. Your edit was not saved. Reload to review the latest version.':'Shared HQ could not '+(body?'save your changes.':'load your records.'));
     return res.json();
   }
@@ -47,8 +55,8 @@
     }
     state=mergeDefaults(doc,DEFAULT_STATE);baseline=flatten(state);
   }
-  async function write(snapshot){
-    const next=flatten(snapshot),ops=[];
+  async function write(snapshot,extra=[],restore=false){
+    const next=flatten(snapshot),ops=[...extra];
     for(const k of new Set([...baseline.keys(),...next.keys()])){
       if(next.get(k)===baseline.get(k))continue;
       const [collection,id]=JSON.parse(k);
@@ -56,27 +64,55 @@
       ops.push({collection,id,expected:rows.get(k)?.revision||0,data:JSON.parse(next.get(k)??'null')});
     }
     if(ops.length){
-      await request('POST',ops);
+      await request('POST',ops,restore);
       for(const op of ops)rows.set(key(op.collection,op.id),{...op,revision:op.expected+1});
     }
     baseline=next;badge('Saved to shared HQ');
   }
   // Keep the record revision seen when a form opened until its save completes.
-  let writes=0;
+  let writes=0,restoring=false;
   saveState=async function(){
+    if(restoring)throw Error('A restore is in progress. Try saving again afterwards.');
+    for(const expense of state.expenses||[])if(uploaded.has(expense.id))expense.receiptFile=uploaded.get(expense.id);
+    uploaded.clear();
     const snapshot=structuredClone(state);writes++;badge('Saving to shared HQ…');
     const save=pending.then(()=>write(snapshot));
     pending=save.catch(()=>{});
     try{await save;dirty=false}catch(e){dirty=true;badge(e.message);toast(e.message);throw e}finally{writes--}
   };
+  const originalExpenseRows=expenseRows;
+  expenseRows=entries=>{
+    const template=document.createElement('template');template.innerHTML='<table><tbody>'+originalExpenseRows(entries)+'</tbody></table>';
+    for(const button of template.content.querySelectorAll('[data-action="view-receipt"]')){
+      const expense=entries.find(e=>e.id===button.dataset.id);
+      const label=document.createElement('small');label.textContent=expense?.receiptFile?'Shared receipt':'Receipt awaiting upload from original device';
+      button.parentNode.after(label);
+    }
+    return template.content.querySelector('tbody').innerHTML;
+  };
   const signout=document.createElement('button');signout.className='ghost-btn';signout.textContent='Sign out';
   signout.onclick=()=>{sessionStorage.removeItem('hqSession');location.replace('/')};document.querySelector('.sidebar-foot').append(signout);
+  let memberName=session.name||'';
+  const settings=renderSettings;
+  renderSettings=()=>{
+    settings();
+    const danger=document.querySelector('#resetAll')?.closest('.card');
+    if(danger){danger.previousElementSibling?.remove();danger.remove()}
+    const panel=document.createElement('section');panel.className='card';const label=document.createElement('p');
+    label.textContent='Signed in as '+(memberName||'HQ member');panel.append(label);
+    const button=document.createElement('button');button.type='button';button.className='btn secondary';button.textContent='Sign out';button.onclick=signout.onclick;panel.append(button);
+    document.getElementById('content').prepend(panel);
+  };
   document.getElementById('app').style.visibility='hidden';
   try{
     await openDB();adopt(await request('GET'));
     document.getElementById('brandLogo').src=LOGO_DATA_URL;document.getElementById('backupQuickBtn').onclick=downloadBackup;
     render();badge('Connected to shared HQ');document.getElementById('app').style.visibility='visible';
     void window.ChipInQuotePortal.synchronize();
+    if(!memberName)api('/account').then(r=>r.json()).then(m=>{memberName=m.name;if(page==='settings')render()}).catch(()=>{});
+    migrateReceipts().catch(e=>toast(e.message));
+    window.HQMeetings?.directory(api).catch(e=>toast(e.message));
+    api('/hq/renewals',{method:'POST'}).then(poll).catch(e=>toast(e.message));
   }catch(e){document.body.textContent=e.message;const a=document.createElement('a');a.href=location.hostname.endsWith('.workers.dev')?'/':'/hq/login';a.textContent=' Return to sign in';document.body.append(a);return}
   async function poll(){
     const editing=()=>dirty||writes||!document.getElementById('modal').classList.contains('hidden')||document.activeElement?.matches('input,textarea,select,[contenteditable=true]')||document.hidden;
