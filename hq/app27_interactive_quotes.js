@@ -8,7 +8,7 @@ const quotes=()=>Array.isArray(state.quotes)?state.quotes:[];
 const byId=id=>quotes().find(q=>q.id===id);
 const str=x=>String(x??'').trim();
 function sharedHQSession(){
- if(location.hostname!=='chipin-hq-shared.goldplushighdefinition.workers.dev')return null;
+ if(!window.ChipInSharedHQ)return null;
  try{return JSON.parse(sessionStorage.getItem('hqSession')||'null')}catch{return null}
 }
 function portalReady(){return !!sharedHQSession()?.id||!!(localStorage.getItem(STORAGE)&&ghPass&&ghUnlocked)}
@@ -19,9 +19,8 @@ async function key(){
  return openText(sealed,ghPass);
 }
 async function call(path,body,authenticated=true){
- const session=sharedHQSession();
- if(session&&authenticated){
-  const response=await fetch('/quote-admin',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+session.id},body:JSON.stringify({path,body}),cache:'no-store'});
+ if(window.ChipInSharedHQ&&authenticated){
+  const response=await fetch('/quote-admin',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+await window.ChipInSharedHQ.token()},body:JSON.stringify({path,body}),cache:'no-store'});
   const result=await response.json();
   if(!response.ok)throw Error(result.error||'Shared HQ quotation service error '+response.status);
   return result;
