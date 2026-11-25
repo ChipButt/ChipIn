@@ -19,7 +19,7 @@ const number=()=>{
 };
 const option=(value,label,selected)=>'<option value="'+esc(value)+'"'+(String(value)===String(selected)?' selected':'')+'>'+esc(label)+'</option>';
 const field=(label,html)=>'<div class="field"><label>'+esc(label)+'</label>'+html+'</div>';
-const catNames=()=>[...Object.keys(pricing().catalog),'Other'];
+const catNames=()=>[...Object.keys(pricing().catalog),'SEO','Other'];
 function demoLink(q){
  if(q?.category!=='Website Design'||!q.demo?.enabled||!q.demo?.url)return '';
  try{const u=new URL(q.demo.url);return ['http:','https:'].includes(u.protocol)&&u.hostname&&!u.username&&!u.password?u.href:'';}catch{return '';}
@@ -262,7 +262,7 @@ function openForm(id,clientId){
   }
   catalogueOptions(form,q,restore);
   form.querySelectorAll('#hqQuoteOptions input,#hqQuoteOptions select').forEach(n=>n.addEventListener('change',recalc));
-  if(!existing&&form.elements.namedItem('title').value==='Website Design & Services')form.elements.namedItem('title').value=name==='Website Design'?'Website Design & Services':name;
+  if(!existing&&form.elements.namedItem('title').value==='Website Design & Services')form.elements.namedItem('title').value=name==='Website Design'?'Website Design & Services':name==='SEO'?'Search Engine Optimisation (SEO)':name;
   recalc();
  }
  cat.onchange=()=>categoryChanged(null);
