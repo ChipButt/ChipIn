@@ -51,6 +51,32 @@ const stageLabels={
  Won:'Project next steps email',Client:'Client check-in email',Lost:'Close conversation email'
 };
 function stageLabel(stage){return stageLabels[stage]||stageLabels.Client}
+function quoteLinks(c){
+ if(!c?.id)return [];
+ return (Array.isArray(state.quotes)?state.quotes:[]).filter(q=>q.clientId===c.id&&
+  ['Published','Sent'].includes(q.status)&&!q.interactive?.acceptance&&!['revoked','accepted','declined'].includes(field(q.interactive?.status).toLowerCase())&&
+  /^https:\/\/(?:chipin-hq-quotes\.goldplushighdefinition\.workers\.dev|(?:www\.)?chipinworks\.co\.uk)\/q\/[0-9a-f]{54}\/?$/i.test(field(q.interactive?.url)));
+}
+const htmlEsc=v=>String(v??'').replace(/[&<>"']/g,x=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[x]));
+function formattedBody(body){
+ const plain=body.endsWith('\nhttps://chipinworks.co.uk/')?body.slice(0,-'\nhttps://chipinworks.co.uk/'.length):body;
+ const html=plain.split(/(https:\/\/[^\s<>]+)/g).map((part,i)=>{
+  if(i%2===0)return htmlEsc(part).replace(/\n/g,'<br>');
+  const label=/\/q\/[0-9a-f]{54}\/?$/i.test(part)?'View your quotation':part.includes('/HospoLP/samples/')?'View your website demonstration':part;
+  return '<a href="'+htmlEsc(part)+'">'+htmlEsc(label)+'</a>';
+ }).join('');
+ return '<div style="font-family:Arial,sans-serif;font-size:14px">'+html+'<br>'+logoHtml+'</div>';
+}
+async function copyFormatted(c,l,stage){
+ if(!c)return false;
+ const d=stageDraft(c,l,stage);
+ try{
+  if(!navigator.clipboard?.write||typeof ClipboardItem==='undefined')throw Error('Clipboard unavailable');
+  await navigator.clipboard.write([new ClipboardItem({'text/html':new Blob([formattedBody(d.body)],{type:'text/html'}),'text/plain':new Blob([d.body],{type:'text/plain'})})]);
+  toast('Formatted email copied. Paste it into Gmail to retain the short clickable links and logo.');
+  return true;
+ }catch{toast('Formatted copying is unavailable in this browser. Use the regular Gmail email button.');return false;}
+}
 function stageDraft(c,l,stage){
  const recipient=field(c?.email)||field(l?.email);
  const contact=firstName(field(c?.contact)||field(l?.contactName));
@@ -80,11 +106,12 @@ function stageDraft(c,l,stage){
  case 'Quote':
   subject='Following up on your quotation — '+name;
   message='I wanted to check whether you have had a chance to look through the quotation from Chip In.\n\nIf you have any questions, would like anything clarified or want to discuss any changes, I would be happy to help. If you are ready to go ahead, just let me know and we can agree the next steps.';
-  // Include a link only if there is exactly one confirmed-sent online quote for this client.
-  const sent=(Array.isArray(state.quotes)?state.quotes:[]).filter(q=>c?.id&&q.clientId===c.id&&q.status==='Sent'&&q.interactive?.email?.status==='sent'&&/^https:\/\/[^\s<>]+$/i.test(field(q.interactive?.url)));
-  if(sent.length===1){
-   subject='Following up on quotation '+(field(sent[0].number)||'')+' — '+name;
-   message+='\n\nYou can review your quotation here:\n'+field(sent[0].interactive.url);
+  const quotes=quoteLinks(c);
+  if(quotes.length===1){
+   if(field(quotes[0].number))subject='Following up on quotation '+field(quotes[0].number)+' — '+name;
+   message+='\n\nYou can review your quotation here:\n'+field(quotes[0].interactive.url);
+  }else if(quotes.length>1){
+   message+='\n\nYou can review your quotations here:\n'+quotes.map(q=>(field(q.number)||'Quotation')+': '+field(q.interactive.url)).join('\n');
   }
   break;
  case 'Won':
@@ -100,23 +127,25 @@ function stageDraft(c,l,stage){
   message='I hope all is going well with '+name+'.\n\nI wanted to check in and make sure everything is going smoothly. If there is anything you need help with or anything you would like to discuss, please let me know.';
  }
  const demo=field(l?.demoUrl);
- if(['Research','Found','Contact','Interested'].includes(stage)&&/^https:\/\/chipbutt\.github\.io\/HospoLP\/samples\/[a-z0-9-]+\/?$/i.test(demo))message+='\n\nYou can also view the website demonstration here:\n'+demo;
+ if(['Research','Found','Contact','Follow-up','Interested'].includes(stage)&&/^https:\/\/chipbutt\.github\.io\/HospoLP\/samples\/[a-z0-9-]+\/?$/i.test(demo))message+='\n\nYou can also view the website demonstration here:\n'+demo;
  return {recipient,subject,body:greeting+message+'\n\n'+signature()};
 }
 function forPipelineClient(c,lead,stage){
  if(!c)return false;
  const d=stageDraft(c,lead,stage||c.pipelineStage||(c.archivedAt?'Lost':'Client'));
+ if(stage==='Quote'&&!quoteLinks(c).length)toast('No active online quotation link is saved for this client. Check the quotation before sending.');
  return open(d.recipient,d.subject,d.body);
 }
 function forSalesLead(l){
  if(!l)return false;
  const c=(state.clients||[]).find(c=>(c.sourceLeadId&&(c.sourceLeadId===l.id||c.sourceLeadId===l.sourceLeadId))||(l.convertedClientId&&c.id===l.convertedClientId)||(l.clientRecordId&&c.id===l.clientRecordId));
  const d=stageDraft(c,l,l.stage||'Research');
+ if(l.stage==='Quote'&&!quoteLinks(c).length)toast('No active online quotation link is saved for this client. Check the quotation before sending.');
  return open(d.recipient,d.subject,d.body);
 }
 function forClient(c,kind='intro'){
  if(!c)return false;
  return forPipelineClient(c,null,c.pipelineStage||(c.archivedAt?'Lost':kind==='followup'?'Contact':'Found'));
 }
-window.ChipInEmailDrafts={open,link,urlFor,forSalesLead,forClient,forPipelineClient,stageLabel,stageDraft,signature,firstName,setupLogo};
+window.ChipInEmailDrafts={open,link,urlFor,forSalesLead,forClient,forPipelineClient,stageLabel,stageDraft,signature,firstName,setupLogo,quoteLinks,formattedBody,copyFormatted};
 })();
