@@ -59,7 +59,10 @@ function projectDetails(c,l,stage){
  const cleanName=clientName.replace(/[\r\n\t]+/g,' ').trim();
  const includesName=cleanName.length>0&&cleanLabel.toLowerCase().includes(cleanName.toLowerCase());
  const subjectProject=(includesName?cleanLabel:cleanLabel+' for '+cleanName).slice(0,205);
- return {subjectProject,topic:titles.length?cleanLabel.toLowerCase():'your project',quotes};
+ const suffix=' for '+cleanName;
+ const topicLabel=cleanName&&cleanLabel.toLowerCase().endsWith(suffix.toLowerCase())?cleanLabel.slice(0,-suffix.length):cleanLabel;
+ const topic=topicLabel.toLowerCase().replace(/\bseo\b/g,'SEO');
+ return {subjectProject,topic:titles.length&&topic?topic:'your project',quotes};
 }
 function stageDraft(c,l,stage){
  const recipient=field(c?.email)||field(l?.email);
