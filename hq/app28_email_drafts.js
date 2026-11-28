@@ -5,13 +5,26 @@
 const gmailBase='https://mail.google.com/mail/?view=cm&fs=1';
 const validEmail=s=>/^[^\s@<>;,]+@[^\s@<>;,]+\.[^\s@<>;,]+$/.test(String(s||'').trim());
 const field=s=>String(s??'').trim();
+const firstName=value=>field(value).replace(/^(?:(?:mr|mrs|ms|miss|mx|dr|prof|sir|dame)\.?\s+)+/i,'').split(/\s+/)[0]||'';
+const logoHtml='<a href="https://chipinworks.co.uk/"><img src="https://chipinworks.co.uk/chipin_asset_pack/logo/chip_in_logo.png" alt="Chip In" width="140" style="width:140px;height:auto;border:0"></a>';
+function setupLogo(){
+ openModal('<h2>Email signature logo</h2><p class="sub">Gmail compose links accept plain text only. Set this linked logo as your default Gmail signature once; HQ already includes your name and sign-off.</p><div style="padding:16px 0">'+logoHtml+'</div><p>Copy the linked logo, open Gmail settings, create or edit a signature and paste it into the signature box. Select that signature for new emails and save changes. If Gmail does not insert the signature automatically into a draft, use Insert signature in Gmail.</p><div class="form-actions"><button class="btn secondary" type="button" data-close-modal>Close</button><button class="btn secondary" type="button" id="hqCopyLinkedLogo">Copy linked logo</button><a class="btn" target="_blank" rel="noopener noreferrer" href="https://mail.google.com/mail/#settings/general">Open Gmail settings</a></div>');
+ const button=document.getElementById('hqCopyLinkedLogo');
+ if(button)button.onclick=async()=>{
+  try{
+   if(!navigator.clipboard?.write||typeof ClipboardItem==='undefined')throw Error('Clipboard unavailable');
+   await navigator.clipboard.write([new ClipboardItem({'text/html':new Blob([logoHtml],{type:'text/html'}),'text/plain':new Blob(['https://chipinworks.co.uk/'],{type:'text/plain'})})]);
+   toast('Linked logo copied. Paste it into your Gmail signature.');
+  }catch{toast('Copy the displayed logo manually, then paste it into Gmail settings.')}
+ };
+}
 const business=()=>{
  const s=state.settings||{};
- return {name:field(s.tradingName)||'Chip In',email:field(s.email)||'jamesbutt.chipin@gmail.com',website:'https://chipinworks.co.uk/'};
+ return {name:field(s.tradingName)||'Chip In',website:'https://chipinworks.co.uk/'};
 };
 const signature=()=>{
  const s=business();
- return 'Kind regards,\nChip\n'+s.name+'\n'+s.website+'\n'+s.email;
+ return 'Kind regards,\nChip\n'+s.name+'\n'+s.website;
 };
 function urlFor(to,subject,body){
  const email=field(to).toLowerCase();
@@ -40,7 +53,7 @@ const stageLabels={
 function stageLabel(stage){return stageLabels[stage]||stageLabels.Client}
 function stageDraft(c,l,stage){
  const recipient=field(c?.email)||field(l?.email);
- const contact=field(c?.contact)||field(l?.contactName);
+ const contact=firstName(field(c?.contact)||field(l?.contactName));
  const name=field(c?.name)||field(l?.businessName)||'your business';
  const greeting=contact?'Hello '+contact+',\n\n':'Hello,\n\n';
  const service=field(l?.service);
@@ -105,5 +118,5 @@ function forClient(c,kind='intro'){
  if(!c)return false;
  return forPipelineClient(c,null,c.pipelineStage||(c.archivedAt?'Lost':kind==='followup'?'Contact':'Found'));
 }
-window.ChipInEmailDrafts={open,link,urlFor,forSalesLead,forClient,forPipelineClient,stageLabel,stageDraft,signature};
+window.ChipInEmailDrafts={open,link,urlFor,forSalesLead,forClient,forPipelineClient,stageLabel,stageDraft,signature,firstName,setupLogo};
 })();
