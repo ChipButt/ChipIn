@@ -176,7 +176,7 @@
         (!archiveView && stage === 'Won' ? '<button class="btn small gold" type="button" data-client-job="' + esc(c.id) + '">' +
           (state.jobs.some(j => j.clientId === c.id) ? '+ Another Job' : 'Convert to Job') + '</button>' : '') +
         '<button class="btn small secondary" type="button" data-hq-client-recurring="' + esc(c.id) + '">Recurring charges</button>' +
-        (c.email ? '<button class="btn small secondary" type="button" data-client-compose="' + esc(c.id) + '">Open Gmail draft</button>' : '') +
+        ((c.email || leadFor(c)?.email) ? '<button class="btn small secondary" type="button" data-client-compose="' + esc(c.id) + '">' + esc(window.ChipInEmailDrafts?.stageLabel(stage) || 'Open Gmail draft') + '</button>' : '') +
         '<button class="btn small secondary" type="button" data-client-edit="' + esc(c.id) + '">Edit details</button>' +
         (!archiveView ? '<button class="btn small secondary hq-no-button" type="button" data-client-no="' + esc(c.id) + '">No</button>' : '') +
         '</div></article>';
@@ -186,8 +186,7 @@
       const client=clientById(b.dataset.clientCompose);
       if(!client)return;
       const lead=leadFor(client);
-      if(lead?.email)return window.ChipInEmailDrafts?.forSalesLead(lead);
-      return window.ChipInEmailDrafts?.forClient(client,['Contact','Follow-up','Interested','Quote','Won'].includes(stageOf(client))?'followup':'intro');
+      return window.ChipInEmailDrafts?.forPipelineClient(client,lead,stageOf(client));
     });
     container.querySelectorAll('[data-client-edit]').forEach(b => b.onclick = () => openClientForm(b.dataset.clientEdit));
     container.querySelectorAll('[data-client-job]').forEach(b => b.onclick = () => window.ChipInClientToJob?.start(b.dataset.clientJob, b.textContent.includes('Another')));
