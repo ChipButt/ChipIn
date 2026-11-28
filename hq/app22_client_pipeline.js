@@ -177,7 +177,6 @@
           (state.jobs.some(j => j.clientId === c.id) ? '+ Another Job' : 'Convert to Job') + '</button>' : '') +
         '<button class="btn small secondary" type="button" data-hq-client-recurring="' + esc(c.id) + '">Recurring charges</button>' +
         ((c.email || leadFor(c)?.email) ? '<button class="btn small secondary" type="button" data-client-compose="' + esc(c.id) + '">' + esc(window.ChipInEmailDrafts?.stageLabel(stage) || 'Open Gmail draft') + '</button>' : '') +
-        ((c.email || leadFor(c)?.email) ? '<button class="btn small secondary" type="button" title="Copy the email with short clickable links and linked logo, then paste into Gmail" data-client-formatted="' + esc(c.id) + '">Copy formatted email</button>' : '') +
         '<button class="btn small secondary" type="button" data-client-edit="' + esc(c.id) + '">Edit details</button>' +
         (!archiveView ? '<button class="btn small secondary hq-no-button" type="button" data-client-no="' + esc(c.id) + '">No</button>' : '') +
         '</div></article>';
@@ -188,10 +187,6 @@
       if(!client)return;
       const lead=leadFor(client);
       return window.ChipInEmailDrafts?.forPipelineClient(client,lead,stageOf(client));
-    });
-    container.querySelectorAll('[data-client-formatted]').forEach(b => b.onclick = () => {
-      const client=clientById(b.dataset.clientFormatted);
-      if(client)void window.ChipInEmailDrafts?.copyFormatted(client,leadFor(client),stageOf(client));
     });
     container.querySelectorAll('[data-client-edit]').forEach(b => b.onclick = () => openClientForm(b.dataset.clientEdit));
     container.querySelectorAll('[data-client-job]').forEach(b => b.onclick = () => window.ChipInClientToJob?.start(b.dataset.clientJob, b.textContent.includes('Another')));
@@ -231,7 +226,6 @@
       '<div class="hq-pipeline-strip">' + pipelineTiles + '</div></section>' +
       '<div class="hq-directory-intro"><div><h2>Client directory</h2><p>Every contact in one place — from the first approach to an agreed job.</p></div>' +
       '<div class="hq-client-tabs">' +
-      '<button type="button" class="btn small secondary" id="hqEmailLogoSetup">Email signature logo</button>' +
       '<button type="button" class="btn small ' + (archiveView ? 'secondary' : '') + '" id="hqActiveClients">Active (' + active + ')</button>' +
       '<button type="button" class="btn small ' + (!archiveView ? 'secondary' : '') + '" id="hqArchivedClients">Archived (' + archived + ')</button>' +
       '</div></div>' +
@@ -255,7 +249,6 @@
         tile.setAttribute('aria-pressed', String(selected));
       });
     };
-    document.getElementById('hqEmailLogoSetup').onclick = () => window.ChipInEmailDrafts?.setupLogo();
     document.getElementById('hqActiveClients').onclick = () => { archiveView = false; stageFilter = ''; renderClients(); };
     document.getElementById('hqArchivedClients').onclick = () => { archiveView = true; stageFilter = ''; renderClients(); };
     document.getElementById('clientSearch').oninput = event => { clientSearch = event.target.value; renderClientCards(); };
