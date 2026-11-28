@@ -57,7 +57,7 @@ export default {scheduled(event,env,ctx){ctx.waitUntil(runBilling(env.DB))},asyn
   if(/^\/hq\/(?:|[a-zA-Z0-9_-]+\.(?:js|css|png|webmanifest))$/.test(path) && request.method==='GET'){
     if(path==='/hq/sw.js')return new Response(null,{status:404});
     const file=path==='/hq/'?'index.html':path.slice(4);
-    const assetRef=['app22_client_pipeline.js','app28_email_drafts.js'].includes(file)?'1a79f33fc4787bd0a4504d1a1fc87e70738c69c3':['app21_prospect_conversion.js','app23_client_to_job.js','app26_quotes.js'].includes(file)?workflowAssets:file==='app25_recurring_billing.js'?'3f985a0266d9f1f32e15860b5d9e2d81805cf37c':'0dccc9e6197d6eb8daefd9bf1836f816db80d791';
+    const assetRef=['app22_client_pipeline.js','app28_email_drafts.js'].includes(file)?'6933e3ade0e1c5ff4138a43d192d0497c4f122e3':['app21_prospect_conversion.js','app23_client_to_job.js','app26_quotes.js'].includes(file)?workflowAssets:file==='app25_recurring_billing.js'?'3f985a0266d9f1f32e15860b5d9e2d81805cf37c':'0dccc9e6197d6eb8daefd9bf1836f816db80d791';
     const upstream=await fetch('https://raw.githubusercontent.com/ChipButt/ChipIn/'+assetRef+'/hq/'+file);
     if(!upstream.ok)return new Response('HQ asset unavailable',{status:502});
     const types={html:'text/html',js:'application/javascript',css:'text/css',png:'image/png',webmanifest:'application/manifest+json'};
