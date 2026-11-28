@@ -6,14 +6,8 @@ const gmailBase='https://mail.google.com/mail/?view=cm&fs=1';
 const validEmail=s=>/^[^\s@<>;,]+@[^\s@<>;,]+\.[^\s@<>;,]+$/.test(String(s||'').trim());
 const field=s=>String(s??'').trim();
 const firstName=value=>field(value).replace(/^(?:(?:mr|mrs|ms|miss|mx|dr|prof|sir|dame)\.?\s+)+/i,'').split(/\s+/)[0]||'';
-const business=()=>{
- const s=state.settings||{};
- return {name:field(s.tradingName)||'Chip In',website:'https://chipinworks.co.uk/'};
-};
-const signature=()=>{
- const s=business();
- return 'Kind regards,\nChip\n'+s.name+'\n'+s.website;
-};
+// The HTML service replaces the final website fallback with the linked logo.
+const signature=()=> 'Kind regards,\nChip\nhttps://chipinworks.co.uk/';
 function urlFor(to,subject,body){
  const email=field(to).toLowerCase();
  if(!validEmail(email))throw Error('A valid recipient email address is required.');
@@ -45,54 +39,71 @@ function quoteLinks(c){
   ['Published','Sent'].includes(q.status)&&!q.interactive?.acceptance&&!['revoked','accepted','declined'].includes(field(q.interactive?.status).toLowerCase())&&
   /^https:\/\/(?:chipin-hq-quotes\.goldplushighdefinition\.workers\.dev|(?:www\.)?chipinworks\.co\.uk)\/q\/[0-9a-f]{54}\/?$/i.test(field(q.interactive?.url)));
 }
+function uniqueTitles(rows){
+ return [...new Map(rows.map(x=>field(x.title)||field(x.category)).filter(Boolean).map(x=>[x.toLowerCase(),x])).values()];
+}
+function projectDetails(c,l,stage){
+ const clientName=field(c?.name)||field(l?.businessName)||'your business';
+ const jobs=(Array.isArray(state.jobs)?state.jobs:[]).filter(j=>c?.id&&j.clientId===c.id&&!['cancelled','canceled','declined'].includes(field(j.status).toLowerCase()));
+ const active=jobs.filter(j=>['booked','in progress'].includes(field(j.status).toLowerCase()));
+ const related=jobs.filter(j=>l?.id&&j.sourceLeadId===l.id||l?.convertedJobId&&j.id===l.convertedJobId);
+ const quotes=quoteLinks(c);
+ let titles=[];
+ if(stage==='Quote')titles=uniqueTitles(quotes);
+ if(!titles.length&&['Won','Client'].includes(stage))titles=uniqueTitles(related.length?related:active.length?active:jobs);
+ if(!titles.length&&field(l?.service))titles=[field(l.service)];
+ if(!titles.length&&['Interested','Follow-up','Contact','Quote','Won','Client'].includes(stage))titles=uniqueTitles(quotes);
+ if(!titles.length)titles=uniqueTitles(related.length?related:active);
+ const label=titles.length?titles.join(' / '):'Project';
+ const cleanLabel=label.replace(/[\r\n\t]+/g,' ').trim();
+ const cleanName=clientName.replace(/[\r\n\t]+/g,' ').trim();
+ const includesName=cleanName.length>0&&cleanLabel.toLowerCase().includes(cleanName.toLowerCase());
+ const subjectProject=(includesName?cleanLabel:cleanLabel+' for '+cleanName).slice(0,205);
+ return {subjectProject,topic:titles.length?cleanLabel.toLowerCase():'your project',quotes};
+}
 function stageDraft(c,l,stage){
  const recipient=field(c?.email)||field(l?.email);
  const contact=firstName(field(c?.contact)||field(l?.contactName));
  const name=field(c?.name)||field(l?.businessName)||'your business';
  const greeting=contact?'Hello '+contact+',\n\n':'Hello,\n\n';
- const service=field(l?.service);
- const serviceLine=service?' I would be happy to talk through '+service.toLowerCase()+' in more detail.':'';
+ const {subjectProject,topic,quotes}=projectDetails(c,l,stage);
  let subject,message;
  switch(stage){
  case 'Research':
  case 'Found':
-  subject='Introduction — Chip In and '+name;
-  message="I'm Chip from Chip In. I work with businesses on websites and practical digital support.\n\n"+(service?'I wanted to get in touch about '+service.toLowerCase()+'. ':'')+'If you think I might be able to help '+name+', I would be happy to have a quick chat and see what would be useful.';
+  subject=subjectProject+' — an idea for you';
+  message="I'm Chip, and I help businesses make the most of their digital presence.\n\n"+(topic!=='your project'?'I would love to explore how '+topic+' could support '+name+'. ':'I would love to explore how I could help '+name+'. ')+'A short chat would give us a chance to look at what you need and find a practical way forward. Would you have time for a quick conversation this week?';
   break;
  case 'Contact':
-  subject='Following up on my introduction — '+name;
-  message='I wanted to follow up on my recent contact and see whether you have had a chance to consider what Chip In could help with.'+serviceLine+'\n\nIf you are interested, I would be happy to arrange a convenient time for a quick chat.';
+  subject=subjectProject+' — following up';
+  message='I wanted to follow up on my recent message about '+topic+'. I would really welcome the opportunity to help '+name+' and explore what we could achieve together.\n\nThe next step can be as simple as a short chat to work out what would suit you best. Would you have a convenient time this week?';
   break;
  case 'Follow-up':
-  subject='Checking back in — '+name;
-  message='I just wanted to check back in and see whether you would still like to explore working with Chip In.\n\nI appreciate things can get busy, so there is no pressure. If now is not the right time, just let me know and we can pick things up when it suits you.';
+  subject=subjectProject+' — shall we take the next step?';
+  message='I wanted to check back in about '+topic+' for '+name+'. I would love to help you move this forward and make the process as straightforward as possible.\n\nIf there is anything you are unsure about, or if your requirements have changed, we can work through it together. Would you like to arrange a quick chat and decide on the best next step?';
   break;
  case 'Interested':
-  subject='Discussing the next steps — '+name;
-  message='Thank you for your interest in working with Chip In.'+serviceLine+'\n\nIt would be useful to discuss your requirements and agree the best way forward. Would you be able to let me know a convenient time for a chat?';
+  subject=subjectProject+' — next steps';
+  message='Thank you for your interest in working together on '+topic+'. I am looking forward to exploring how we can make this work for '+name+'.\n\nA brief conversation about your requirements will help me put together the right approach. Let me know a convenient time and we can start turning your ideas into a plan.';
   break;
  case 'Quote':
-  subject='Following up on your quotation — '+name;
-  message='I wanted to check whether you have had a chance to look through the quotation from Chip In.\n\nIf you have any questions, would like anything clarified or want to discuss any changes, I would be happy to help. If you are ready to go ahead, just let me know and we can agree the next steps.';
-  const quotes=quoteLinks(c);
-  if(quotes.length===1){
-   if(field(quotes[0].number))subject='Following up on quotation '+field(quotes[0].number)+' — '+name;
-   message+='\n\nYou can review your quotation here:\n'+field(quotes[0].interactive.url);
-  }else if(quotes.length>1){
-   message+='\n\nYou can review your quotations here:\n'+quotes.map(q=>(field(q.number)||'Quotation')+': '+field(q.interactive.url)).join('\n');
-  }
+  subject=subjectProject+' — quotation follow-up';
+  message='I wanted to follow up on the quotation for '+topic+' and see what you think. I would love to work with you on this and help bring the project to life.\n\nIf you have any questions or would like to adjust anything, I am happy to talk through the options so we can find an approach that works for you.';
+  if(quotes.length===1)message+='\n\nYou can review your quotation here:\n'+field(quotes[0].interactive.url);
+  else if(quotes.length>1)message+='\n\nYou can review your quotations here:\n'+quotes.map(q=>(field(q.number)||'Quotation')+': '+field(q.interactive.url)).join('\n');
+  message+='\n\nIf you are happy with the proposal, let me know and we can agree the next steps to get things underway.';
   break;
  case 'Won':
-  subject='Getting started with Chip In — '+name;
-  message='Thank you for choosing to work with Chip In. I am looking forward to getting things moving for '+name+'.\n\nI wanted to check in about the next steps and make sure we have everything we need. If you have any questions or anything else you would like to discuss, please feel free to get in touch.';
+  subject=subjectProject+' — getting started';
+  message='Thank you for choosing to work with me on '+topic+'. I am looking forward to getting things moving for '+name+'.\n\nI would like to make sure we have everything in place for a smooth start. Let me know when you are available to go through the next steps, and we can get the project underway.';
   break;
  case 'Lost':
-  subject='Thank you for your time — '+name;
-  message='Thank you for taking the time to consider working with Chip In.\n\nI appreciate that it may not be the right fit at the moment. I will leave things with you, but if your requirements change in future, you are very welcome to get in touch.';
+  subject=subjectProject+' — thank you for your time';
+  message='Thank you for taking the time to consider working together. I appreciate that now may not be the right time to move forward.\n\nIf your plans change in the future, I would be very happy to pick things up again and help you find the right approach. Wishing you all the best in the meantime.';
   break;
  default:
-  subject='Checking in — '+name;
-  message='I hope all is going well with '+name+'.\n\nI wanted to check in and make sure everything is going smoothly. If there is anything you need help with or anything you would like to discuss, please let me know.';
+  subject=subjectProject+' — checking in';
+  message='I hope everything is going well with '+name+'. I wanted to check in on '+topic+' and make sure you are getting what you need from it.\n\nIf there are any improvements you would like to make, new ideas you want to explore, or anything I can help with, I would be happy to discuss them. Let me know how things are going.';
  }
  const demo=field(l?.demoUrl);
  if(['Research','Found','Contact','Follow-up','Interested'].includes(stage)&&/^https:\/\/chipbutt\.github\.io\/HospoLP\/samples\/[a-z0-9-]+\/?$/i.test(demo))message+='\n\nYou can also view the website demonstration here:\n'+demo;
