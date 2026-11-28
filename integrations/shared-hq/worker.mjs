@@ -57,7 +57,7 @@ export default {scheduled(event,env,ctx){ctx.waitUntil(runBilling(env.DB))},asyn
   if(/^\/hq\/(?:|[a-zA-Z0-9_-]+\.(?:js|css|png|webmanifest))$/.test(path) && request.method==='GET'){
     if(path==='/hq/sw.js')return new Response(null,{status:404});
     const file=path==='/hq/'?'index.html':path.slice(4);
-    const assetRef=['app22_client_pipeline.js','app28_email_drafts.js'].includes(file)?'0fae93c234553977e3c865bd643811b32df8b0c6':['app21_prospect_conversion.js','app23_client_to_job.js','app26_quotes.js'].includes(file)?workflowAssets:file==='app25_recurring_billing.js'?'3f985a0266d9f1f32e15860b5d9e2d81805cf37c':'0dccc9e6197d6eb8daefd9bf1836f816db80d791';
+    const assetRef=['app22_client_pipeline.js','app28_email_drafts.js'].includes(file)?'1a79f33fc4787bd0a4504d1a1fc87e70738c69c3':['app21_prospect_conversion.js','app23_client_to_job.js','app26_quotes.js'].includes(file)?workflowAssets:file==='app25_recurring_billing.js'?'3f985a0266d9f1f32e15860b5d9e2d81805cf37c':'0dccc9e6197d6eb8daefd9bf1836f816db80d791';
     const upstream=await fetch('https://raw.githubusercontent.com/ChipButt/ChipIn/'+assetRef+'/hq/'+file);
     if(!upstream.ok)return new Response('HQ asset unavailable',{status:502});
     const types={html:'text/html',js:'application/javascript',css:'text/css',png:'image/png',webmanifest:'application/manifest+json'};
@@ -72,13 +72,22 @@ export default {scheduled(event,env,ctx){ctx.waitUntil(runBilling(env.DB))},asyn
     'X-Frame-Options':'DENY','X-Content-Type-Options':'nosniff',
     'Content-Security-Policy':"default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self' https://identitytoolkit.googleapis.com; form-action 'none'; base-uri 'none'; frame-ancestors 'none'"
   }});
-  if (!['/account','/records','/migration/source','/migration/import','/quote-admin','/hq/receipt','/hq/meeting-data','/hq/renewals'].includes(path)) return json({error:'Unknown route'},404);
+  if (!['/account','/records','/migration/source','/migration/import','/quote-admin','/hq/receipt','/hq/meeting-data','/hq/renewals','/hq/email-draft'].includes(path)) return json({error:'Unknown route'},404);
   try {
     const member=await identify(request,env.DB);
     if (!member) return denied();
     if(path==='/hq/receipt')return await sharedFile(request,env.DB);
     if(path==='/hq/meeting-data')return await meetingData(request,env.DB,member);
     if(path==='/hq/renewals' && request.method==='POST'){await runBilling(env.DB);return json({ok:true})}
+    if(path==='/hq/email-draft'){
+      if(request.method!=='POST')return json({error:'Unsupported method'},405);
+      if(member.email.toLowerCase()!=='jamesbutt.chipin@gmail.com')return json({error:'Only the connected Gmail account owner can create these drafts.'},403);
+      if(!env.GMAIL_DRAFT)return json({error:'The formatted Gmail service is not available.'},503);
+      const raw=await request.text();
+      if(raw.length>30000)return json({error:'Email is too large.'},413);
+      const response=await env.GMAIL_DRAFT.fetch('https://hq-gmail.internal/draft',{method:'POST',headers:{'Content-Type':'application/json'},body:raw});
+      return new Response(await response.text(),{status:response.status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
+    }
     if(path==='/quote-admin'){
       if(request.method!=='POST')return json({error:'Unsupported method'},405);
       if(!env.HQ_QUOTE_BRIDGE_KEY)return json({error:'Quotation connection is not configured.'},503);
