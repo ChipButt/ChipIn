@@ -6,18 +6,6 @@ const gmailBase='https://mail.google.com/mail/?view=cm&fs=1';
 const validEmail=s=>/^[^\s@<>;,]+@[^\s@<>;,]+\.[^\s@<>;,]+$/.test(String(s||'').trim());
 const field=s=>String(s??'').trim();
 const firstName=value=>field(value).replace(/^(?:(?:mr|mrs|ms|miss|mx|dr|prof|sir|dame)\.?\s+)+/i,'').split(/\s+/)[0]||'';
-const logoHtml='<a href="https://chipinworks.co.uk/"><img src="https://chipinworks.co.uk/chipin_asset_pack/logo/chip_in_logo.png" alt="Chip In" width="140" style="width:140px;height:auto;border:0"></a>';
-function setupLogo(){
- openModal('<h2>Email signature logo</h2><p class="sub">Gmail compose links accept plain text only. Set this linked logo as your default Gmail signature once; HQ already includes your name and sign-off.</p><div style="padding:16px 0">'+logoHtml+'</div><p>Copy the linked logo, open Gmail settings, create or edit a signature and paste it into the signature box. Select that signature for new emails and save changes. If Gmail does not insert the signature automatically into a draft, use Insert signature in Gmail.</p><div class="form-actions"><button class="btn secondary" type="button" data-close-modal>Close</button><button class="btn secondary" type="button" id="hqCopyLinkedLogo">Copy linked logo</button><a class="btn" target="_blank" rel="noopener noreferrer" href="https://mail.google.com/mail/#settings/general">Open Gmail settings</a></div>');
- const button=document.getElementById('hqCopyLinkedLogo');
- if(button)button.onclick=async()=>{
-  try{
-   if(!navigator.clipboard?.write||typeof ClipboardItem==='undefined')throw Error('Clipboard unavailable');
-   await navigator.clipboard.write([new ClipboardItem({'text/html':new Blob([logoHtml],{type:'text/html'}),'text/plain':new Blob(['https://chipinworks.co.uk/'],{type:'text/plain'})})]);
-   toast('Linked logo copied. Paste it into your Gmail signature.');
-  }catch{toast('Copy the displayed logo manually, then paste it into Gmail settings.')}
- };
-}
 const business=()=>{
  const s=state.settings||{};
  return {name:field(s.tradingName)||'Chip In',website:'https://chipinworks.co.uk/'};
@@ -56,26 +44,6 @@ function quoteLinks(c){
  return (Array.isArray(state.quotes)?state.quotes:[]).filter(q=>q.clientId===c.id&&
   ['Published','Sent'].includes(q.status)&&!q.interactive?.acceptance&&!['revoked','accepted','declined'].includes(field(q.interactive?.status).toLowerCase())&&
   /^https:\/\/(?:chipin-hq-quotes\.goldplushighdefinition\.workers\.dev|(?:www\.)?chipinworks\.co\.uk)\/q\/[0-9a-f]{54}\/?$/i.test(field(q.interactive?.url)));
-}
-const htmlEsc=v=>String(v??'').replace(/[&<>"']/g,x=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[x]));
-function formattedBody(body){
- const plain=body.endsWith('\nhttps://chipinworks.co.uk/')?body.slice(0,-'\nhttps://chipinworks.co.uk/'.length):body;
- const html=plain.split(/(https:\/\/[^\s<>]+)/g).map((part,i)=>{
-  if(i%2===0)return htmlEsc(part).replace(/\n/g,'<br>');
-  const label=/\/q\/[0-9a-f]{54}\/?$/i.test(part)?'View your quotation':part.includes('/HospoLP/samples/')?'View your website demonstration':part;
-  return '<a href="'+htmlEsc(part)+'">'+htmlEsc(label)+'</a>';
- }).join('');
- return '<div style="font-family:Arial,sans-serif;font-size:14px">'+html+'<br>'+logoHtml+'</div>';
-}
-async function copyFormatted(c,l,stage){
- if(!c)return false;
- const d=stageDraft(c,l,stage);
- try{
-  if(!navigator.clipboard?.write||typeof ClipboardItem==='undefined')throw Error('Clipboard unavailable');
-  await navigator.clipboard.write([new ClipboardItem({'text/html':new Blob([formattedBody(d.body)],{type:'text/html'}),'text/plain':new Blob([d.body],{type:'text/plain'})})]);
-  toast('Formatted email copied. Paste it into Gmail to retain the short clickable links and logo.');
-  return true;
- }catch{toast('Formatted copying is unavailable in this browser. Use the regular Gmail email button.');return false;}
 }
 function stageDraft(c,l,stage){
  const recipient=field(c?.email)||field(l?.email);
@@ -130,22 +98,38 @@ function stageDraft(c,l,stage){
  if(['Research','Found','Contact','Follow-up','Interested'].includes(stage)&&/^https:\/\/chipbutt\.github\.io\/HospoLP\/samples\/[a-z0-9-]+\/?$/i.test(demo))message+='\n\nYou can also view the website demonstration here:\n'+demo;
  return {recipient,subject,body:greeting+message+'\n\n'+signature()};
 }
+// Uses the already-authorised Gmail draft service. No plain-text fallback or auto-send.
+async function openFormatted(d){
+ if(!validEmail(d.recipient)){toast('A valid recipient email address is required.');return false;}
+ const tab=window.open('about:blank','_blank');
+ if(tab)try{tab.opener=null;tab.document.body.textContent='Creating your formatted Gmail draft…';}catch{}
+ try{
+  if(!window.ChipInSharedHQ?.token)throw Error('Sign in to shared HQ to create a formatted draft.');
+  const token=await window.ChipInSharedHQ.token();
+  const response=await fetch('/hq/email-draft',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({to:d.recipient,subject:d.subject,body:d.body}),cache:'no-store'});
+  const result=await response.json();
+  if(!response.ok||!result.ok||!/^https:\/\/mail\.google\.com\/mail\/u\/\?authuser=[^#]+#(?:all\/[a-f0-9]+|drafts)$/i.test(result.open_url||''))throw Error(result.error||'Gmail could not create the draft.');
+  if(tab&&!tab.closed)tab.location.replace(result.open_url);
+  else openModal('<h2>Formatted Gmail draft created</h2><p class="sub">Your draft is saved in Gmail. Open it to review and send manually.</p><div class="form-actions"><button class="btn secondary" type="button" data-close-modal>Close</button><a class="btn" target="_blank" rel="noopener noreferrer" href="'+esc(result.open_url)+'">Open Gmail draft</a></div>');
+  toast('Formatted Gmail draft created. Nothing has been sent.');return true;
+ }catch(e){if(tab&&!tab.closed)tab.close();toast(e.message||'Could not create formatted Gmail draft.');return false;}
+}
 function forPipelineClient(c,lead,stage){
  if(!c)return false;
  const d=stageDraft(c,lead,stage||c.pipelineStage||(c.archivedAt?'Lost':'Client'));
  if(stage==='Quote'&&!quoteLinks(c).length)toast('No active online quotation link is saved for this client. Check the quotation before sending.');
- return open(d.recipient,d.subject,d.body);
+ return openFormatted(d);
 }
 function forSalesLead(l){
  if(!l)return false;
  const c=(state.clients||[]).find(c=>(c.sourceLeadId&&(c.sourceLeadId===l.id||c.sourceLeadId===l.sourceLeadId))||(l.convertedClientId&&c.id===l.convertedClientId)||(l.clientRecordId&&c.id===l.clientRecordId));
  const d=stageDraft(c,l,l.stage||'Research');
  if(l.stage==='Quote'&&!quoteLinks(c).length)toast('No active online quotation link is saved for this client. Check the quotation before sending.');
- return open(d.recipient,d.subject,d.body);
+ return openFormatted(d);
 }
 function forClient(c,kind='intro'){
  if(!c)return false;
  return forPipelineClient(c,null,c.pipelineStage||(c.archivedAt?'Lost':kind==='followup'?'Contact':'Found'));
 }
-window.ChipInEmailDrafts={open,link,urlFor,forSalesLead,forClient,forPipelineClient,stageLabel,stageDraft,signature,firstName,setupLogo,quoteLinks,formattedBody,copyFormatted};
+window.ChipInEmailDrafts={open,link,urlFor,forSalesLead,forClient,forPipelineClient,stageLabel,stageDraft,signature,firstName,quoteLinks,openFormatted};
 })();
